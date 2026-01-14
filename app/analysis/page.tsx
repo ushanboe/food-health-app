@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Share2, BookmarkPlus, AlertCircle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { analyzeFood, getHealthierAlternatives } from "@/lib/ai-vision";
-import { searchFood, getNutritionData } from "@/lib/nutrition-api";
+import { getNutritionByName } from "@/lib/nutrition-api";
 import { HealthScore } from "@/components/HealthScore";
 import { NutritionCard } from "@/components/NutritionCard";
 import { AlternativesCard } from "@/components/AlternativesCard";
@@ -121,9 +121,8 @@ export default function AnalysisPage() {
         };
 
         try {
-          const searchResults = await searchFood(food.name);
-          if (searchResults.length > 0) {
-            const nutritionData = await getNutritionData(searchResults[0].fdcId);
+          const nutritionData = await getNutritionByName(food.name);
+          if (nutritionData) {
             nutrition = {
               calories: Math.round(nutritionData.calories),
               protein: Math.round(nutritionData.protein),
