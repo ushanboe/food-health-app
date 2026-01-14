@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22c55e;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#10b981;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="url(#grad)"/>
+  <!-- Leaf/Food icon -->
+  <g transform="translate(256, 256)">
+    <!-- Apple shape -->
+    <ellipse cx="0" cy="20" rx="100" ry="110" fill="white" opacity="0.95"/>
+    <!-- Leaf -->
+    <path d="M0,-90 Q40,-130 20,-70 Q10,-80 0,-90" fill="#166534"/>
+    <!-- Stem -->
+    <rect x="-6" y="-95" width="12" height="25" rx="6" fill="#166534"/>
+    <!-- Scan lines -->
+    <g stroke="#22c55e" stroke-width="4" opacity="0.6">
+      <line x1="-60" y1="-20" x2="60" y2="-20"/>
+      <line x1="-70" y1="20" x2="70" y2="20"/>
+      <line x1="-60" y1="60" x2="60" y2="60"/>
+    </g>
+    <!-- Checkmark -->
+    <circle cx="50" cy="70" r="35" fill="#166534"/>
+    <path d="M35,70 L47,82 L68,58" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
