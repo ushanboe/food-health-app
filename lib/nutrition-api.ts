@@ -19,6 +19,7 @@ export interface NutritionData {
   calories: number;
   protein: number;
   carbohydrates: number;
+  carbs: number;
   fat: number;
   fiber: number;
   sugar: number;
@@ -215,19 +216,69 @@ export async function searchFood(query: string): Promise<FoodSearchResult[]> {
 
 // Get nutrition by food name (searches and gets first result)
 export async function getNutritionByName(foodName: string): Promise<NutritionData | null> {
-  // Try USDA first (better for whole foods)
-  const usdaResults = await searchUSDA(foodName);
-  if (usdaResults.length > 0) {
-    const nutrition = await getUSDANutrition(usdaResults[0].id);
-    if (nutrition) return nutrition;
+  try {
+    // Try USDA first (better for whole foods)
+    const usdaResults = await searchUSDA(foodName);
+    if (usdaResults.length > 0) {
+      const nutrition = await getUSDANutrition(usdaResults[0].id);
+      if (nutrition) return nutrition;
+    }
+
+    // Fallback to Open Food Facts
+    const offResults = await searchOpenFoodFacts(foodName);
+    if (offResults.length > 0) {
+      const nutrition = await getOpenFoodFactsNutrition(offResults[0].id);
+      if (nutrition) return nutrition;
+    }
+  } catch (error) {
+    console.warn("Nutrition API error, using mock data:", error);
   }
 
-  // Fallback to Open Food Facts
-  const offResults = await searchOpenFoodFacts(foodName);
-  if (offResults.length > 0) {
-    const nutrition = await getOpenFoodFactsNutrition(offResults[0].id);
-    if (nutrition) return nutrition;
+  // Return mock data as final fallback
+  return getMockNutrition(foodName);
+}
+
+// Mock nutrition data for when APIs fail
+function getMockNutrition(foodName: string): NutritionData {
+  const lowerName = foodName.toLowerCase();
+  
+  // Common food estimates
+  const mockData: Record<string, Partial<NutritionData>> = {
+    apple: { calories: 95, protein: 0.5, carbohydrates: 25, fat: 0.3, fiber: 4.4, sugar: 19 },
+    banana: { calories: 105, protein: 1.3, carbohydrates: 27, fat: 0.4, fiber: 3.1, sugar: 14 },
+    pizza: { calories: 285, protein: 12, carbohydrates: 36, fat: 10, fiber: 2.5, sugar: 4 },
+    burger: { calories: 354, protein: 20, carbohydrates: 29, fat: 17, fiber: 1.3, sugar: 5 },
+    salad: { calories: 20, protein: 1.5, carbohydrates: 3.5, fat: 0.2, fiber: 2, sugar: 1.3 },
+    chicken: { calories: 165, protein: 31, carbohydrates: 0, fat: 3.6, fiber: 0, sugar: 0 },
+    rice: { calories: 206, protein: 4.3, carbohydrates: 45, fat: 0.4, fiber: 0.6, sugar: 0 },
+    bread: { calories: 79, protein: 2.7, carbohydrates: 15, fat: 1, fiber: 0.6, sugar: 1.5 },
+    egg: { calories: 78, protein: 6, carbohydrates: 0.6, fat: 5, fiber: 0, sugar: 0.6 },
+    coffee: { calories: 2, protein: 0.3, carbohydrates: 0, fat: 0, fiber: 0, sugar: 0 },
+  };
+
+  // Find matching food or use default
+  let baseData = { calories: 150, protein: 5, carbohydrates: 20, fat: 5, fiber: 2, sugar: 5 };
+  for (const [key, data] of Object.entries(mockData)) {
+    if (lowerName.includes(key)) {
+      baseData = { ...baseData, ...data };
+      break;
+    }
   }
 
-  return null;
+  return {
+    foodName: foodName,
+    servingSize: "1 serving (estimated)",
+    calories: baseData.calories,
+    protein: baseData.protein,
+    carbohydrates: baseData.carbohydrates,
+    carbs: baseData.carbohydrates,
+    fat: baseData.fat,
+    fiber: baseData.fiber,
+    sugar: baseData.sugar,
+    sodium: 200,
+    saturatedFat: baseData.fat * 0.3,
+    vitamins: [],
+    minerals: [],
+    source: "mock" as const,
+  };
 }
