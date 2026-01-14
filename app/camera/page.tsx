@@ -6,10 +6,19 @@ import { useAppStore } from "@/lib/store";
 
 export default function CameraPage() {
   const router = useRouter();
-  const { setCurrentImage, setIsAnalyzing } = useAppStore();
+  const { setCurrentImage, setIsAnalyzing, setScannedBarcode } = useAppStore();
 
   const handleCapture = (imageData: string) => {
     setCurrentImage(imageData);
+    setScannedBarcode(null); // Clear any previous barcode
+    setIsAnalyzing(true);
+    router.push("/analysis");
+  };
+
+  const handleBarcodeScan = (barcode: string) => {
+    console.log("Barcode scanned:", barcode);
+    setScannedBarcode(barcode);
+    setCurrentImage(null); // Clear any previous image
     setIsAnalyzing(true);
     router.push("/analysis");
   };
@@ -18,5 +27,11 @@ export default function CameraPage() {
     router.back();
   };
 
-  return <CameraView onCapture={handleCapture} onClose={handleClose} />;
+  return (
+    <CameraView 
+      onCapture={handleCapture} 
+      onBarcodeScan={handleBarcodeScan}
+      onClose={handleClose} 
+    />
+  );
 }

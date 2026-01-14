@@ -3,21 +3,26 @@
 import { useRef, useState, useCallback, useEffect } from "react";
 import Webcam from "react-webcam";
 import { motion, AnimatePresence } from "framer-motion";
-import { Camera, X, RotateCcw, Zap, ImageIcon } from "lucide-react";
+import { Camera, X, RotateCcw, Zap, ImageIcon, Barcode, ScanLine } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { BarcodeScanner } from "./BarcodeScanner";
+
+type ScanMode = "photo" | "barcode";
 
 interface CameraViewProps {
   onCapture: (imageData: string) => void;
+  onBarcodeScan?: (barcode: string) => void;
   onClose: () => void;
 }
 
-export function CameraView({ onCapture, onClose }: CameraViewProps) {
+export function CameraView({ onCapture, onBarcodeScan, onClose }: CameraViewProps) {
   const webcamRef = useRef<Webcam>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [facingMode, setFacingMode] = useState<"user" | "environment">("environment");
   const [isCapturing, setIsCapturing] = useState(false);
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [flash, setFlash] = useState(false);
+  const [scanMode, setScanMode] = useState<ScanMode>("photo");
 
   useEffect(() => {
     // Check camera permission
@@ -62,6 +67,12 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
     [onCapture]
   );
 
+  const handleBarcodeScan = useCallback((barcode: string) => {
+    if (onBarcodeScan) {
+      onBarcodeScan(barcode);
+    }
+  }, [onBarcodeScan]);
+
   const videoConstraints = {
     width: { ideal: 1280 },
     height: { ideal: 720 },
@@ -82,8 +93,17 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
         )}
       </AnimatePresence>
 
-      {/* Camera feed */}
-      {hasPermission === true && (
+      {/* Barcode Scanner Mode */}
+      {scanMode === "barcode" && (
+        <BarcodeScanner
+          isActive={scanMode === "barcode"}
+          onScan={handleBarcodeScan}
+          onClose={() => setScanMode("photo")}
+        />
+      )}
+
+      {/* Photo Mode - Camera feed */}
+      {scanMode === "photo" && hasPermission === true && (
         <Webcam
           ref={webcamRef}
           audio={false}
@@ -95,7 +115,7 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
       )}
 
       {/* Permission denied state */}
-      {hasPermission === false && (
+      {scanMode === "photo" && hasPermission === false && (
         <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 text-white p-6">
           <Camera className="w-16 h-16 mb-4 text-gray-400" />
           <h2 className="text-xl font-semibold mb-2">Camera Access Required</h2>
@@ -113,30 +133,32 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
       )}
 
       {/* Loading state */}
-      {hasPermission === null && (
+      {scanMode === "photo" && hasPermission === null && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900">
           <div className="w-12 h-12 border-4 border-green-500 border-t-transparent rounded-full animate-spin" />
         </div>
       )}
 
-      {/* Viewfinder overlay */}
-      <div className="absolute inset-0 pointer-events-none">
-        {/* Corner brackets */}
-        <div className="absolute top-1/4 left-1/4 w-16 h-16 border-l-4 border-t-4 border-white/70 rounded-tl-3xl" />
-        <div className="absolute top-1/4 right-1/4 w-16 h-16 border-r-4 border-t-4 border-white/70 rounded-tr-3xl" />
-        <div className="absolute bottom-1/4 left-1/4 w-16 h-16 border-l-4 border-b-4 border-white/70 rounded-bl-3xl" />
-        <div className="absolute bottom-1/4 right-1/4 w-16 h-16 border-r-4 border-b-4 border-white/70 rounded-br-3xl" />
+      {/* Viewfinder overlay - Photo mode only */}
+      {scanMode === "photo" && hasPermission === true && (
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Corner brackets */}
+          <div className="absolute top-1/4 left-1/4 w-16 h-16 border-l-4 border-t-4 border-white/70 rounded-tl-3xl" />
+          <div className="absolute top-1/4 right-1/4 w-16 h-16 border-r-4 border-t-4 border-white/70 rounded-tr-3xl" />
+          <div className="absolute bottom-1/4 left-1/4 w-16 h-16 border-l-4 border-b-4 border-white/70 rounded-bl-3xl" />
+          <div className="absolute bottom-1/4 right-1/4 w-16 h-16 border-r-4 border-b-4 border-white/70 rounded-br-3xl" />
 
-        {/* Center guide text */}
-        <div className="absolute top-1/3 left-0 right-0 text-center">
-          <p className="text-white/80 text-sm font-medium drop-shadow-lg">
-            Position food in frame
-          </p>
+          {/* Center guide text */}
+          <div className="absolute top-1/3 left-0 right-0 text-center">
+            <p className="text-white/80 text-sm font-medium drop-shadow-lg">
+              Position food in frame
+            </p>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Top controls */}
-      <div className="absolute top-0 left-0 right-0 safe-top">
+      <div className="absolute top-0 left-0 right-0 safe-top z-20">
         <div className="flex items-center justify-between p-4">
           <button
             onClick={onClose}
@@ -146,57 +168,91 @@ export function CameraView({ onCapture, onClose }: CameraViewProps) {
           </button>
 
           <div className="flex items-center gap-3">
-            <button
-              onClick={toggleCamera}
-              className="w-10 h-10 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-full text-white btn-press"
-            >
-              <RotateCcw className="w-5 h-5" />
-            </button>
+            {scanMode === "photo" && (
+              <button
+                onClick={toggleCamera}
+                className="w-10 h-10 flex items-center justify-center bg-black/30 backdrop-blur-sm rounded-full text-white btn-press"
+              >
+                <RotateCcw className="w-5 h-5" />
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Bottom controls */}
-      <div className="absolute bottom-0 left-0 right-0 safe-bottom">
-        <div className="flex items-center justify-center gap-8 pb-8 pt-4">
-          {/* Gallery button */}
+      {/* Mode Toggle */}
+      <div className="absolute top-20 left-0 right-0 flex justify-center z-20 safe-top">
+        <div className="flex bg-black/30 backdrop-blur-sm rounded-full p-1">
           <button
-            onClick={() => fileInputRef.current?.click()}
-            className="w-12 h-12 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-full text-white btn-press"
-          >
-            <ImageIcon className="w-6 h-6" />
-          </button>
-
-          {/* Capture button */}
-          <motion.button
-            onClick={capture}
-            disabled={isCapturing || hasPermission !== true}
-            whileTap={{ scale: 0.9 }}
+            onClick={() => setScanMode("photo")}
             className={cn(
-              "w-20 h-20 rounded-full flex items-center justify-center btn-press",
-              "bg-white border-4 border-green-500",
-              "disabled:opacity-50 disabled:cursor-not-allowed"
+              "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+              scanMode === "photo"
+                ? "bg-white text-gray-900"
+                : "text-white/80 hover:text-white"
             )}
           >
-            <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
-              <Camera className="w-8 h-8 text-white" />
-            </div>
-          </motion.button>
-
-          {/* Flash toggle (placeholder) */}
+            <Camera className="w-4 h-4" />
+            Photo
+          </button>
           <button
-            className="w-12 h-12 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-full text-white btn-press opacity-50"
-            disabled
+            onClick={() => setScanMode("barcode")}
+            className={cn(
+              "flex items-center gap-2 px-4 py-2 rounded-full text-sm font-medium transition-all",
+              scanMode === "barcode"
+                ? "bg-white text-gray-900"
+                : "text-white/80 hover:text-white"
+            )}
           >
-            <Zap className="w-6 h-6" />
+            <ScanLine className="w-4 h-4" />
+            Barcode
           </button>
         </div>
-
-        {/* Hint text */}
-        <p className="text-center text-white/60 text-xs pb-4">
-          Tap the button to capture
-        </p>
       </div>
+
+      {/* Bottom controls - Photo mode only */}
+      {scanMode === "photo" && (
+        <div className="absolute bottom-0 left-0 right-0 safe-bottom z-20">
+          <div className="flex items-center justify-center gap-8 pb-8 pt-4">
+            {/* Gallery button */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="w-12 h-12 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-full text-white btn-press"
+            >
+              <ImageIcon className="w-6 h-6" />
+            </button>
+
+            {/* Capture button */}
+            <motion.button
+              onClick={capture}
+              disabled={isCapturing || hasPermission !== true}
+              whileTap={{ scale: 0.9 }}
+              className={cn(
+                "w-20 h-20 rounded-full flex items-center justify-center btn-press",
+                "bg-white border-4 border-green-500",
+                "disabled:opacity-50 disabled:cursor-not-allowed"
+              )}
+            >
+              <div className="w-16 h-16 rounded-full bg-green-500 flex items-center justify-center">
+                <Camera className="w-8 h-8 text-white" />
+              </div>
+            </motion.button>
+
+            {/* Flash toggle (placeholder) */}
+            <button
+              className="w-12 h-12 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-full text-white btn-press opacity-50"
+              disabled
+            >
+              <Zap className="w-6 h-6" />
+            </button>
+          </div>
+
+          {/* Hint text */}
+          <p className="text-center text-white/60 text-xs pb-4">
+            Tap the button to capture
+          </p>
+        </div>
+      )}
 
       {/* Hidden file input */}
       <input

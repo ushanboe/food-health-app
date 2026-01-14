@@ -17,6 +17,10 @@ export interface FoodAnalysis {
   verdict: "healthy" | "moderate" | "unhealthy";
   description: string;
   alternatives: string[];
+  // Barcode info
+  barcode?: string;
+  brandName?: string;
+  source?: "ai" | "barcode";
 }
 
 export interface UserProfile {
@@ -35,6 +39,7 @@ export interface AISettings {
 interface AppState {
   // Current analysis
   currentImage: string | null;
+  scannedBarcode: string | null;
   isAnalyzing: boolean;
   currentAnalysis: FoodAnalysis | null;
 
@@ -49,6 +54,7 @@ interface AppState {
 
   // Actions
   setCurrentImage: (image: string | null) => void;
+  setScannedBarcode: (barcode: string | null) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
   setCurrentAnalysis: (analysis: FoodAnalysis | null) => void;
   addToHistory: (analysis: FoodAnalysis) => void;
@@ -62,6 +68,7 @@ export const useAppStore = create<AppState>()(
     (set) => ({
       // Initial state
       currentImage: null,
+      scannedBarcode: null,
       isAnalyzing: false,
       currentAnalysis: null,
       analysisHistory: [],
@@ -79,6 +86,7 @@ export const useAppStore = create<AppState>()(
 
       // Actions
       setCurrentImage: (image) => set({ currentImage: image }),
+      setScannedBarcode: (barcode) => set({ scannedBarcode: barcode }),
       setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
       setCurrentAnalysis: (analysis) => set({ currentAnalysis: analysis }),
       addToHistory: (analysis) =>
