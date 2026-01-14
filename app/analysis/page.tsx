@@ -1,16 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Share2, BookmarkPlus, AlertCircle } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { analyzeFood, getHealthierAlternatives } from "@/lib/ai-vision";
-import { getNutritionByName } from "@/lib/nutrition-api";
+import { getNutritionByName, NutritionData } from "@/lib/nutrition-api";
 import { HealthScore } from "@/components/HealthScore";
 import { NutritionCard } from "@/components/NutritionCard";
 import { AlternativesCard } from "@/components/AlternativesCard";
-import { FoodCard } from "@/components/FoodCard";
 import { Loading } from "@/components/Loading";
 
 function calculateHealthScore(nutrition: {
@@ -61,7 +60,6 @@ export default function AnalysisPage() {
   const router = useRouter();
   const {
     currentImage,
-    isAnalyzing,
     setIsAnalyzing,
     setCurrentAnalysis,
     addToHistory,
@@ -77,18 +75,19 @@ export default function AnalysisPage() {
     confidence: number;
     healthScore: number;
     verdict: "healthy" | "moderate" | "unhealthy";
-    nutrition: {
-      calories: number;
-      protein: number;
-      carbs: number;
-      fat: number;
-      fiber: number;
-    };
+    nutrition: NutritionData;
     alternatives: string[];
   } | null>(null);
+  
+  // Use ref to prevent double execution in strict mode
+  const hasAnalyzed = useRef(false);
 
   useEffect(() => {
     async function analyze() {
+      // Prevent double execution
+      if (hasAnalyzed.current) return;
+      hasAnalyzed.current = true;
+      
       if (!currentImage) {
         router.push("/");
         return;
@@ -99,11 +98,13 @@ export default function AnalysisPage() {
         setError(null);
 
         // Step 1: Analyze image with AI
+        console.log("Starting AI analysis...");
         const aiResult = await analyzeFood(currentImage, {
           provider: aiSettings.provider,
           geminiApiKey: aiSettings.geminiApiKey,
           openaiApiKey: aiSettings.openaiApiKey,
         });
+        console.log("AI analysis complete:", aiResult);
 
         if (!aiResult.foods || aiResult.foods.length === 0) {
           throw new Error("Could not identify food in image");
@@ -111,34 +112,21 @@ export default function AnalysisPage() {
 
         const food = aiResult.foods[0];
 
-        // Step 2: Get nutrition data from USDA
-        let nutrition = {
-          calories: 0,
-          protein: 0,
-          carbs: 0,
-          fat: 0,
-          fiber: 0,
-        };
-
-        try {
-          const nutritionData = await getNutritionByName(food.name);
-          if (nutritionData) {
-            nutrition = {
-              calories: Math.round(nutritionData.calories),
-              protein: Math.round(nutritionData.protein),
-              carbs: Math.round(nutritionData.carbs),
-              fat: Math.round(nutritionData.fat),
-              fiber: Math.round(nutritionData.fiber),
-            };
-          }
-        } catch (nutritionError) {
-          console.warn("Could not fetch nutrition data:", nutritionError);
-          // Use estimated values based on category
-          nutrition = getEstimatedNutrition(food.category);
-        }
+        // Step 2: Get nutrition data from API (with fallback)
+        console.log("Fetching nutrition data for:", food.name);
+        const nutrition = await getNutritionByName(food.name);
+        console.log("Nutrition data:", nutrition);
 
         // Step 3: Calculate health score
-        const healthScore = calculateHealthScore(nutrition);
+        const healthScore = calculateHealthScore({
+          calories: nutrition.calories,
+          protein: nutrition.protein,
+          carbs: nutrition.carbs,
+          fat: nutrition.fat,
+          fiber: nutrition.fiber,
+          sugar: nutrition.sugar,
+          sodium: nutrition.sodium,
+        });
         const verdict = getVerdict(healthScore);
 
         // Step 4: Get healthier alternatives
@@ -186,24 +174,15 @@ export default function AnalysisPage() {
       }
     }
 
-    if (isAnalyzing) {
+    // Run analysis when we have an image
+    if (currentImage) {
       analyze();
+    } else {
+      // No image, redirect to home
+      setLoading(false);
+      router.push("/");
     }
-  }, [currentImage, isAnalyzing]);
-
-  function getEstimatedNutrition(category: string) {
-    const estimates: Record<string, typeof result.nutrition> = {
-      Fruit: { calories: 95, protein: 1, carbs: 25, fat: 0, fiber: 4 },
-      Vegetable: { calories: 45, protein: 2, carbs: 10, fat: 0, fiber: 3 },
-      Protein: { calories: 250, protein: 30, carbs: 0, fat: 14, fiber: 0 },
-      Grain: { calories: 200, protein: 5, carbs: 40, fat: 2, fiber: 2 },
-      "Fast Food": { calories: 450, protein: 15, carbs: 45, fat: 25, fiber: 2 },
-      Dairy: { calories: 150, protein: 8, carbs: 12, fat: 8, fiber: 0 },
-      Beverage: { calories: 100, protein: 1, carbs: 25, fat: 0, fiber: 0 },
-      Dessert: { calories: 350, protein: 4, carbs: 50, fat: 15, fiber: 1 },
-    };
-    return estimates[category] || estimates["Fast Food"];
-  }
+  }, [currentImage, aiSettings, router, setIsAnalyzing, setCurrentAnalysis, addToHistory]);
 
   if (loading) {
     return <Loading message={`Analyzing with ${aiSettings.provider === 'demo' ? 'Demo Mode' : aiSettings.provider === 'gemini' ? 'Google Gemini' : 'OpenAI GPT-4o'}...`} />;
@@ -292,7 +271,7 @@ export default function AnalysisPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
           >
-            <HealthScore score={result.healthScore} verdict={result.verdict} />
+            <HealthScore score={result.healthScore} />
           </motion.div>
 
           {/* Description */}
@@ -321,7 +300,7 @@ export default function AnalysisPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.4 }}
             >
-              <AlternativesCard alternatives={result.alternatives} />
+              <AlternativesCard currentFood={result.foodName} alternatives={result.alternatives} />
             </motion.div>
           )}
 
