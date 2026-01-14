@@ -7,8 +7,8 @@ import { useAppStore } from "@/lib/store";
 
 export default function HomePage() {
   const router = useRouter();
-  const { scanHistory } = useAppStore();
-  const recentScans = scanHistory.slice(0, 3);
+  const { analysisHistory } = useAppStore();
+  const recentScans = analysisHistory?.slice(0, 3) || [];
 
   return (
     <div className="min-h-full px-5 py-6 safe-top">
@@ -117,14 +117,14 @@ export default function HomePage() {
                   {scan.imageData && (
                     <img
                       src={scan.imageData}
-                      alt={scan.foodIdentification.name}
+                      alt={scan.foodName}
                       className="w-full h-full object-cover"
                     />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-medium text-gray-800 truncate">
-                    {scan.foodIdentification.name}
+                    {scan.foodName}
                   </h4>
                   <p className="text-xs text-gray-500">
                     {new Date(scan.timestamp).toLocaleDateString()}

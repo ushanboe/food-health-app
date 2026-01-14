@@ -2,19 +2,22 @@
 
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Clock, ChevronRight, Search, Filter } from "lucide-react";
+import { Trash2, Clock, ChevronRight, Search } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 import { HealthScoreBadge } from "@/components/HealthScore";
 import { useState } from "react";
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { scanHistory, removeFromHistory, clearHistory } = useAppStore();
+  const { analysisHistory, clearHistory } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  const filteredHistory = scanHistory.filter((scan) =>
-    scan.foodIdentification.name.toLowerCase().includes(searchQuery.toLowerCase())
+  // Safe access with fallback to empty array
+  const history = analysisHistory || [];
+
+  const filteredHistory = history.filter((scan) =>
+    scan.foodName.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const groupedHistory = filteredHistory.reduce((groups, scan) => {
@@ -28,12 +31,7 @@ export default function HistoryPage() {
     }
     groups[date].push(scan);
     return groups;
-  }, {} as Record<string, typeof scanHistory>);
-
-  const handleDelete = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    removeFromHistory(id);
-  };
+  }, {} as Record<string, typeof history>);
 
   const handleClearAll = () => {
     clearHistory();
@@ -47,7 +45,7 @@ export default function HistoryPage() {
         <div className="px-5 py-4">
           <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-800">History</h1>
-            {scanHistory.length > 0 && (
+            {history.length > 0 && (
               <button
                 onClick={() => setShowClearConfirm(true)}
                 className="text-red-500 text-sm font-medium"
@@ -58,7 +56,7 @@ export default function HistoryPage() {
           </div>
 
           {/* Search bar */}
-          {scanHistory.length > 0 && (
+          {history.length > 0 && (
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
               <input
@@ -75,7 +73,7 @@ export default function HistoryPage() {
 
       {/* Content */}
       <div className="px-5 py-4 pb-24">
-        {scanHistory.length === 0 ? (
+        {history.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -118,7 +116,7 @@ export default function HistoryPage() {
                         {scan.imageData && (
                           <img
                             src={scan.imageData}
-                            alt={scan.foodIdentification.name}
+                            alt={scan.foodName}
                             className="w-full h-full object-cover"
                           />
                         )}
@@ -127,29 +125,21 @@ export default function HistoryPage() {
                       {/* Info */}
                       <div className="flex-1 min-w-0">
                         <h4 className="font-semibold text-gray-800 truncate">
-                          {scan.foodIdentification.name}
+                          {scan.foodName}
                         </h4>
                         <p className="text-xs text-gray-500 mt-0.5">
-                          {scan.foodIdentification.category}
+                          {scan.category}
                         </p>
                         <div className="flex items-center gap-2 mt-2">
                           <HealthScoreBadge score={scan.healthScore} />
-                          {scan.nutritionData && (
-                            <span className="text-xs text-gray-400">
-                              {Math.round(scan.nutritionData.calories)} kcal
-                            </span>
-                          )}
+                          <span className="text-xs text-gray-400">
+                            {Math.round(scan.calories)} kcal
+                          </span>
                         </div>
                       </div>
 
                       {/* Actions */}
                       <div className="flex items-center gap-2">
-                        <button
-                          onClick={(e) => handleDelete(scan.id, e)}
-                          className="w-8 h-8 flex items-center justify-center text-gray-400 hover:text-red-500 transition-colors"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
                         <ChevronRight className="w-5 h-5 text-gray-300" />
                       </div>
                     </motion.div>
