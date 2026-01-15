@@ -40,7 +40,6 @@ export interface AISettings {
   openaiApiKey: string;
 }
 
-// NEW: Daily Goals
 export interface DailyGoals {
   calories: number;
   protein: number;
@@ -48,10 +47,8 @@ export interface DailyGoals {
   fat: number;
 }
 
-// NEW: Meal types
 export type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
 
-// NEW: Meal entry (food item added to a meal)
 export interface MealEntry {
   id: string;
   mealType: MealType;
@@ -65,36 +62,69 @@ export interface MealEntry {
   servingSize?: string;
   imageData?: string;
   timestamp: Date;
-  sourceAnalysisId?: string; // Link to original FoodAnalysis if from scan
+  sourceAnalysisId?: string;
 }
 
-// NEW: Daily log (all meals for a specific date)
 export interface DailyLog {
-  date: string; // YYYY-MM-DD format
+  date: string;
   meals: MealEntry[];
 }
 
+// Phase 2: Weight tracking
+export interface WeightEntry {
+  id: string;
+  date: string;
+  weight: number; // in kg
+  note?: string;
+}
+
+// Phase 2: User body stats for TDEE
+export interface UserStats {
+  height: number; // cm
+  currentWeight: number; // kg
+  targetWeight: number; // kg
+  age: number;
+  gender: "male" | "female";
+  activityLevel: "sedentary" | "light" | "moderate" | "active" | "very_active";
+  weightGoal: "lose" | "maintain" | "gain";
+}
+
+// Phase 2: Recipe
+export interface RecipeIngredient {
+  id: string;
+  name: string;
+  calories: number;
+  protein: number;
+  carbs: number;
+  fat: number;
+  servingSize?: string;
+  quantity: number;
+}
+
+export interface Recipe {
+  id: string;
+  name: string;
+  ingredients: RecipeIngredient[];
+  servings: number;
+  createdAt: Date;
+  imageData?: string;
+}
+
 interface AppState {
-  // Current analysis
   currentImage: string | null;
   scannedBarcode: string | null;
   isAnalyzing: boolean;
   currentAnalysis: FoodAnalysis | null;
-
-  // History
   analysisHistory: FoodAnalysis[];
-
-  // User profile
   userProfile: UserProfile;
-
-  // AI Settings
   aiSettings: AISettings;
-
-  // NEW: Daily Goals
   dailyGoals: DailyGoals;
-
-  // NEW: Food Diary (daily logs)
   dailyLogs: DailyLog[];
+
+  // Phase 2
+  weightHistory: WeightEntry[];
+  userStats: UserStats;
+  recipes: Recipe[];
 
   // Actions
   setCurrentImage: (image: string | null) => void;
@@ -106,27 +136,48 @@ interface AppState {
   clearHistory: () => void;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
   updateAISettings: (settings: Partial<AISettings>) => void;
-
-  // NEW: Goal actions
   updateDailyGoals: (goals: Partial<DailyGoals>) => void;
-
-  // NEW: Meal/Diary actions
   addMealEntry: (entry: MealEntry) => void;
   removeMealEntry: (date: string, entryId: string) => void;
   getDailyLog: (date: string) => DailyLog | undefined;
   getDailyTotals: (date: string) => { calories: number; protein: number; carbs: number; fat: number };
   clearDailyLog: (date: string) => void;
+
+  // Phase 2 actions
+  addWeightEntry: (entry: WeightEntry) => void;
+  removeWeightEntry: (id: string) => void;
+  updateUserStats: (stats: Partial<UserStats>) => void;
+  calculateTDEE: () => number;
+  addRecipe: (recipe: Recipe) => void;
+  updateRecipe: (id: string, recipe: Partial<Recipe>) => void;
+  removeRecipe: (id: string) => void;
 }
 
-// Helper to get today's date string
 export const getTodayString = (): string => {
-  return new Date().toISOString().split("T")[0];
+  const now = new Date();
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+};
+
+// TDEE Calculator
+const calculateBMR = (stats: UserStats): number => {
+  // Mifflin-St Jeor Equation
+  if (stats.gender === "male") {
+    return 10 * stats.currentWeight + 6.25 * stats.height - 5 * stats.age + 5;
+  }
+  return 10 * stats.currentWeight + 6.25 * stats.height - 5 * stats.age - 161;
+};
+
+const activityMultipliers = {
+  sedentary: 1.2,
+  light: 1.375,
+  moderate: 1.55,
+  active: 1.725,
+  very_active: 1.9,
 };
 
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      // Initial state
       currentImage: null,
       scannedBarcode: null,
       isAnalyzing: false,
@@ -143,114 +194,156 @@ export const useAppStore = create<AppState>()(
         geminiApiKey: "",
         openaiApiKey: "",
       },
-      // NEW: Default daily goals
       dailyGoals: {
         calories: 2000,
         protein: 50,
         carbs: 250,
         fat: 65,
       },
-      // NEW: Empty daily logs
       dailyLogs: [],
 
-      // Actions
+      // Phase 2 defaults
+      weightHistory: [],
+      userStats: {
+        height: 170,
+        currentWeight: 70,
+        targetWeight: 70,
+        age: 30,
+        gender: "male",
+        activityLevel: "moderate",
+        weightGoal: "maintain",
+      },
+      recipes: [],
+
       setCurrentImage: (image) => set({ currentImage: image }),
       setScannedBarcode: (barcode) => set({ scannedBarcode: barcode }),
       setIsAnalyzing: (analyzing) => set({ isAnalyzing: analyzing }),
       setCurrentAnalysis: (analysis) => set({ currentAnalysis: analysis }),
+
       addToHistory: (analysis) =>
         set((state) => ({
           analysisHistory: [analysis, ...state.analysisHistory].slice(0, 50),
         })),
+
       removeFromHistory: (id) =>
         set((state) => ({
-          analysisHistory: state.analysisHistory.filter((item) => item.id !== id),
+          analysisHistory: state.analysisHistory.filter((a) => a.id !== id),
         })),
+
       clearHistory: () => set({ analysisHistory: [] }),
+
       updateUserProfile: (profile) =>
         set((state) => ({
           userProfile: { ...state.userProfile, ...profile },
         })),
+
       updateAISettings: (settings) =>
         set((state) => ({
           aiSettings: { ...state.aiSettings, ...settings },
         })),
 
-      // NEW: Update daily goals
       updateDailyGoals: (goals) =>
         set((state) => ({
           dailyGoals: { ...state.dailyGoals, ...goals },
         })),
 
-      // NEW: Add meal entry
       addMealEntry: (entry) =>
         set((state) => {
-          const date = entry.timestamp instanceof Date 
-            ? entry.timestamp.toISOString().split("T")[0]
-            : new Date(entry.timestamp).toISOString().split("T")[0];
-          const existingLogIndex = state.dailyLogs.findIndex((log) => log.date === date);
-
-          if (existingLogIndex >= 0) {
-            // Add to existing day
-            const updatedLogs = [...state.dailyLogs];
-            updatedLogs[existingLogIndex] = {
-              ...updatedLogs[existingLogIndex],
-              meals: [...updatedLogs[existingLogIndex].meals, entry],
-            };
-            return { dailyLogs: updatedLogs };
-          } else {
-            // Create new day
+          const today = getTodayString();
+          const existingLog = state.dailyLogs.find((l) => l.date === today);
+          if (existingLog) {
             return {
-              dailyLogs: [...state.dailyLogs, { date, meals: [entry] }],
+              dailyLogs: state.dailyLogs.map((l) =>
+                l.date === today ? { ...l, meals: [...l.meals, entry] } : l
+              ),
             };
           }
+          return {
+            dailyLogs: [...state.dailyLogs, { date: today, meals: [entry] }],
+          };
         }),
 
-      // NEW: Remove meal entry
       removeMealEntry: (date, entryId) =>
         set((state) => ({
-          dailyLogs: state.dailyLogs.map((log) =>
-            log.date === date
-              ? { ...log, meals: log.meals.filter((m) => m.id !== entryId) }
-              : log
+          dailyLogs: state.dailyLogs.map((l) =>
+            l.date === date
+              ? { ...l, meals: l.meals.filter((m) => m.id !== entryId) }
+              : l
           ),
         })),
 
-      // NEW: Get daily log
-      getDailyLog: (date) => {
-        return get().dailyLogs.find((log) => log.date === date);
-      },
+      getDailyLog: (date) => get().dailyLogs.find((l) => l.date === date),
 
-      // NEW: Get daily totals
       getDailyTotals: (date) => {
         const log = get().dailyLogs.find((l) => l.date === date);
         if (!log) return { calories: 0, protein: 0, carbs: 0, fat: 0 };
         return log.meals.reduce(
-          (acc, meal) => ({
-            calories: acc.calories + (meal.calories || 0),
-            protein: acc.protein + (meal.protein || 0),
-            carbs: acc.carbs + (meal.carbs || 0),
-            fat: acc.fat + (meal.fat || 0),
+          (acc, m) => ({
+            calories: acc.calories + m.calories,
+            protein: acc.protein + m.protein,
+            carbs: acc.carbs + m.carbs,
+            fat: acc.fat + m.fat,
           }),
           { calories: 0, protein: 0, carbs: 0, fat: 0 }
         );
       },
 
-      // NEW: Clear daily log
       clearDailyLog: (date) =>
         set((state) => ({
-          dailyLogs: state.dailyLogs.filter((log) => log.date !== date),
+          dailyLogs: state.dailyLogs.filter((l) => l.date !== date),
+        })),
+
+      // Phase 2: Weight tracking
+      addWeightEntry: (entry) =>
+        set((state) => {
+          const filtered = state.weightHistory.filter((w) => w.date !== entry.date);
+          const updated = [...filtered, entry].sort((a, b) => a.date.localeCompare(b.date));
+          return {
+            weightHistory: updated.slice(-90), // Keep 90 days
+            userStats: { ...state.userStats, currentWeight: entry.weight },
+          };
+        }),
+
+      removeWeightEntry: (id) =>
+        set((state) => ({
+          weightHistory: state.weightHistory.filter((w) => w.id !== id),
+        })),
+
+      updateUserStats: (stats) =>
+        set((state) => ({
+          userStats: { ...state.userStats, ...stats },
+        })),
+
+      calculateTDEE: () => {
+        const { userStats } = get();
+        const bmr = calculateBMR(userStats);
+        const tdee = bmr * activityMultipliers[userStats.activityLevel];
+        // Adjust for goal
+        if (userStats.weightGoal === "lose") return Math.round(tdee - 500);
+        if (userStats.weightGoal === "gain") return Math.round(tdee + 300);
+        return Math.round(tdee);
+      },
+
+      // Phase 2: Recipes
+      addRecipe: (recipe) =>
+        set((state) => ({
+          recipes: [recipe, ...state.recipes],
+        })),
+
+      updateRecipe: (id, updates) =>
+        set((state) => ({
+          recipes: state.recipes.map((r) =>
+            r.id === id ? { ...r, ...updates } : r
+          ),
+        })),
+
+      removeRecipe: (id) =>
+        set((state) => ({
+          recipes: state.recipes.filter((r) => r.id !== id),
         })),
     }),
     {
       name: "nutriscan-storage",
-      partialize: (state) => ({
-        analysisHistory: state.analysisHistory,
-        userProfile: state.userProfile,
-        aiSettings: state.aiSettings,
-        dailyGoals: state.dailyGoals,
-        dailyLogs: state.dailyLogs,
-      }),
     }
   )
 );
