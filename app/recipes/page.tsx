@@ -4,12 +4,14 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, Trash2, ChefHat, Link, Search, X,
-  Loader2, Globe, Package, Check, Minus, BookOpen, Utensils, Shuffle, Grid
+  Loader2, Globe, Package, Check, Minus, BookOpen, Utensils, Shuffle, Grid, Share2, Link2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore, Recipe, RecipeIngredient } from '@/lib/store';
 import { searchIngredient } from '@/lib/recipe-parser';
 import { searchMeals, getMealById, getRandomMeal, getCategories, getMealsByCategory, MealDBMeal, MealDBCategory } from '@/lib/mealdb-api';
+import { searchSpoonacularRecipes, getSpoonacularRecipe, extractNutrition, SpoonacularSearchResult, SpoonacularRecipe } from '@/lib/spoonacular-api';
+import { parseRecipeFromUrl } from '@/lib/recipe-parser';
 
 interface LocalIngredient {
   id: string;
@@ -24,7 +26,7 @@ interface LocalIngredient {
 
 export default function RecipesPage() {
   const router = useRouter();
-  const { recipes, addRecipe, removeRecipe } = useAppStore();
+  const { recipes, addRecipe, removeRecipe, aiSettings } = useAppStore();
 
   const [showCreator, setShowCreator] = useState(false);
   const [showIngredientSearch, setShowIngredientSearch] = useState(false);
@@ -51,6 +53,21 @@ export default function RecipesPage() {
   const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const [isLoadingMeal, setIsLoadingMeal] = useState(false);
   const [isImportingMeal, setIsImportingMeal] = useState(false);
+  // URL Import state
+  const [showUrlImport, setShowUrlImport] = useState(false);
+  const [urlInput, setUrlInput] = useState('');
+  const [isParsingUrl, setIsParsingUrl] = useState(false);
+  const [urlError, setUrlError] = useState('');
+
+  // Spoonacular state
+  const [showSpoonacular, setShowSpoonacular] = useState(false);
+  const [spoonacularQuery, setSpoonacularQuery] = useState('');
+  const [spoonacularResults, setSpoonacularResults] = useState<SpoonacularSearchResult[]>([]);
+  const [isSpoonacularSearching, setIsSpoonacularSearching] = useState(false);
+  const [spoonacularApiKey, setSpoonacularApiKey] = useState('');
+  const [selectedSpoonacularRecipe, setSelectedSpoonacularRecipe] = useState<SpoonacularRecipe | null>(null);
+  const [isImportingSpoonacular, setIsImportingSpoonacular] = useState(false);
+
 
   // Load categories on mount
   useEffect(() => {
@@ -187,6 +204,120 @@ export default function RecipesPage() {
     setSelectedMeal(null);
     setShowCreator(true);
   };
+
+  // URL Import function
+  const handleUrlImport = async () => {
+    if (!urlInput.trim()) return;
+    setIsParsingUrl(true);
+    setUrlError('');
+
+    try {
+      const apiKey = aiSettings.provider === 'gemini' ? aiSettings.geminiApiKey : aiSettings.openaiApiKey;
+      const parsed = await parseRecipeFromUrl(urlInput, aiSettings.provider, apiKey);
+      if (parsed && parsed.ingredients && parsed.ingredients.length > 0) {
+        setRecipeName(parsed.title || 'Imported Recipe');
+        setServings(parsed.servings || 4);
+        setRecipeInstructions(parsed.instructions || null);
+
+        const newIngredients = parsed.ingredients.map((ing: any, idx: number) => ({
+          id: `url-${Date.now()}-${idx}`,
+          name: ing.name || ing,
+          quantity: 1,
+          calories: ing.calories || 50,
+          protein: ing.protein || 2,
+          carbs: ing.carbs || 5,
+          fat: ing.fat || 2,
+        }));
+
+        setIngredients(newIngredients);
+        setShowUrlImport(false);
+        setShowCreator(true);
+        setUrlInput('');
+      } else {
+        setUrlError('Could not extract recipe from URL');
+      }
+    } catch (error) {
+      setUrlError('Failed to parse recipe URL');
+    } finally {
+      setIsParsingUrl(false);
+    }
+  };
+
+  // Spoonacular search
+  const handleSpoonacularSearch = async () => {
+    if (!spoonacularQuery.trim() || !spoonacularApiKey.trim()) return;
+    setIsSpoonacularSearching(true);
+
+    try {
+      const results = await searchSpoonacularRecipes(spoonacularQuery, spoonacularApiKey);
+      setSpoonacularResults(results);
+    } catch (error: any) {
+      alert(error.message || 'Search failed');
+    } finally {
+      setIsSpoonacularSearching(false);
+    }
+  };
+
+  // Import from Spoonacular
+  const importSpoonacularRecipe = async (id: number) => {
+    if (!spoonacularApiKey) return;
+    setIsImportingSpoonacular(true);
+
+    try {
+      const recipe = await getSpoonacularRecipe(id, spoonacularApiKey);
+      if (recipe) {
+        setRecipeName(recipe.title);
+        setServings(recipe.servings || 4);
+        setRecipeThumbnail(recipe.image);
+        setRecipeInstructions(recipe.instructions?.replace(/<[^>]*>/g, '') || null);
+
+        const nutrition = extractNutrition(recipe);
+        const perIngredient = {
+          calories: Math.round(nutrition.calories / (recipe.extendedIngredients?.length || 1)),
+          protein: Math.round(nutrition.protein / (recipe.extendedIngredients?.length || 1)),
+          carbs: Math.round(nutrition.carbs / (recipe.extendedIngredients?.length || 1)),
+          fat: Math.round(nutrition.fat / (recipe.extendedIngredients?.length || 1)),
+        };
+
+        const newIngredients = (recipe.extendedIngredients || []).map((ing, idx) => ({
+          id: `spoon-${Date.now()}-${idx}`,
+          name: ing.original || ing.name,
+          quantity: 1,
+          calories: perIngredient.calories,
+          protein: perIngredient.protein,
+          carbs: perIngredient.carbs,
+          fat: perIngredient.fat,
+        }));
+
+        setIngredients(newIngredients);
+        setShowSpoonacular(false);
+        setShowCreator(true);
+        setSpoonacularResults([]);
+        setSpoonacularQuery('');
+      }
+    } catch (error) {
+      alert('Failed to import recipe');
+    } finally {
+      setIsImportingSpoonacular(false);
+    }
+  };
+
+  // Share recipe
+  const shareRecipe = async (recipe: Recipe) => {
+    const text = `${recipe.name}\n\nIngredients:\n${recipe.ingredients.map(i => `- ${i.name}`).join('\n')}\n\nNutrition per serving:\n- Calories: ${Math.round(recipe.ingredients.reduce((a, i) => a + i.calories, 0) / recipe.servings)}\n- Protein: ${Math.round(recipe.ingredients.reduce((a, i) => a + i.protein, 0) / recipe.servings)}g\n- Carbs: ${Math.round(recipe.ingredients.reduce((a, i) => a + i.carbs, 0) / recipe.servings)}g\n- Fat: ${Math.round(recipe.ingredients.reduce((a, i) => a + i.fat, 0) / recipe.servings)}g${recipe.instructions ? '\n\nInstructions:\n' + recipe.instructions : ''}`;
+
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: recipe.name, text });
+      } catch (e) {
+        // User cancelled
+      }
+    } else {
+      await navigator.clipboard.writeText(text);
+      alert('Recipe copied to clipboard!');
+    }
+  };
+
 
   // Search for ingredients
   const handleSearch = async () => {
@@ -826,6 +957,149 @@ export default function RecipesPage() {
             </motion.div>
           </motion.div>
         )}
+      
+
+        {/* URL Import Modal */}
+        {showUrlImport && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              className="bg-gray-900 rounded-2xl p-6 w-full max-w-md"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold">Import from URL</h2>
+                <button onClick={() => { setShowUrlImport(false); setUrlError(''); }} className="p-2">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <p className="text-gray-400 text-sm mb-4">
+                Paste a recipe URL from any website (AllRecipes, BBC Good Food, etc.)
+              </p>
+
+              <input
+                type="url"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                placeholder="https://www.allrecipes.com/recipe/..."
+                className="w-full bg-gray-800 rounded-xl px-4 py-3 mb-4"
+              />
+
+              {urlError && (
+                <p className="text-red-400 text-sm mb-4">{urlError}</p>
+              )}
+
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={handleUrlImport}
+                disabled={isParsingUrl || !urlInput.trim()}
+                className="w-full bg-blue-500 text-white rounded-xl py-3 font-semibold disabled:opacity-50"
+              >
+                {isParsingUrl ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <Loader2 className="animate-spin" size={20} /> Parsing...
+                  </span>
+                ) : (
+                  'Import Recipe'
+                )}
+              </motion.button>
+            </motion.div>
+          </motion.div>
+        )}
+
+        {/* Spoonacular Modal */}
+        {showSpoonacular && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 bg-black z-50 overflow-auto"
+          >
+            <div className="p-4 pb-24">
+              <div className="flex items-center gap-4 mb-6">
+                <button onClick={() => { setShowSpoonacular(false); setSpoonacularResults([]); }} className="p-2 -ml-2">
+                  <ArrowLeft size={24} />
+                </button>
+                <h1 className="text-xl font-bold">Spoonacular Recipes</h1>
+              </div>
+
+              {/* API Key Input */}
+              <div className="mb-4">
+                <label className="text-gray-400 text-sm mb-2 block">API Key (free at spoonacular.com)</label>
+                <input
+                  type="password"
+                  value={spoonacularApiKey}
+                  onChange={(e) => setSpoonacularApiKey(e.target.value)}
+                  placeholder="Enter your Spoonacular API key"
+                  className="w-full bg-gray-800 rounded-xl px-4 py-3"
+                />
+              </div>
+
+              {/* Search */}
+              <div className="flex gap-2 mb-6">
+                <input
+                  type="text"
+                  value={spoonacularQuery}
+                  onChange={(e) => setSpoonacularQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSpoonacularSearch()}
+                  placeholder="Search recipes..."
+                  className="flex-1 bg-gray-800 rounded-xl px-4 py-3"
+                />
+                <motion.button
+                  whileTap={{ scale: 0.95 }}
+                  onClick={handleSpoonacularSearch}
+                  disabled={isSpoonacularSearching || !spoonacularApiKey}
+                  className="bg-green-500 text-white rounded-xl px-4 disabled:opacity-50"
+                >
+                  {isSpoonacularSearching ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
+                </motion.button>
+              </div>
+
+              {/* Results */}
+              <div className="space-y-3">
+                {spoonacularResults.map((recipe) => (
+                  <motion.div
+                    key={recipe.id}
+                    whileTap={{ scale: 0.98 }}
+                    onClick={() => importSpoonacularRecipe(recipe.id)}
+                    className="bg-gray-800 rounded-xl p-4 flex items-center gap-4 cursor-pointer"
+                  >
+                    {recipe.image && (
+                      <img src={recipe.image} alt={recipe.title} className="w-16 h-16 rounded-lg object-cover" />
+                    )}
+                    <div className="flex-1">
+                      <p className="font-semibold">{recipe.title}</p>
+                      <p className="text-gray-400 text-sm">Tap to import</p>
+                    </div>
+                    {isImportingSpoonacular ? (
+                      <Loader2 className="animate-spin text-green-400" size={20} />
+                    ) : (
+                      <Plus className="text-green-400" size={20} />
+                    )}
+                  </motion.div>
+                ))}
+              </div>
+
+              {spoonacularResults.length === 0 && spoonacularApiKey && (
+                <p className="text-gray-500 text-center mt-8">Search for recipes above</p>
+              )}
+
+              {!spoonacularApiKey && (
+                <div className="text-center mt-8">
+                  <p className="text-gray-500 mb-2">Get a free API key at:</p>
+                  <a href="https://spoonacular.com/food-api" target="_blank" className="text-green-400 underline">
+                    spoonacular.com/food-api
+                  </a>
+                </div>
+              )}
+            </div>
+          </motion.div>
+        )}
+
       </AnimatePresence>
 
     </div>

@@ -10,6 +10,7 @@ export interface ParsedRecipe {
   servings: number;
   ingredients: ParsedIngredient[];
   source: string;
+  instructions?: string;
 }
 
 // Fetch and parse recipe from URL using AI
