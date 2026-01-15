@@ -138,35 +138,44 @@ export default function RecipesPage() {
     setRecipeName(meal.strMeal);
     setServings(4);
 
-    const newIngredients: LocalIngredient[] = [];
-
-    for (const ing of meal.ingredients.slice(0, 15)) {
-      const results = await searchIngredient(ing.name);
-      if (results.length > 0) {
-        const match = results[0];
-        newIngredients.push({
-          id: `${Date.now()}-${Math.random()}`,
-          name: `${ing.name} (${ing.measure})`,
-          quantity: 1,
-          calories: match.nutrition?.calories || 50,
-          protein: match.nutrition?.protein || 2,
-          carbs: match.nutrition?.carbs || 5,
-          fat: match.nutrition?.fat || 2,
-          servingSize: match.servingSize || '100g',
-        });
-      } else {
-        newIngredients.push({
-          id: `${Date.now()}-${Math.random()}`,
-          name: `${ing.name} (${ing.measure})`,
-          quantity: 1,
-          calories: 50,
-          protein: 2,
-          carbs: 5,
-          fat: 2,
-        });
+    // Fast parallel lookup with 3 second timeout per ingredient
+    const ingredientPromises = meal.ingredients.slice(0, 12).map(async (ing, index) => {
+      try {
+        // Race between API call and timeout
+        const timeoutPromise = new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000));
+        const searchPromise = searchIngredient(ing.name);
+        const results = await Promise.race([searchPromise, timeoutPromise]);
+        
+        if (results && Array.isArray(results) && results.length > 0) {
+          const match = results[0];
+          return {
+            id: `${Date.now()}-${index}-${Math.random()}`,
+            name: `${ing.name} (${ing.measure})`,
+            quantity: 1,
+            calories: match.nutrition?.calories || 50,
+            protein: match.nutrition?.protein || 2,
+            carbs: match.nutrition?.carbs || 5,
+            fat: match.nutrition?.fat || 2,
+            servingSize: match.servingSize || '100g',
+          };
+        }
+      } catch (e) {
+        console.log('Ingredient lookup failed:', ing.name);
       }
-    }
+      // Fallback with estimated nutrition
+      return {
+        id: `${Date.now()}-${index}-${Math.random()}`,
+        name: `${ing.name} (${ing.measure})`,
+        quantity: 1,
+        calories: 50,
+        protein: 2,
+        carbs: 5,
+        fat: 2,
+      };
+    });
 
+    const newIngredients = await Promise.all(ingredientPromises);
+    
     setIngredients(newIngredients);
     setIsImportingMeal(false);
     setShowMealDB(false);
