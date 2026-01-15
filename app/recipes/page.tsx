@@ -32,6 +32,7 @@ export default function RecipesPage() {
 
   const [recipeName, setRecipeName] = useState('');
   const [servings, setServings] = useState(4);
+  const [recipeThumbnail, setRecipeThumbnail] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<LocalIngredient[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -46,6 +47,7 @@ export default function RecipesPage() {
   const [categoryMeals, setCategoryMeals] = useState<any[]>([]);
   const [isMealDBSearching, setIsMealDBSearching] = useState(false);
   const [selectedMeal, setSelectedMeal] = useState<MealDBMeal | null>(null);
+  const [viewingRecipe, setViewingRecipe] = useState<Recipe | null>(null);
   const [isLoadingMeal, setIsLoadingMeal] = useState(false);
   const [isImportingMeal, setIsImportingMeal] = useState(false);
 
@@ -136,6 +138,7 @@ export default function RecipesPage() {
   const importMealDBRecipe = async (meal: MealDBMeal) => {
     setIsImportingMeal(true);
     setRecipeName(meal.strMeal);
+    setRecipeThumbnail(meal.strMealThumb);
     setServings(4);
 
     // Fast parallel lookup with 3 second timeout per ingredient
@@ -248,6 +251,7 @@ export default function RecipesPage() {
       servings,
       ingredients: recipeIngredients,
       createdAt: new Date(),
+      thumbnail: recipeThumbnail || undefined,
     };
 
     addRecipe(recipe);
@@ -255,6 +259,7 @@ export default function RecipesPage() {
     setRecipeName('');
     setServings(4);
     setIngredients([]);
+    setRecipeThumbnail(null);
   };
 
   return (
@@ -330,26 +335,37 @@ export default function RecipesPage() {
                     key={recipe.id}
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="bg-gray-900 rounded-2xl p-4"
+                    onClick={() => setViewingRecipe(recipe)}
+                    className="bg-gray-900 rounded-2xl p-4 cursor-pointer hover:bg-gray-800 transition-colors"
                   >
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-lg">{recipe.name}</h3>
+                    <div className="flex gap-3">
+                      {/* Thumbnail */}
+                      <div className="w-16 h-16 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
+                        {recipe.thumbnail ? (
+                          <img src={recipe.thumbnail} alt={recipe.name} className="w-full h-full object-cover" />
+                        ) : (
+                          <ChefHat size={24} className="text-gray-600" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex justify-between items-start">
+                          <h3 className="font-semibold text-lg truncate pr-2">{recipe.name}</h3>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); removeRecipe(recipe.id); }}
+                            className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg flex-shrink-0"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
                         <p className="text-gray-400 text-sm">
                           {recipe.ingredients.length} ingredients • {recipe.servings} servings
                         </p>
-                        <div className="flex gap-4 mt-2 text-sm">
-                          <span className="text-orange-400">{Math.round(recipeCalories / recipe.servings)} cal/serving</span>
-                          <span className="text-blue-400">{Math.round(recipeProtein / recipe.servings)}g protein</span>
-                          <span className="text-green-400">{Math.round(recipeCarbs / recipe.servings)}g carbs</span>
+                        <div className="flex gap-3 mt-1 text-xs">
+                          <span className="text-orange-400">{Math.round(recipeCalories / recipe.servings)} cal</span>
+                          <span className="text-blue-400">{Math.round(recipeProtein / recipe.servings)}g P</span>
+                          <span className="text-green-400">{Math.round(recipeCarbs / recipe.servings)}g C</span>
                         </div>
                       </div>
-                      <button
-                        onClick={() => removeRecipe(recipe.id)}
-                        className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg"
-                      >
-                        <Trash2 size={20} />
-                      </button>
                     </div>
                   </motion.div>
                 );
@@ -719,6 +735,83 @@ export default function RecipesPage() {
           </motion.div>
         )}
       </AnimatePresence>
+      {/* View Recipe Modal */}
+      <AnimatePresence>
+        {viewingRecipe && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-end justify-center"
+            onClick={() => setViewingRecipe(null)}
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-900 rounded-t-3xl w-full max-h-[90vh] overflow-y-auto"
+            >
+              <div className="relative h-48 bg-gray-800">
+                {viewingRecipe.thumbnail ? (
+                  <img src={viewingRecipe.thumbnail} alt={viewingRecipe.name} className="w-full h-full object-cover" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center">
+                    <ChefHat size={64} className="text-gray-600" />
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-gradient-to-t from-gray-900 to-transparent" />
+                <button
+                  onClick={() => setViewingRecipe(null)}
+                  className="absolute top-4 right-4 p-2 bg-black/50 rounded-full"
+                >
+                  <X size={24} />
+                </button>
+                <h2 className="absolute bottom-4 left-4 text-2xl font-bold">{viewingRecipe.name}</h2>
+              </div>
+              <div className="p-6 space-y-6">
+                <div className="grid grid-cols-4 gap-2">
+                  <div className="bg-gray-800 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-orange-400">{Math.round(viewingRecipe.ingredients.reduce((s: number, i: any) => s + i.calories, 0) / viewingRecipe.servings)}</p>
+                    <p className="text-xs text-gray-400">Calories</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-blue-400">{Math.round(viewingRecipe.ingredients.reduce((s: number, i: any) => s + i.protein, 0) / viewingRecipe.servings)}g</p>
+                    <p className="text-xs text-gray-400">Protein</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-green-400">{Math.round(viewingRecipe.ingredients.reduce((s: number, i: any) => s + i.carbs, 0) / viewingRecipe.servings)}g</p>
+                    <p className="text-xs text-gray-400">Carbs</p>
+                  </div>
+                  <div className="bg-gray-800 rounded-xl p-3 text-center">
+                    <p className="text-lg font-bold text-yellow-400">{Math.round(viewingRecipe.ingredients.reduce((s: number, i: any) => s + i.fat, 0) / viewingRecipe.servings)}g</p>
+                    <p className="text-xs text-gray-400">Fat</p>
+                  </div>
+                </div>
+                <p className="text-center text-gray-400 text-sm">Per serving ({viewingRecipe.servings} servings total)</p>
+                <div>
+                  <h3 className="font-semibold mb-3">Ingredients</h3>
+                  <div className="space-y-2">
+                    {viewingRecipe.ingredients.map((ing: any, idx: number) => (
+                      <div key={idx} className="flex justify-between items-center bg-gray-800 rounded-lg p-3">
+                        <span>{ing.name}</span>
+                        <span className="text-gray-400 text-sm">{ing.calories} cal</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                <button
+                  onClick={() => { removeRecipe(viewingRecipe.id); setViewingRecipe(null); }}
+                  className="w-full py-3 bg-red-500/20 text-red-400 rounded-xl font-semibold flex items-center justify-center gap-2 mb-8"
+                >
+                  <Trash2 size={18} /> Delete Recipe
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
     </div>
   );
 }

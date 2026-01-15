@@ -107,6 +107,7 @@ export interface Recipe {
   ingredients: RecipeIngredient[];
   servings: number;
   createdAt: Date;
+  thumbnail?: string;
   imageData?: string;
 }
 
