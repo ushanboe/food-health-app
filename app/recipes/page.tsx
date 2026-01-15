@@ -504,12 +504,20 @@ export default function RecipesPage() {
                       <div className="flex-1 min-w-0">
                         <div className="flex justify-between items-start">
                           <h3 className="font-semibold text-lg truncate pr-2">{recipe.name}</h3>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); removeRecipe(recipe.id); }}
-                            className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg flex-shrink-0"
-                          >
-                            <Trash2 size={18} />
-                          </button>
+                          <div className="flex flex-col gap-1 flex-shrink-0">
+                              <button
+                                onClick={(e) => { e.stopPropagation(); shareRecipe(recipe); }}
+                                className="p-2 text-blue-400 hover:bg-blue-400/20 rounded-lg"
+                              >
+                                <Share2 size={18} />
+                              </button>
+                              <button
+                                onClick={(e) => { e.stopPropagation(); removeRecipe(recipe.id); }}
+                                className="p-2 text-red-400 hover:bg-red-400/20 rounded-lg"
+                              >
+                                <Trash2 size={18} />
+                              </button>
+                            </div>
                         </div>
                         <p className="text-gray-400 text-sm">
                           {recipe.ingredients.length} ingredients • {recipe.servings} servings
