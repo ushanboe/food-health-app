@@ -33,6 +33,7 @@ export default function RecipesPage() {
   const [recipeName, setRecipeName] = useState('');
   const [servings, setServings] = useState(4);
   const [recipeThumbnail, setRecipeThumbnail] = useState<string | null>(null);
+  const [recipeInstructions, setRecipeInstructions] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<LocalIngredient[]>([]);
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -139,6 +140,7 @@ export default function RecipesPage() {
     setIsImportingMeal(true);
     setRecipeName(meal.strMeal);
     setRecipeThumbnail(meal.strMealThumb);
+    setRecipeInstructions(meal.strInstructions);
     setServings(4);
 
     // Fast parallel lookup with 3 second timeout per ingredient
@@ -252,6 +254,7 @@ export default function RecipesPage() {
       ingredients: recipeIngredients,
       createdAt: new Date(),
       thumbnail: recipeThumbnail || undefined,
+      instructions: recipeInstructions || undefined,
     };
 
     addRecipe(recipe);
@@ -260,6 +263,7 @@ export default function RecipesPage() {
     setServings(4);
     setIngredients([]);
     setRecipeThumbnail(null);
+    setRecipeInstructions(null);
   };
 
   return (
@@ -800,6 +804,18 @@ export default function RecipesPage() {
                     ))}
                   </div>
                 </div>
+
+                {/* Instructions */}
+                {viewingRecipe.instructions && (
+                  <div>
+                    <h3 className="font-semibold mb-3">Instructions</h3>
+                    <div className="bg-gray-800 rounded-xl p-4">
+                      <p className="text-gray-300 whitespace-pre-line text-sm leading-relaxed">
+                        {viewingRecipe.instructions}
+                      </p>
+                    </div>
+                  </div>
+                )}
                 <button
                   onClick={() => { removeRecipe(viewingRecipe.id); setViewingRecipe(null); }}
                   className="w-full py-3 bg-red-500/20 text-red-400 rounded-xl font-semibold flex items-center justify-center gap-2 mb-8"

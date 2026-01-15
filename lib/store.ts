@@ -108,6 +108,7 @@ export interface Recipe {
   servings: number;
   createdAt: Date;
   thumbnail?: string;
+  instructions?: string;
   imageData?: string;
 }
 
