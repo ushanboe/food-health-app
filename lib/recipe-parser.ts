@@ -139,17 +139,28 @@ ${textContent}`;
 // Search Open Food Facts for ingredient nutrition
 export async function searchIngredient(query: string): Promise<any[]> {
   try {
+    // Use a longer timeout and handle abort gracefully
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const timeoutId = setTimeout(() => {
+      controller.abort();
+    }, 15000); // Increased to 15 seconds
 
     const response = await fetch(
       `https://world.openfoodfacts.org/cgi/search.pl?search_terms=${encodeURIComponent(query)}&search_simple=1&action=process&json=1&page_size=15`,
-      { signal: controller.signal }
+      { 
+        signal: controller.signal,
+        headers: {
+          'User-Agent': 'NutriScan/1.0 (https://nutriscan.app)'
+        }
+      }
     );
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) return [];
+    if (!response.ok) {
+      console.warn('Open Food Facts API returned non-OK status:', response.status);
+      return [];
+    }
 
     const data = await response.json();
 
@@ -173,7 +184,12 @@ export async function searchIngredient(query: string): Promise<any[]> {
         },
         servingSize: product.serving_size || '100g',
       }));
-  } catch (error) {
+  } catch (error: any) {
+    // Handle abort errors gracefully - don't log as error
+    if (error?.name === 'AbortError') {
+      console.warn('Ingredient search timed out for:', query);
+      return [];
+    }
     console.error('Error searching ingredients:', error);
     return [];
   }
