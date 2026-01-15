@@ -15,14 +15,43 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
   const videoRef = useRef<HTMLVideoElement>(null);
   const readerRef = useRef<BrowserMultiFormatReader | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
+  const mountedRef = useRef(true);
   const [isScanning, setIsScanning] = useState(false);
   const [lastScanned, setLastScanned] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [torchOn, setTorchOn] = useState(false);
   const [hasTorch, setHasTorch] = useState(false);
 
+  const stopScanning = useCallback(() => {
+    if (readerRef.current) {
+      try {
+        readerRef.current.reset();
+      } catch (e) {
+        // Ignore reset errors
+      }
+      readerRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+    setIsScanning(false);
+    setTorchOn(false);
+  }, []);
+
   const startScanning = useCallback(async () => {
-    if (!videoRef.current || !isActive) return;
+    if (!videoRef.current || !isActive || !mountedRef.current) return;
+
+    // Stop any existing scanning first
+    stopScanning();
+
+    // Small delay to ensure cleanup is complete
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    if (!mountedRef.current) return;
 
     try {
       setError(null);
@@ -39,21 +68,25 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
       ]);
       hints.set(DecodeHintType.TRY_HARDER, true);
 
-      const reader = new BrowserMultiFormatReader(hints, 300); // 300ms between scans (faster)
+      const reader = new BrowserMultiFormatReader(hints, 300);
       readerRef.current = reader;
 
       // Get camera with optimal settings for barcode scanning
       const constraints: MediaStreamConstraints = {
         video: {
-          facingMode: "environment",
+          facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 720 },
-          focusMode: "continuous" as any,
-          exposureMode: "continuous" as any,
         },
       };
 
       const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      
+      if (!mountedRef.current) {
+        stream.getTracks().forEach(track => track.stop());
+        return;
+      }
+
       streamRef.current = stream;
 
       // Check for torch capability
@@ -63,14 +96,65 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
         setHasTorch(true);
       }
 
-      videoRef.current.srcObject = stream;
-      await videoRef.current.play();
+      // Set video source
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        
+        // Wait for video to be ready before playing
+        await new Promise<void>((resolve, reject) => {
+          if (!videoRef.current) {
+            reject(new Error("Video element not found"));
+            return;
+          }
+          
+          const video = videoRef.current;
+          
+          const onLoadedMetadata = () => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            resolve();
+          };
+          
+          const onError = (e: Event) => {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            reject(e);
+          };
+          
+          video.addEventListener('loadedmetadata', onLoadedMetadata);
+          video.addEventListener('error', onError);
+          
+          // If already loaded
+          if (video.readyState >= 1) {
+            video.removeEventListener('loadedmetadata', onLoadedMetadata);
+            video.removeEventListener('error', onError);
+            resolve();
+          }
+        });
+
+        if (!mountedRef.current) return;
+
+        // Play video with error handling
+        try {
+          await videoRef.current.play();
+        } catch (playError: any) {
+          // AbortError is common and usually harmless - ignore it
+          if (playError.name !== 'AbortError') {
+            throw playError;
+          }
+          console.log("Play interrupted, continuing...");
+        }
+      }
+
+      if (!mountedRef.current || !videoRef.current) return;
 
       // Start continuous decoding
+      let lastBarcode = "";
       reader.decodeFromVideoElement(videoRef.current, (result, err) => {
-        if (result) {
+        if (result && mountedRef.current) {
           const barcode = result.getText();
-          if (barcode && barcode !== lastScanned) {
+          if (barcode && barcode !== lastBarcode) {
+            lastBarcode = barcode;
             console.log("✅ Barcode detected:", barcode);
             setLastScanned(barcode);
             // Vibrate on successful scan
@@ -83,25 +167,20 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
         // Ignore NotFoundException - it's normal when no barcode in view
       });
 
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start barcode scanner:", err);
-      setError("Camera access denied");
-      setIsScanning(false);
+      if (mountedRef.current) {
+        if (err.name === 'NotAllowedError') {
+          setError("Camera permission denied");
+        } else if (err.name === 'NotFoundError') {
+          setError("No camera found");
+        } else {
+          setError("Camera access failed");
+        }
+        setIsScanning(false);
+      }
     }
-  }, [isActive, lastScanned, onScan]);
-
-  const stopScanning = useCallback(() => {
-    if (readerRef.current) {
-      readerRef.current.reset();
-      readerRef.current = null;
-    }
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setIsScanning(false);
-    setTorchOn(false);
-  }, []);
+  }, [isActive, onScan, stopScanning]);
 
   const toggleTorch = useCallback(async () => {
     if (!streamRef.current) return;
@@ -116,6 +195,15 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
     }
   }, [torchOn]);
 
+  // Track mounted state
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Start/stop scanning based on isActive
   useEffect(() => {
     if (isActive) {
       startScanning();
@@ -229,7 +317,7 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
       {/* Close button */}
       <button
         onClick={onClose}
-        className="absolute top-4 left-4 safe-top w-10 h-10 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full text-white pointer-events-auto"
+        className="absolute top-4 left-4 safe-top w-10 h-10 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-full text-white pointer-events-auto z-10"
       >
         <X className="w-6 h-6" />
       </button>
@@ -238,7 +326,7 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
       {hasTorch && (
         <button
           onClick={toggleTorch}
-          className={`absolute top-4 right-4 safe-top w-10 h-10 flex items-center justify-center backdrop-blur-sm rounded-full pointer-events-auto transition-colors ${
+          className={`absolute top-4 right-4 safe-top w-10 h-10 flex items-center justify-center backdrop-blur-sm rounded-full pointer-events-auto z-10 transition-colors ${
             torchOn ? "bg-yellow-500 text-black" : "bg-black/50 text-white"
           }`}
         >
