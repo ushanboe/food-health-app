@@ -432,6 +432,26 @@ export default function RecipesPage() {
 
           <motion.button
             whileTap={{ scale: 0.95 }}
+            onClick={() => setShowUrlImport(true)}
+            className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 rounded-2xl text-left"
+          >
+            <Link2 className="mb-2" size={24} />
+            <p className="font-semibold">Import URL</p>
+            <p className="text-blue-200 text-sm">Paste recipe link</p>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowSpoonacular(true)}
+            className="bg-gradient-to-br from-teal-600 to-teal-700 p-4 rounded-2xl text-left"
+          >
+            <Search className="mb-2" size={24} />
+            <p className="font-semibold">Spoonacular</p>
+            <p className="text-teal-200 text-sm">Search recipes</p>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
             onClick={handleRandomMeal}
             disabled={isLoadingMeal}
             className="bg-gradient-to-br from-green-600 to-emerald-700 p-4 rounded-2xl text-left col-span-2"
