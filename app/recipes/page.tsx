@@ -1,73 +1,60 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
-import { motion, AnimatePresence } from "framer-motion";
-import { ArrowLeft, Plus, Trash2, ChefHat, Save, X, Search, Minus } from "lucide-react";
-import { useAppStore, Recipe, RecipeIngredient } from "@/lib/store";
+import { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowLeft, Plus, Trash2, ChefHat, Link, Search, X, 
+  Loader2, Globe, Package, Check, Minus, BookOpen
+} from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useAppStore, Recipe } from '@/lib/store';
+import { parseRecipeFromUrl, searchIngredient, ParsedRecipe } from '@/lib/recipe-parser';
+
+interface RecipeIngredient {
+  id: string;
+  name: string;
+  quantity: number;
+  nutrition: {
+    calories: number;
+    protein: number;
+    carbs: number;
+    fat: number;
+    fiber?: number;
+    sugar?: number;
+  };
+  servingSize?: string;
+}
 
 export default function RecipesPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const { recipes, analysisHistory, addRecipe, removeRecipe } = useAppStore();
-  const [showBuilder, setShowBuilder] = useState(false);
-  const [recipeName, setRecipeName] = useState("");
-  const [servings, setServings] = useState(1);
+  const { recipes, addRecipe, removeRecipe, aiSettings } = useAppStore();
+
+  const [showCreator, setShowCreator] = useState(false);
+  const [showUrlImport, setShowUrlImport] = useState(false);
+  const [showIngredientSearch, setShowIngredientSearch] = useState(false);
+
+  const [recipeName, setRecipeName] = useState('');
+  const [servings, setServings] = useState(4);
   const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [showSearch, setShowSearch] = useState(false);
 
-  useEffect(() => { setMounted(true); }, []);
+  const [importUrl, setImportUrl] = useState('');
+  const [isImporting, setIsImporting] = useState(false);
+  const [importError, setImportError] = useState('');
 
-  if (!mounted) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" /></div>;
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
 
-  // Filter scanned foods for ingredient search
-  const filteredFoods = analysisHistory.filter(f => 
-    f.foodName.toLowerCase().includes(searchQuery.toLowerCase())
-  ).slice(0, 10);
-
-  const addIngredient = (food: typeof analysisHistory[0]) => {
-    const existing = ingredients.find(i => i.name === food.foodName);
-    if (existing) {
-      setIngredients(ingredients.map(i => 
-        i.name === food.foodName ? { ...i, quantity: i.quantity + 1 } : i
-      ));
-    } else {
-      setIngredients([...ingredients, {
-        id: `ing-${Date.now()}`,
-        name: food.foodName,
-        calories: food.calories,
-        protein: food.protein,
-        carbs: food.carbs,
-        fat: food.fat,
-        servingSize: food.servingSize,
-        quantity: 1,
-      }]);
-    }
-    setShowSearch(false);
-    setSearchQuery("");
-  };
-
-  const updateQuantity = (id: string, delta: number) => {
-    setIngredients(ingredients.map(i => {
-      if (i.id === id) {
-        const newQty = Math.max(0.5, i.quantity + delta);
-        return { ...i, quantity: newQty };
-      }
-      return i;
-    }));
-  };
-
-  const removeIngredient = (id: string) => {
-    setIngredients(ingredients.filter(i => i.id !== id));
-  };
-
-  const totals = ingredients.reduce((acc, i) => ({
-    calories: acc.calories + i.calories * i.quantity,
-    protein: acc.protein + i.protein * i.quantity,
-    carbs: acc.carbs + i.carbs * i.quantity,
-    fat: acc.fat + i.fat * i.quantity,
-  }), { calories: 0, protein: 0, carbs: 0, fat: 0 });
+  // Calculate totals
+  const totals = ingredients.reduce(
+    (acc, ing) => ({
+      calories: acc.calories + (ing.nutrition.calories * ing.quantity),
+      protein: acc.protein + (ing.nutrition.protein * ing.quantity),
+      carbs: acc.carbs + (ing.nutrition.carbs * ing.quantity),
+      fat: acc.fat + (ing.nutrition.fat * ing.quantity),
+    }),
+    { calories: 0, protein: 0, carbs: 0, fat: 0 }
+  );
 
   const perServing = {
     calories: Math.round(totals.calories / servings),
@@ -76,93 +63,309 @@ export default function RecipesPage() {
     fat: Math.round(totals.fat / servings),
   };
 
+  // Import recipe from URL
+  const handleUrlImport = async () => {
+    if (!importUrl.trim()) return;
+
+    setIsImporting(true);
+    setImportError('');
+
+    try {
+      const parsed = await parseRecipeFromUrl(importUrl, aiSettings.provider, aiSettings.provider === "gemini" ? aiSettings.geminiApiKey : aiSettings.openaiApiKey);
+
+      setRecipeName(parsed.title);
+      setServings(parsed.servings || 4);
+
+      // Convert parsed ingredients to our format
+      // We'll need to search for nutrition data for each
+      const ingredientsWithNutrition: RecipeIngredient[] = [];
+
+      for (const ing of parsed.ingredients.slice(0, 10)) {
+        const results = await searchIngredient(ing.name);
+        if (results.length > 0) {
+          const match = results[0];
+          ingredientsWithNutrition.push({
+            id: `${Date.now()}-${Math.random()}`,
+            name: ing.name,
+            quantity: parseFloat(ing.quantity) || 1,
+            nutrition: match.nutrition,
+            servingSize: match.servingSize,
+          });
+        } else {
+          // Add with zero nutrition if not found
+          ingredientsWithNutrition.push({
+            id: `${Date.now()}-${Math.random()}`,
+            name: ing.original || ing.name,
+            quantity: 1,
+            nutrition: { calories: 0, protein: 0, carbs: 0, fat: 0 },
+          });
+        }
+      }
+
+      setIngredients(ingredientsWithNutrition);
+      setShowUrlImport(false);
+      setShowCreator(true);
+      setImportUrl('');
+    } catch (error) {
+      console.error('Import error:', error);
+      setImportError('Failed to import recipe. Please check the URL and try again.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
+
+  // Search for ingredients
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+
+    setIsSearching(true);
+    try {
+      const results = await searchIngredient(searchQuery);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Search error:', error);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  // Add ingredient from search
+  const addIngredientFromSearch = (item: any) => {
+    const newIngredient: RecipeIngredient = {
+      id: `${Date.now()}-${Math.random()}`,
+      name: item.brand ? `${item.name} (${item.brand})` : item.name,
+      quantity: 1,
+      nutrition: item.nutrition,
+      servingSize: item.servingSize,
+    };
+    setIngredients([...ingredients, newIngredient]);
+    setShowIngredientSearch(false);
+    setSearchQuery('');
+    setSearchResults([]);
+  };
+
+  // Update ingredient quantity
+  const updateQuantity = (id: string, delta: number) => {
+    setIngredients(ingredients.map(ing => 
+      ing.id === id 
+        ? { ...ing, quantity: Math.max(0.5, ing.quantity + delta) }
+        : ing
+    ));
+  };
+
+  // Remove ingredient
+  const removeIngredient = (id: string) => {
+    setIngredients(ingredients.filter(ing => ing.id !== id));
+  };
+
+  // Save recipe
   const saveRecipe = () => {
     if (!recipeName.trim() || ingredients.length === 0) return;
-    addRecipe({
-      id: `recipe-${Date.now()}`,
+
+    const recipe: Recipe = {
+      id: Date.now().toString(),
       name: recipeName,
-      ingredients,
+      ingredients: ingredients.map(ing => ({
+        id: ing.id,
+        name: ing.name,
+        quantity: ing.quantity,
+        calories: ing.nutrition.calories,
+        protein: ing.nutrition.protein,
+        carbs: ing.nutrition.carbs,
+        fat: ing.nutrition.fat,
+        servingSize: ing.servingSize,
+      })),
       servings,
       createdAt: new Date(),
-    });
-    setShowBuilder(false);
-    setRecipeName("");
+    };
+
+    addRecipe(recipe);
+    resetCreator();
+  };
+
+  // Reset creator
+  const resetCreator = () => {
+    setShowCreator(false);
+    setRecipeName('');
+    setServings(4);
     setIngredients([]);
-    setServings(1);
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-8">
+    <div className="min-h-screen bg-gray-950 text-white pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-br from-purple-500 to-pink-600 text-white px-5 pt-12 pb-6 safe-top">
-        <div className="flex items-center gap-4 mb-4">
-          <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">Recipe Builder</h1>
+      <div className="bg-gray-900 px-4 py-4 flex items-center gap-3 sticky top-0 z-10">
+        <button onClick={() => router.back()} className="p-2 hover:bg-gray-800 rounded-full">
+          <ArrowLeft size={24} />
+        </button>
+        <div>
+          <h1 className="text-xl font-bold">Recipe Builder</h1>
+          <p className="text-gray-400 text-sm">Create custom meals</p>
         </div>
-        <p className="text-purple-100">Create custom meals from scanned foods</p>
       </div>
 
-      <div className="px-5 py-4 space-y-4 -mt-4">
+      <div className="p-4 space-y-4">
+        {/* Quick Actions */}
+        <div className="grid grid-cols-2 gap-3">
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowUrlImport(true)}
+            className="bg-gradient-to-br from-blue-600 to-blue-700 p-4 rounded-2xl text-left"
+          >
+            <Globe className="mb-2" size={24} />
+            <p className="font-semibold">Import from URL</p>
+            <p className="text-blue-200 text-sm">Paste recipe link</p>
+          </motion.button>
+
+          <motion.button
+            whileTap={{ scale: 0.95 }}
+            onClick={() => setShowCreator(true)}
+            className="bg-gradient-to-br from-purple-600 to-purple-700 p-4 rounded-2xl text-left"
+          >
+            <Plus className="mb-2" size={24} />
+            <p className="font-semibold">Create Manual</p>
+            <p className="text-purple-200 text-sm">Add ingredients</p>
+          </motion.button>
+        </div>
+
         {/* Saved Recipes */}
-        {recipes.length > 0 && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-            <h3 className="font-semibold text-gray-800 dark:text-white mb-3">Your Recipes</h3>
-            <div className="space-y-2">
-              {recipes.map((recipe) => {
-                const recTotals = recipe.ingredients.reduce((acc, i) => ({
-                  calories: acc.calories + i.calories * i.quantity,
-                  protein: acc.protein + i.protein * i.quantity,
-                }), { calories: 0, protein: 0 });
-                return (
-                  <div key={recipe.id} className="flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                    <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-                      <ChefHat className="w-6 h-6 text-purple-500" />
-                    </div>
+        <div>
+          <h2 className="text-lg font-semibold mb-3 flex items-center gap-2">
+            <BookOpen size={20} />
+            My Recipes ({recipes.length})
+          </h2>
+
+          {recipes.length === 0 ? (
+            <div className="bg-gray-900 rounded-2xl p-8 text-center">
+              <ChefHat className="mx-auto mb-3 text-gray-600" size={48} />
+              <p className="text-gray-400">No recipes yet</p>
+              <p className="text-gray-500 text-sm">Import from URL or create manually</p>
+            </div>
+          ) : (
+            <div className="space-y-3">
+              {recipes.map((recipe) => (
+                <motion.div
+                  key={recipe.id}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="bg-gray-900 rounded-2xl p-4"
+                >
+                  <div className="flex justify-between items-start">
                     <div className="flex-1">
-                      <h4 className="font-medium text-gray-800 dark:text-white">{recipe.name}</h4>
-                      <p className="text-xs text-gray-500">
-                        {Math.round(recTotals.calories / recipe.servings)} cal • {recipe.ingredients.length} ingredients • {recipe.servings} servings
+                      <h3 className="font-semibold text-lg">{recipe.name}</h3>
+                      <p className="text-gray-400 text-sm">
+                        {recipe.ingredients.length} ingredients • {recipe.servings} servings
                       </p>
+                      <div className="flex gap-4 mt-2 text-sm">
+                        <span className="text-orange-400">
+                          {Math.round(recipe.ingredients.reduce((sum, i) => sum + i.calories * i.quantity, 0) / recipe.servings)} cal
+                        </span>
+                        <span className="text-blue-400">
+                          {Math.round(recipe.ingredients.reduce((sum, i) => sum + i.protein * i.quantity, 0) / recipe.servings)}g protein
+                        </span>
+                      </div>
                     </div>
-                    <button onClick={() => removeRecipe(recipe.id)} className="p-2 text-gray-400 hover:text-red-500">
-                      <Trash2 className="w-4 h-4" />
+                    <button
+                      onClick={() => removeRecipe(recipe.id)}
+                      className="p-2 text-red-400 hover:bg-red-400/20 rounded-full"
+                    >
+                      <Trash2 size={20} />
                     </button>
                   </div>
-                );
-              })}
+                </motion.div>
+              ))}
             </div>
-          </motion.div>
-        )}
+          )}
+        </div>
+      </div>
 
-        {/* Empty State */}
-        {recipes.length === 0 && !showBuilder && (
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-8 shadow-sm text-center">
-            <div className="w-16 h-16 bg-purple-100 dark:bg-purple-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
-              <ChefHat className="w-8 h-8 text-purple-500" />
-            </div>
-            <h3 className="font-semibold text-gray-800 dark:text-white mb-2">No Recipes Yet</h3>
-            <p className="text-gray-500 text-sm mb-4">Create custom meals by combining your scanned foods</p>
-            <button onClick={() => setShowBuilder(true)} className="px-6 py-3 bg-purple-500 text-white rounded-xl font-medium">
-              Create First Recipe
-            </button>
-          </motion.div>
-        )}
-
-        {/* Recipe Builder */}
-        <AnimatePresence>
-          {showBuilder && (
+      {/* URL Import Modal */}
+      <AnimatePresence>
+        {showUrlImport && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-end"
+            onClick={() => setShowUrlImport(false)}
+          >
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -20 }}
-              className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm"
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-900 w-full rounded-t-3xl p-6 max-h-[80vh] overflow-auto"
             >
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="font-semibold text-gray-800 dark:text-white">New Recipe</h3>
-                <button onClick={() => setShowBuilder(false)} className="p-1 text-gray-400">
-                  <X className="w-5 h-5" />
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Import Recipe from URL</h2>
+                <button onClick={() => setShowUrlImport(false)} className="p-2">
+                  <X size={24} />
+                </button>
+              </div>
+
+              <p className="text-gray-400 mb-4">
+                Paste a recipe URL from any website. AI will extract the ingredients.
+              </p>
+
+              <input
+                type="url"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://example.com/recipe..."
+                className="w-full bg-gray-800 rounded-xl px-4 py-3 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+
+              {importError && (
+                <p className="text-red-400 text-sm mb-4">{importError}</p>
+              )}
+
+              {aiSettings.provider === 'demo' && (
+                <p className="text-yellow-400 text-sm mb-4 bg-yellow-400/10 p-3 rounded-xl">
+                  ⚠️ Demo mode: Will return sample data. Set up AI in Settings for real parsing.
+                </p>
+              )}
+
+              <button
+                onClick={handleUrlImport}
+                disabled={isImporting || !importUrl.trim()}
+                className="w-full bg-blue-600 py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {isImporting ? (
+                  <>
+                    <Loader2 className="animate-spin" size={20} />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <Globe size={20} />
+                    Import Recipe
+                  </>
+                )}
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Recipe Creator Modal */}
+      <AnimatePresence>
+        {showCreator && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-50 flex items-end"
+          >
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              className="bg-gray-900 w-full rounded-t-3xl p-6 max-h-[90vh] overflow-auto"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Create Recipe</h2>
+                <button onClick={resetCreator} className="p-2">
+                  <X size={24} />
                 </button>
               </div>
 
@@ -172,68 +375,105 @@ export default function RecipesPage() {
                 value={recipeName}
                 onChange={(e) => setRecipeName(e.target.value)}
                 placeholder="Recipe name..."
-                className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl mb-4 font-medium"
+                className="w-full bg-gray-800 rounded-xl px-4 py-3 mb-4 text-lg font-semibold focus:outline-none focus:ring-2 focus:ring-purple-500"
               />
 
               {/* Servings */}
-              <div className="flex items-center justify-between mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl">
-                <span className="text-gray-600 dark:text-gray-300">Servings</span>
+              <div className="flex items-center justify-between bg-gray-800 rounded-xl px-4 py-3 mb-4">
+                <span className="text-gray-400">Servings</span>
                 <div className="flex items-center gap-3">
-                  <button onClick={() => setServings(Math.max(1, servings - 1))} className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                    <Minus className="w-4 h-4" />
+                  <button
+                    onClick={() => setServings(Math.max(1, servings - 1))}
+                    className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center"
+                  >
+                    <Minus size={16} />
                   </button>
-                  <span className="font-bold text-lg w-8 text-center">{servings}</span>
-                  <button onClick={() => setServings(servings + 1)} className="w-8 h-8 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center">
-                    <Plus className="w-4 h-4" />
+                  <span className="text-xl font-bold w-8 text-center">{servings}</span>
+                  <button
+                    onClick={() => setServings(servings + 1)}
+                    className="w-8 h-8 bg-gray-700 rounded-full flex items-center justify-center"
+                  >
+                    <Plus size={16} />
                   </button>
                 </div>
               </div>
 
               {/* Ingredients */}
               <div className="mb-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm text-gray-500">Ingredients</span>
-                  <button onClick={() => setShowSearch(true)} className="text-purple-500 text-sm font-medium flex items-center gap-1">
-                    <Plus className="w-4 h-4" /> Add
+                <div className="flex justify-between items-center mb-2">
+                  <h3 className="font-semibold">Ingredients ({ingredients.length})</h3>
+                  <button
+                    onClick={() => setShowIngredientSearch(true)}
+                    className="text-purple-400 text-sm flex items-center gap-1"
+                  >
+                    <Plus size={16} /> Add
                   </button>
                 </div>
-                {ingredients.length > 0 ? (
-                  <div className="space-y-2">
+
+                {ingredients.length === 0 ? (
+                  <div className="bg-gray-800 rounded-xl p-4 text-center text-gray-400">
+                    <Package className="mx-auto mb-2" size={24} />
+                    <p>No ingredients yet</p>
+                    <p className="text-sm">Tap "Add" to search</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-48 overflow-auto">
                     {ingredients.map((ing) => (
-                      <div key={ing.id} className="flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                        <div className="flex-1">
-                          <p className="font-medium text-sm text-gray-800 dark:text-white">{ing.name}</p>
-                          <p className="text-xs text-gray-500">{Math.round(ing.calories * ing.quantity)} cal</p>
+                      <div key={ing.id} className="bg-gray-800 rounded-xl px-3 py-2 flex items-center gap-2">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{ing.name}</p>
+                          <p className="text-gray-400 text-xs">
+                            {ing.servingSize} • {Math.round(ing.nutrition.calories * ing.quantity)} cal
+                          </p>
                         </div>
                         <div className="flex items-center gap-1">
-                          <button onClick={() => updateQuantity(ing.id, -0.5)} className="w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center text-xs">
-                            -
+                          <button
+                            onClick={() => updateQuantity(ing.id, -0.5)}
+                            className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center"
+                          >
+                            <Minus size={12} />
                           </button>
-                          <span className="w-8 text-center text-sm font-medium">{ing.quantity}</span>
-                          <button onClick={() => updateQuantity(ing.id, 0.5)} className="w-6 h-6 bg-gray-200 dark:bg-gray-600 rounded-full flex items-center justify-center text-xs">
-                            +
+                          <span className="w-8 text-center text-sm">{ing.quantity}</span>
+                          <button
+                            onClick={() => updateQuantity(ing.id, 0.5)}
+                            className="w-6 h-6 bg-gray-700 rounded-full flex items-center justify-center"
+                          >
+                            <Plus size={12} />
                           </button>
                         </div>
-                        <button onClick={() => removeIngredient(ing.id)} className="p-1 text-gray-400">
-                          <X className="w-4 h-4" />
+                        <button
+                          onClick={() => removeIngredient(ing.id)}
+                          className="p-1 text-red-400"
+                        >
+                          <X size={16} />
                         </button>
                       </div>
                     ))}
                   </div>
-                ) : (
-                  <p className="text-gray-400 text-sm text-center py-4">Add ingredients from your scanned foods</p>
                 )}
               </div>
 
-              {/* Totals */}
+              {/* Nutrition Summary */}
               {ingredients.length > 0 && (
-                <div className="bg-gradient-to-r from-purple-500 to-pink-500 rounded-xl p-4 text-white mb-4">
-                  <p className="text-sm opacity-80 mb-1">Per Serving</p>
+                <div className="bg-gradient-to-br from-purple-900/50 to-blue-900/50 rounded-xl p-4 mb-4">
+                  <p className="text-gray-400 text-sm mb-2">Per Serving</p>
                   <div className="grid grid-cols-4 gap-2 text-center">
-                    <div><p className="text-xl font-bold">{perServing.calories}</p><p className="text-xs opacity-80">cal</p></div>
-                    <div><p className="text-xl font-bold">{perServing.protein}g</p><p className="text-xs opacity-80">protein</p></div>
-                    <div><p className="text-xl font-bold">{perServing.carbs}g</p><p className="text-xs opacity-80">carbs</p></div>
-                    <div><p className="text-xl font-bold">{perServing.fat}g</p><p className="text-xs opacity-80">fat</p></div>
+                    <div>
+                      <p className="text-2xl font-bold text-orange-400">{perServing.calories}</p>
+                      <p className="text-xs text-gray-400">cal</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-blue-400">{perServing.protein}g</p>
+                      <p className="text-xs text-gray-400">protein</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-green-400">{perServing.carbs}g</p>
+                      <p className="text-xs text-gray-400">carbs</p>
+                    </div>
+                    <div>
+                      <p className="text-2xl font-bold text-yellow-400">{perServing.fat}g</p>
+                      <p className="text-xs text-gray-400">fat</p>
+                    </div>
                   </div>
                 </div>
               )}
@@ -242,82 +482,98 @@ export default function RecipesPage() {
               <button
                 onClick={saveRecipe}
                 disabled={!recipeName.trim() || ingredients.length === 0}
-                className="w-full py-3 bg-purple-500 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="w-full bg-purple-600 py-3 rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                <Save className="w-5 h-5" /> Save Recipe
+                <Check size={20} />
+                Save Recipe
               </button>
             </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* Add Button */}
-      {!showBuilder && (
-        <motion.button
-          whileTap={{ scale: 0.95 }}
-          onClick={() => setShowBuilder(true)}
-          className="fixed bottom-6 right-6 w-14 h-14 bg-purple-500 text-white rounded-full shadow-lg flex items-center justify-center"
-        >
-          <Plus className="w-6 h-6" />
-        </motion.button>
-      )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Ingredient Search Modal */}
-      {showSearch && (
-        <div className="fixed inset-0 bg-black/50 flex items-end sm:items-center justify-center z-50">
+      <AnimatePresence>
+        {showIngredientSearch && (
           <motion.div
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-gray-800 rounded-t-3xl sm:rounded-2xl p-6 w-full max-w-md max-h-[80vh]"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/80 z-[60] flex items-end"
+            onClick={() => setShowIngredientSearch(false)}
           >
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800 dark:text-white">Add Ingredient</h3>
-              <button onClick={() => { setShowSearch(false); setSearchQuery(""); }} className="p-1 text-gray-400">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+            <motion.div
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              onClick={(e) => e.stopPropagation()}
+              className="bg-gray-900 w-full rounded-t-3xl p-6 max-h-[80vh] overflow-auto"
+            >
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-bold">Search Ingredients</h2>
+                <button onClick={() => setShowIngredientSearch(false)} className="p-2">
+                  <X size={24} />
+                </button>
+              </div>
 
-            <div className="relative mb-4">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search scanned foods..."
-                className="w-full pl-10 pr-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl"
-                autoFocus
-              />
-            </div>
+              <div className="flex gap-2 mb-4">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
+                  placeholder="Search foods..."
+                  className="flex-1 bg-gray-800 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                  autoFocus
+                />
+                <button
+                  onClick={handleSearch}
+                  disabled={isSearching}
+                  className="bg-purple-600 px-4 rounded-xl"
+                >
+                  {isSearching ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
+                </button>
+              </div>
 
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {filteredFoods.length > 0 ? (
-                filteredFoods.map((food) => (
-                  <button
-                    key={food.id}
-                    onClick={() => addIngredient(food)}
-                    className="w-full flex items-center gap-3 p-3 bg-gray-50 dark:bg-gray-700 rounded-xl text-left hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
-                  >
-                    {food.imageData ? (
-                      <img src={food.imageData} alt={food.foodName} className="w-10 h-10 rounded-lg object-cover" />
-                    ) : (
-                      <div className="w-10 h-10 bg-gray-200 dark:bg-gray-600 rounded-lg" />
-                    )}
-                    <div className="flex-1">
-                      <p className="font-medium text-gray-800 dark:text-white">{food.foodName}</p>
-                      <p className="text-xs text-gray-500">{food.calories} cal • {food.protein}g protein</p>
-                    </div>
-                    <Plus className="w-5 h-5 text-purple-500" />
-                  </button>
-                ))
-              ) : (
-                <div className="text-center py-8 text-gray-400">
-                  <p>{analysisHistory.length === 0 ? "Scan some foods first!" : "No matching foods"}</p>
+              <p className="text-gray-400 text-sm mb-3">
+                Searching Open Food Facts database
+              </p>
+
+              {searchResults.length > 0 ? (
+                <div className="space-y-2">
+                  {searchResults.map((item, index) => (
+                    <button
+                      key={index}
+                      onClick={() => addIngredientFromSearch(item)}
+                      className="w-full bg-gray-800 rounded-xl p-3 flex items-center gap-3 text-left hover:bg-gray-700 transition"
+                    >
+                      {item.image ? (
+                        <img src={item.image} alt="" className="w-12 h-12 rounded-lg object-cover" />
+                      ) : (
+                        <div className="w-12 h-12 bg-gray-700 rounded-lg flex items-center justify-center">
+                          <Package size={20} className="text-gray-500" />
+                        </div>
+                      )}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium truncate">{item.name}</p>
+                        {item.brand && <p className="text-gray-400 text-sm truncate">{item.brand}</p>}
+                        <p className="text-orange-400 text-sm">{Math.round(item.nutrition.calories)} cal/100g</p>
+                      </div>
+                      <Plus size={20} className="text-purple-400" />
+                    </button>
+                  ))}
                 </div>
-              )}
-            </div>
+              ) : searchQuery && !isSearching ? (
+                <div className="text-center text-gray-400 py-8">
+                  <Search size={32} className="mx-auto mb-2 opacity-50" />
+                  <p>No results found</p>
+                  <p className="text-sm">Try a different search term</p>
+                </div>
+              ) : null}
+            </motion.div>
           </motion.div>
-        </div>
-      )}
+        )}
+      </AnimatePresence>
     </div>
   );
 }
