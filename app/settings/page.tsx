@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { 
+import { Utensils, 
   Settings, 
   Sparkles, 
   Zap, 
@@ -59,6 +59,7 @@ export default function SettingsPage() {
   const { aiSettings, updateAISettings } = useAppStore();
   const [geminiKey, setGeminiKey] = useState(aiSettings.geminiApiKey);
   const [openaiKey, setOpenaiKey] = useState(aiSettings.openaiApiKey);
+  const [spoonacularKey, setSpoonacularKey] = useState(aiSettings.spoonacularApiKey);
   const [saved, setSaved] = useState(false);
 
   const handleProviderSelect = (providerId: AIProvider) => {
@@ -69,6 +70,7 @@ export default function SettingsPage() {
     updateAISettings({
       geminiApiKey: geminiKey,
       openaiApiKey: openaiKey,
+      spoonacularApiKey: spoonacularKey,
     });
     setSaved(true);
     setTimeout(() => setSaved(false), 2000);
@@ -248,6 +250,60 @@ export default function SettingsPage() {
               </motion.button>
             </motion.div>
           )}
+
+          {/* Recipe API Keys */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100"
+          >
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 bg-teal-100 rounded-xl flex items-center justify-center">
+                <Utensils className="w-5 h-5 text-teal-600" />
+              </div>
+              <h2 className="text-lg font-semibold text-gray-800">Recipe API Keys</h2>
+            </div>
+            
+            <div className="space-y-4">
+              {/* Spoonacular Key */}
+              <div className="bg-gray-50 rounded-2xl p-4 border border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="font-medium text-gray-700">Spoonacular API Key</label>
+                  <a
+                    href="https://spoonacular.com/food-api/console#Dashboard"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-teal-600 flex items-center gap-1"
+                  >
+                    Get key <ExternalLink className="w-3 h-3" />
+                  </a>
+                </div>
+                <input
+                  type="password"
+                  value={spoonacularKey}
+                  onChange={(e) => setSpoonacularKey(e.target.value)}
+                  placeholder="Enter Spoonacular API key..."
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                />
+                <p className="text-xs text-gray-400 mt-2">Optional - enables Spoonacular recipe search (150 free requests/day)</p>
+              </div>
+              
+              <motion.button
+                whileTap={{ scale: 0.98 }}
+                onClick={handleSaveKeys}
+                className="w-full py-3 bg-teal-500 text-white font-semibold rounded-xl flex items-center justify-center gap-2"
+              >
+                {saved ? (
+                  <>
+                    <Check className="w-5 h-5" />
+                    Saved!
+                  </>
+                ) : (
+                  "Save Recipe API Key"
+                )}
+              </motion.button>
+            </div>
+          </motion.div>
 
           {/* Features List */}
           {selectedProvider && (

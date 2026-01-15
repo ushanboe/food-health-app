@@ -38,6 +38,7 @@ export interface AISettings {
   provider: AIProvider;
   geminiApiKey: string;
   openaiApiKey: string;
+  spoonacularApiKey: string;
 }
 
 export interface DailyGoals {
@@ -195,6 +196,7 @@ export const useAppStore = create<AppState>()(
         provider: "demo",
         geminiApiKey: "",
         openaiApiKey: "",
+        spoonacularApiKey: "",
       },
       dailyGoals: {
         calories: 2000,

@@ -64,7 +64,6 @@ export default function RecipesPage() {
   const [spoonacularQuery, setSpoonacularQuery] = useState('');
   const [spoonacularResults, setSpoonacularResults] = useState<SpoonacularSearchResult[]>([]);
   const [isSpoonacularSearching, setIsSpoonacularSearching] = useState(false);
-  const [spoonacularApiKey, setSpoonacularApiKey] = useState('');
   const [selectedSpoonacularRecipe, setSelectedSpoonacularRecipe] = useState<SpoonacularRecipe | null>(null);
   const [isImportingSpoonacular, setIsImportingSpoonacular] = useState(false);
 
@@ -245,11 +244,11 @@ export default function RecipesPage() {
 
   // Spoonacular search
   const handleSpoonacularSearch = async () => {
-    if (!spoonacularQuery.trim() || !spoonacularApiKey.trim()) return;
+    if (!spoonacularQuery.trim() || !aiSettings.spoonacularApiKey) return;
     setIsSpoonacularSearching(true);
 
     try {
-      const results = await searchSpoonacularRecipes(spoonacularQuery, spoonacularApiKey);
+      const results = await searchSpoonacularRecipes(spoonacularQuery, aiSettings.spoonacularApiKey);
       setSpoonacularResults(results);
     } catch (error: any) {
       alert(error.message || 'Search failed');
@@ -260,11 +259,11 @@ export default function RecipesPage() {
 
   // Import from Spoonacular
   const importSpoonacularRecipe = async (id: number) => {
-    if (!spoonacularApiKey) return;
+    if (!aiSettings.spoonacularApiKey) return;
     setIsImportingSpoonacular(true);
 
     try {
-      const recipe = await getSpoonacularRecipe(id, spoonacularApiKey);
+      const recipe = await getSpoonacularRecipe(id, aiSettings.spoonacularApiKey);
       if (recipe) {
         setRecipeName(recipe.title);
         setServings(recipe.servings || 4);
@@ -1047,17 +1046,6 @@ export default function RecipesPage() {
                 <h1 className="text-xl font-bold">Spoonacular Recipes</h1>
               </div>
 
-              {/* API Key Input */}
-              <div className="mb-4">
-                <label className="text-gray-400 text-sm mb-2 block">API Key (free at spoonacular.com)</label>
-                <input
-                  type="password"
-                  value={spoonacularApiKey}
-                  onChange={(e) => setSpoonacularApiKey(e.target.value)}
-                  placeholder="Enter your Spoonacular API key"
-                  className="w-full bg-gray-800 rounded-xl px-4 py-3"
-                />
-              </div>
 
               {/* Search */}
               <div className="flex gap-2 mb-6">
@@ -1072,7 +1060,7 @@ export default function RecipesPage() {
                 <motion.button
                   whileTap={{ scale: 0.95 }}
                   onClick={handleSpoonacularSearch}
-                  disabled={isSpoonacularSearching || !spoonacularApiKey}
+                  disabled={isSpoonacularSearching || !aiSettings.spoonacularApiKey}
                   className="bg-green-500 text-white rounded-xl px-4 disabled:opacity-50"
                 >
                   {isSpoonacularSearching ? <Loader2 className="animate-spin" size={20} /> : <Search size={20} />}
@@ -1104,11 +1092,11 @@ export default function RecipesPage() {
                 ))}
               </div>
 
-              {spoonacularResults.length === 0 && spoonacularApiKey && (
+              {spoonacularResults.length === 0 && aiSettings.spoonacularApiKey && (
                 <p className="text-gray-500 text-center mt-8">Search for recipes above</p>
               )}
 
-              {!spoonacularApiKey && (
+              {!aiSettings.spoonacularApiKey && (
                 <div className="text-center mt-8">
                   <p className="text-gray-500 mb-2">Get a free API key at:</p>
                   <a href="https://spoonacular.com/food-api" target="_blank" className="text-green-400 underline">
