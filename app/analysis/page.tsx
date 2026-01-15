@@ -22,41 +22,24 @@ function calculateHealthScore(nutrition: {
   sodium?: number;
   nutriScore?: string;
 }): number {
-  // If we have a Nutri-Score from Open Food Facts, use it as a base
   if (nutrition.nutriScore) {
     const nutriScoreMap: Record<string, number> = {
-      'A': 90,
-      'B': 75,
-      'C': 55,
-      'D': 35,
-      'E': 20,
+      'A': 90, 'B': 75, 'C': 55, 'D': 35, 'E': 20,
     };
     return nutriScoreMap[nutrition.nutriScore.toUpperCase()] || 50;
   }
 
-  let score = 70; // Base score
-
-  // Protein bonus (high protein is good)
+  let score = 70;
   if (nutrition.protein > 20) score += 10;
   else if (nutrition.protein > 10) score += 5;
-
-  // Fiber bonus
   if (nutrition.fiber > 5) score += 10;
   else if (nutrition.fiber > 2) score += 5;
-
-  // High calorie penalty
   if (nutrition.calories > 500) score -= 15;
   else if (nutrition.calories > 300) score -= 5;
-
-  // High fat penalty
   if (nutrition.fat > 30) score -= 15;
   else if (nutrition.fat > 20) score -= 10;
-
-  // Sugar penalty
   if (nutrition.sugar && nutrition.sugar > 20) score -= 15;
   else if (nutrition.sugar && nutrition.sugar > 10) score -= 5;
-
-  // Sodium penalty
   if (nutrition.sodium && nutrition.sodium > 1000) score -= 10;
   else if (nutrition.sodium && nutrition.sodium > 500) score -= 5;
 
@@ -77,6 +60,7 @@ export default function AnalysisPage() {
     setIsAnalyzing,
     setCurrentAnalysis,
     setScannedBarcode,
+    setCurrentImage,
     addToHistory,
     aiSettings,
   } = useAppStore();
@@ -98,8 +82,18 @@ export default function AnalysisPage() {
     source: "ai" | "barcode";
   } | null>(null);
 
-  // Use ref to prevent double execution in strict mode
+  // Refs to capture initial values and prevent re-runs
   const hasAnalyzed = useRef(false);
+  const initialImage = useRef<string | null>(null);
+  const initialBarcode = useRef<string | null>(null);
+
+  // Capture initial values on mount
+  useEffect(() => {
+    if (!hasAnalyzed.current) {
+      initialImage.current = currentImage;
+      initialBarcode.current = scannedBarcode;
+    }
+  }, []);
 
   useEffect(() => {
     async function analyzeBarcode(barcode: string) {
@@ -114,7 +108,6 @@ export default function AnalysisPage() {
 
       console.log("Barcode nutrition data:", nutrition);
 
-      // Calculate health score
       const healthScore = calculateHealthScore({
         calories: nutrition.calories,
         protein: nutrition.protein,
@@ -126,14 +119,9 @@ export default function AnalysisPage() {
         nutriScore: nutrition.nutriScore,
       });
       const verdict = getVerdict(healthScore);
-
-      // Get healthier alternatives
       const alternatives = getHealthierAlternatives(nutrition.foodName);
-
-      // Determine category from product name
       const category = nutrition.brandName ? "Packaged Food" : "Food Product";
 
-      // Create description
       let description = `${nutrition.foodName}`;
       if (nutrition.brandName) {
         description = `${nutrition.brandName} ${nutrition.foodName}`;
@@ -155,7 +143,7 @@ export default function AnalysisPage() {
         foodName: nutrition.foodName,
         category,
         description,
-        confidence: 1.0, // Barcode lookup is exact
+        confidence: 1.0,
         healthScore,
         verdict,
         nutrition,
@@ -169,7 +157,6 @@ export default function AnalysisPage() {
     async function analyzeImage(imageData: string) {
       setLoadingMessage(`Analyzing with ${aiSettings.provider === 'demo' ? 'Demo Mode' : aiSettings.provider === 'gemini' ? 'Google Gemini' : 'OpenAI GPT-4o'}...`);
 
-      // Step 1: Analyze image with AI
       console.log("Starting AI analysis...");
       const aiResult = await analyzeFood(imageData, {
         provider: aiSettings.provider,
@@ -184,13 +171,11 @@ export default function AnalysisPage() {
 
       const food = aiResult.foods[0];
 
-      // Step 2: Get nutrition data from API (with fallback)
       setLoadingMessage("Fetching nutrition data...");
       console.log("Fetching nutrition data for:", food.name);
       const nutrition = await getNutritionByName(food.name);
       console.log("Nutrition data:", nutrition);
 
-      // Step 3: Calculate health score
       const healthScore = calculateHealthScore({
         calories: nutrition.calories,
         protein: nutrition.protein,
@@ -201,8 +186,6 @@ export default function AnalysisPage() {
         sodium: nutrition.sodium,
       });
       const verdict = getVerdict(healthScore);
-
-      // Step 4: Get healthier alternatives
       const alternatives = getHealthierAlternatives(food.name);
 
       return {
@@ -219,12 +202,14 @@ export default function AnalysisPage() {
     }
 
     async function analyze() {
-      // Prevent double execution
       if (hasAnalyzed.current) return;
       hasAnalyzed.current = true;
 
-      // Check if we have something to analyze
-      if (!currentImage && !scannedBarcode) {
+      // Use captured initial values
+      const imageToAnalyze = initialImage.current || currentImage;
+      const barcodeToAnalyze = initialBarcode.current || scannedBarcode;
+
+      if (!imageToAnalyze && !barcodeToAnalyze) {
         router.push("/");
         return;
       }
@@ -235,23 +220,20 @@ export default function AnalysisPage() {
 
         let analysisResult;
 
-        if (scannedBarcode) {
-          // Barcode scan mode
-          analysisResult = await analyzeBarcode(scannedBarcode);
-        } else if (currentImage) {
-          // Photo mode
-          analysisResult = await analyzeImage(currentImage);
+        if (barcodeToAnalyze) {
+          analysisResult = await analyzeBarcode(barcodeToAnalyze);
+        } else if (imageToAnalyze) {
+          analysisResult = await analyzeImage(imageToAnalyze);
         } else {
           throw new Error("No image or barcode to analyze");
         }
 
         setResult(analysisResult);
 
-        // Save to history
         const historyEntry = {
           id: Date.now().toString(),
           timestamp: new Date(),
-          imageData: currentImage || "", // Empty for barcode scans
+          imageData: imageToAnalyze || "",
           foodName: analysisResult.foodName,
           category: analysisResult.category,
           healthScore: analysisResult.healthScore,
@@ -260,11 +242,16 @@ export default function AnalysisPage() {
           carbs: analysisResult.nutrition.carbs,
           fat: analysisResult.nutrition.fat,
           fiber: analysisResult.nutrition.fiber,
+          sugar: analysisResult.nutrition.sugar,
+          sodium: analysisResult.nutrition.sodium,
+          servingSize: analysisResult.nutrition.servingSize,
           verdict: analysisResult.verdict,
           description: analysisResult.description || "",
           alternatives: analysisResult.alternatives,
           barcode: "barcode" in analysisResult ? analysisResult.barcode : undefined,
           brandName: "brandName" in analysisResult ? analysisResult.brandName : undefined,
+          nutriScore: analysisResult.nutrition.nutriScore,
+          novaGroup: analysisResult.nutrition.novaGroup,
           source: analysisResult.source,
         };
 
@@ -276,19 +263,23 @@ export default function AnalysisPage() {
       } finally {
         setLoading(false);
         setIsAnalyzing(false);
-        setScannedBarcode(null); // Clear barcode after analysis
+        // Clear after analysis is complete
+        setScannedBarcode(null);
+        setCurrentImage(null);
       }
     }
 
-    // Run analysis when we have an image or barcode
-    if (currentImage || scannedBarcode) {
+    // Only run once on mount
+    const imageToAnalyze = initialImage.current || currentImage;
+    const barcodeToAnalyze = initialBarcode.current || scannedBarcode;
+    
+    if ((imageToAnalyze || barcodeToAnalyze) && !hasAnalyzed.current) {
       analyze();
-    } else {
-      // Nothing to analyze, redirect to home
+    } else if (!imageToAnalyze && !barcodeToAnalyze && !hasAnalyzed.current) {
       setLoading(false);
       router.push("/");
     }
-  }, [currentImage, scannedBarcode, aiSettings, router, setIsAnalyzing, setCurrentAnalysis, setScannedBarcode, addToHistory]);
+  }, []); // Empty dependency array - run only once
 
   if (loading) {
     return <Loading message={loadingMessage} />;
@@ -318,14 +309,16 @@ export default function AnalysisPage() {
     return null;
   }
 
+  // Keep image for display even after clearing from store
+  const displayImage = initialImage.current;
+
   return (
     <div className="app-container">
       <div className="main-content hide-scrollbar">
-        {/* Header with image or barcode indicator */}
         <div className="relative h-64">
-          {currentImage ? (
+          {displayImage ? (
             <img
-              src={currentImage}
+              src={displayImage}
               alt="Food"
               className="w-full h-full object-cover"
             />
@@ -340,7 +333,6 @@ export default function AnalysisPage() {
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
 
-          {/* Back button */}
           <button
             onClick={() => router.push("/")}
             className="absolute top-4 left-4 w-10 h-10 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white safe-top"
@@ -348,7 +340,6 @@ export default function AnalysisPage() {
             <ArrowLeft className="w-5 h-5" />
           </button>
 
-          {/* Action buttons */}
           <div className="absolute top-4 right-4 flex gap-2 safe-top">
             <button className="w-10 h-10 bg-black/30 backdrop-blur-sm rounded-full flex items-center justify-center text-white">
               <Share2 className="w-5 h-5" />
@@ -358,7 +349,6 @@ export default function AnalysisPage() {
             </button>
           </div>
 
-          {/* Food name overlay */}
           <div className="absolute bottom-4 left-4 right-4">
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -384,17 +374,15 @@ export default function AnalysisPage() {
                 </p>
               )}
               <p className="text-white/80 text-sm mt-1">
-                {result.source === "barcode" 
-                  ? "Product data from Open Food Facts" 
+                {result.source === "barcode"
+                  ? "Product data from Open Food Facts"
                   : `${Math.round(result.confidence * 100)}% confidence`}
               </p>
             </motion.div>
           </div>
         </div>
 
-        {/* Content */}
         <div className="p-4 space-y-4 -mt-6 relative">
-          {/* Health Score Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -403,7 +391,6 @@ export default function AnalysisPage() {
             <HealthScore score={result.healthScore} />
           </motion.div>
 
-          {/* Description */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -413,7 +400,6 @@ export default function AnalysisPage() {
             <p className="text-gray-600">{result.description}</p>
           </motion.div>
 
-          {/* Nutrition Card */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -422,7 +408,6 @@ export default function AnalysisPage() {
             <NutritionCard nutrition={result.nutrition} />
           </motion.div>
 
-          {/* Alternatives */}
           {result.alternatives.length > 0 && (
             <motion.div
               initial={{ opacity: 0, y: 20 }}
@@ -433,7 +418,6 @@ export default function AnalysisPage() {
             </motion.div>
           )}
 
-          {/* Scan Another Button */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}

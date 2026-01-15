@@ -2,13 +2,18 @@
 
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Camera, Sparkles, TrendingUp, History, ChevronRight } from "lucide-react";
+import { Camera, Sparkles, TrendingUp, History, ChevronRight, Barcode } from "lucide-react";
 import { useAppStore } from "@/lib/store";
 
 export default function HomePage() {
   const router = useRouter();
-  const { analysisHistory } = useAppStore();
+  const { analysisHistory, setCurrentAnalysis } = useAppStore();
   const recentScans = analysisHistory?.slice(0, 3) || [];
+
+  const handleScanClick = (scan: typeof recentScans[0]) => {
+    setCurrentAnalysis(scan);
+    router.push("/details");
+  };
 
   return (
     <div className="min-h-full px-5 py-6 safe-top">
@@ -111,15 +116,18 @@ export default function HomePage() {
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: 0.4 + index * 0.1 }}
-                className="flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm border border-gray-100"
+                onClick={() => handleScanClick(scan)}
+                className="flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-transform"
               >
-                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0">
-                  {scan.imageData && (
+                <div className="w-12 h-12 rounded-lg bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                  {scan.imageData ? (
                     <img
                       src={scan.imageData}
                       alt={scan.foodName}
                       className="w-full h-full object-cover"
                     />
+                  ) : (
+                    <Barcode className="w-6 h-6 text-gray-400" />
                   )}
                 </div>
                 <div className="flex-1 min-w-0">
@@ -130,7 +138,7 @@ export default function HomePage() {
                     {new Date(scan.timestamp).toLocaleDateString()}
                   </p>
                 </div>
-                <div className="flex-shrink-0">
+                <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                     scan.healthScore >= 60 ? "bg-green-100 text-green-700" :
                     scan.healthScore >= 40 ? "bg-yellow-100 text-yellow-700" :
@@ -138,6 +146,7 @@ export default function HomePage() {
                   }`}>
                     {scan.healthScore}
                   </span>
+                  <ChevronRight className="w-4 h-4 text-gray-400" />
                 </div>
               </motion.div>
             ))}

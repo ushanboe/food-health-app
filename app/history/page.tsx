@@ -1,197 +1,182 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Trash2, Clock, ChevronRight, Search } from "lucide-react";
+import { Search, Trash2, Calendar, ChevronRight, Barcode } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import { HealthScoreBadge } from "@/components/HealthScore";
-import { useState } from "react";
 
 export default function HistoryPage() {
   const router = useRouter();
-  const { analysisHistory, clearHistory } = useAppStore();
+  const { analysisHistory, clearHistory, setCurrentAnalysis } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
-  const [showClearConfirm, setShowClearConfirm] = useState(false);
 
-  // Safe access with fallback to empty array
-  const history = analysisHistory || [];
+  const filteredHistory = analysisHistory?.filter((item) =>
+    item.foodName.toLowerCase().includes(searchQuery.toLowerCase())
+  ) || [];
 
-  const filteredHistory = history.filter((scan) =>
-    scan.foodName.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const handleItemClick = (item: typeof filteredHistory[0]) => {
+    setCurrentAnalysis(item);
+    router.push("/details");
+  };
 
-  const groupedHistory = filteredHistory.reduce((groups, scan) => {
-    const date = new Date(scan.timestamp).toLocaleDateString("en-US", {
-      weekday: "long",
-      month: "short",
-      day: "numeric",
-    });
+  const handleClearHistory = () => {
+    if (confirm("Are you sure you want to clear all scan history?")) {
+      clearHistory();
+    }
+  };
+
+  const groupedHistory = filteredHistory.reduce((groups, item) => {
+    const date = new Date(item.timestamp).toLocaleDateString();
     if (!groups[date]) {
       groups[date] = [];
     }
-    groups[date].push(scan);
+    groups[date].push(item);
     return groups;
-  }, {} as Record<string, typeof history>);
-
-  const handleClearAll = () => {
-    clearHistory();
-    setShowClearConfirm(false);
-  };
+  }, {} as Record<string, typeof filteredHistory>);
 
   return (
-    <div className="min-h-full bg-gradient-to-b from-gray-50 to-white">
+    <div className="min-h-full px-5 py-6 safe-top">
       {/* Header */}
-      <div className="safe-top sticky top-0 z-40 bg-white/80 backdrop-blur-lg border-b border-gray-100">
-        <div className="px-5 py-4">
-          <div className="flex items-center justify-between mb-4">
-            <h1 className="text-2xl font-bold text-gray-800">History</h1>
-            {history.length > 0 && (
-              <button
-                onClick={() => setShowClearConfirm(true)}
-                className="text-red-500 text-sm font-medium"
-              >
-                Clear All
-              </button>
-            )}
-          </div>
-
-          {/* Search bar */}
-          {history.length > 0 && (
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search foods..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-gray-100 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
-              />
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Content */}
-      <div className="px-5 py-4 pb-24">
-        {history.length === 0 ? (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-16"
+      <motion.div
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex items-center justify-between mb-6"
+      >
+        <h1 className="text-2xl font-bold text-gray-800">Scan History</h1>
+        {filteredHistory.length > 0 && (
+          <button
+            onClick={handleClearHistory}
+            className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
           >
-            <div className="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center mb-4">
-              <Clock className="w-10 h-10 text-gray-300" />
-            </div>
-            <h2 className="text-xl font-semibold text-gray-800 mb-2">No History Yet</h2>
-            <p className="text-gray-500 text-center mb-6 max-w-xs">
-              Start scanning food items to build your history and track your eating habits.
-            </p>
-            <button
-              onClick={() => router.push("/camera")}
-              className="px-6 py-3 bg-green-500 text-white rounded-xl font-medium"
+            <Trash2 className="w-5 h-5" />
+          </button>
+        )}
+      </motion.div>
+
+      {/* Search */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ delay: 0.1 }}
+        className="relative mb-6"
+      >
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+        <input
+          type="text"
+          placeholder="Search foods..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+        />
+      </motion.div>
+
+      {/* History List */}
+      {filteredHistory.length > 0 ? (
+        <div className="space-y-6">
+          {Object.entries(groupedHistory).map(([date, items], groupIndex) => (
+            <motion.div
+              key={date}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.2 + groupIndex * 0.1 }}
             >
-              Scan Your First Food
-            </button>
-          </motion.div>
-        ) : filteredHistory.length === 0 ? (
-          <div className="text-center py-12">
-            <p className="text-gray-500">No results found for "{searchQuery}"</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {Object.entries(groupedHistory).map(([date, scans]) => (
-              <div key={date}>
-                <h3 className="text-sm font-medium text-gray-500 mb-3">{date}</h3>
-                <div className="space-y-3">
-                  {scans.map((scan, index) => (
+              <div className="flex items-center gap-2 mb-3">
+                <Calendar className="w-4 h-4 text-gray-400" />
+                <span className="text-sm font-medium text-gray-500">{date}</span>
+              </div>
+
+              <div className="space-y-3">
+                <AnimatePresence>
+                  {items.map((item, index) => (
                     <motion.div
-                      key={scan.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
+                      key={item.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      exit={{ opacity: 0, x: 20 }}
                       transition={{ delay: index * 0.05 }}
-                      className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-4"
+                      onClick={() => handleItemClick(item)}
+                      className="flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-transform"
                     >
-                      {/* Image */}
-                      <div className="w-16 h-16 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0">
-                        {scan.imageData && (
+                      <div className="w-14 h-14 rounded-xl bg-gray-100 overflow-hidden flex-shrink-0 flex items-center justify-center">
+                        {item.imageData ? (
                           <img
-                            src={scan.imageData}
-                            alt={scan.foodName}
+                            src={item.imageData}
+                            alt={item.foodName}
                             className="w-full h-full object-cover"
                           />
+                        ) : (
+                          <Barcode className="w-6 h-6 text-gray-400" />
                         )}
                       </div>
 
-                      {/* Info */}
                       <div className="flex-1 min-w-0">
-                        <h4 className="font-semibold text-gray-800 truncate">
-                          {scan.foodName}
-                        </h4>
-                        <p className="text-xs text-gray-500 mt-0.5">
-                          {scan.category}
-                        </p>
-                        <div className="flex items-center gap-2 mt-2">
-                          <HealthScoreBadge score={scan.healthScore} />
-                          <span className="text-xs text-gray-400">
-                            {Math.round(scan.calories)} kcal
+                        <h3 className="font-medium text-gray-800 truncate">
+                          {item.foodName}
+                        </h3>
+                        <div className="flex items-center gap-2 mt-1">
+                          <span className="text-xs text-gray-500">
+                            {item.calories} cal
                           </span>
+                          <span className="text-gray-300">•</span>
+                          <span className="text-xs text-gray-500">
+                            {item.category}
+                          </span>
+                          {item.source === "barcode" && (
+                            <>
+                              <span className="text-gray-300">•</span>
+                              <span className="text-xs text-green-600 flex items-center gap-0.5">
+                                <Barcode className="w-3 h-3" />
+                                Verified
+                              </span>
+                            </>
+                          )}
                         </div>
                       </div>
 
-                      {/* Actions */}
-                      <div className="flex items-center gap-2">
-                        <ChevronRight className="w-5 h-5 text-gray-300" />
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <div
+                          className={`w-10 h-10 rounded-full flex items-center justify-center text-sm font-semibold ${
+                            item.healthScore >= 60
+                              ? "bg-green-100 text-green-700"
+                              : item.healthScore >= 40
+                              ? "bg-yellow-100 text-yellow-700"
+                              : "bg-red-100 text-red-700"
+                          }`}
+                        >
+                          {item.healthScore}
+                        </div>
+                        <ChevronRight className="w-4 h-4 text-gray-400" />
                       </div>
                     </motion.div>
                   ))}
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-
-      {/* Clear confirmation modal */}
-      <AnimatePresence>
-        {showClearConfirm && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4"
-            onClick={() => setShowClearConfirm(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="bg-white rounded-2xl p-6 max-w-sm w-full"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 className="text-lg font-semibold text-gray-800 mb-2">
-                Clear All History?
-              </h3>
-              <p className="text-gray-500 text-sm mb-6">
-                This will permanently delete all your scan history. This action cannot be undone.
-              </p>
-              <div className="flex gap-3">
-                <button
-                  onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 py-3 bg-gray-100 text-gray-700 rounded-xl font-medium"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleClearAll}
-                  className="flex-1 py-3 bg-red-500 text-white rounded-xl font-medium"
-                >
-                  Clear All
-                </button>
+                </AnimatePresence>
               </div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          ))}
+        </div>
+      ) : (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="flex flex-col items-center justify-center py-16"
+        >
+          <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+            <Search className="w-8 h-8 text-gray-300" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-800 mb-1">
+            {searchQuery ? "No results found" : "No scans yet"}
+          </h3>
+          <p className="text-gray-500 text-sm text-center">
+            {searchQuery
+              ? "Try a different search term"
+              : "Start scanning food to build your history"}
+          </p>
+        </motion.div>
+      )}
+
+      {/* Bottom spacing */}
+      <div className="h-4" />
     </div>
   );
 }

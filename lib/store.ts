@@ -17,9 +17,15 @@ export interface FoodAnalysis {
   verdict: "healthy" | "moderate" | "unhealthy";
   description: string;
   alternatives: string[];
+  // Optional nutrition fields
+  sugar?: number;
+  sodium?: number;
+  servingSize?: string;
   // Barcode info
   barcode?: string;
   brandName?: string;
+  nutriScore?: string;
+  novaGroup?: number;
   source?: "ai" | "barcode";
 }
 
@@ -58,6 +64,7 @@ interface AppState {
   setIsAnalyzing: (analyzing: boolean) => void;
   setCurrentAnalysis: (analysis: FoodAnalysis | null) => void;
   addToHistory: (analysis: FoodAnalysis) => void;
+  removeFromHistory: (id: string) => void;
   clearHistory: () => void;
   updateUserProfile: (profile: Partial<UserProfile>) => void;
   updateAISettings: (settings: Partial<AISettings>) => void;
@@ -79,7 +86,7 @@ export const useAppStore = create<AppState>()(
         healthGoals: [],
       },
       aiSettings: {
-        provider: "demo", // Default to demo until user sets up API key
+        provider: "demo",
         geminiApiKey: "",
         openaiApiKey: "",
       },
@@ -92,6 +99,10 @@ export const useAppStore = create<AppState>()(
       addToHistory: (analysis) =>
         set((state) => ({
           analysisHistory: [analysis, ...state.analysisHistory].slice(0, 50),
+        })),
+      removeFromHistory: (id) =>
+        set((state) => ({
+          analysisHistory: state.analysisHistory.filter((item) => item.id !== id),
         })),
       clearHistory: () => set({ analysisHistory: [] }),
       updateUserProfile: (profile) =>
