@@ -49,7 +49,10 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
       animationRef.current = null;
     }
     if (zxingReaderRef.current) {
-      try { zxingReaderRef.current.reset(); } catch (e) {}
+      try { 
+        zxingReaderRef.current.stopContinuousDecode();
+        zxingReaderRef.current.reset(); 
+      } catch (e) {}
       zxingReaderRef.current = null;
     }
     if (streamRef.current) {
@@ -131,7 +134,7 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
     }
   }, [handleSuccessfulScan]);
 
-  // ZXing fallback
+  // ZXing fallback - using continuous decode from video element
   const startZxingScanning = useCallback(async () => {
     if (!videoRef.current) return;
     
@@ -148,10 +151,12 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
       const reader = new BrowserMultiFormatReader(hints, 300);
       zxingReaderRef.current = reader;
 
-      reader.decodeFromVideoElement(videoRef.current, (result: any) => {
+      // Use decodeFromVideoElementContinuously with callback
+      await reader.decodeFromVideoElementContinuously(videoRef.current, (result, error) => {
         if (result && mountedRef.current && !hasScannedRef.current) {
           handleSuccessfulScan(result.getText());
         }
+        // Errors are expected when no barcode is found, so we ignore them
       });
     } catch (err) {
       console.error("ZXing init failed:", err);
@@ -219,21 +224,26 @@ export function BarcodeScanner({ onScan, onClose, isActive }: BarcodeScannerProp
       if (hasNativeBarcodeDetector) {
         console.log("🚀 Using native BarcodeDetector");
         setScannerType('native');
-        // @ts-ignore
-        detectorRef.current = new window.BarcodeDetector({
-          formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128']
-        });
-        scanWithNative();
+        try {
+          // @ts-ignore - BarcodeDetector is not in TypeScript types yet
+          detectorRef.current = new window.BarcodeDetector({
+            formats: ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128']
+          });
+          scanWithNative();
+        } catch (e) {
+          console.log("Native detector failed, falling back to ZXing");
+          setScannerType('zxing');
+          startZxingScanning();
+        }
       } else {
-        console.log("📦 Using ZXing fallback");
+        console.log("📱 Using ZXing library");
         setScannerType('zxing');
         startZxingScanning();
       }
-
     } catch (err: any) {
-      console.error("Scanner error:", err);
+      console.error("Camera error:", err);
       if (mountedRef.current) {
-        setError(err.name === 'NotAllowedError' ? "Camera permission denied" : 
+        setError(err.name === 'NotAllowedError' ? "Camera permission denied" :
                  err.name === 'NotFoundError' ? "No camera found" : "Camera access failed");
         setIsScanning(false);
       }

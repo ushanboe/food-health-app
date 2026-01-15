@@ -3,10 +3,27 @@
 import { motion } from "framer-motion";
 import { Flame, Beef, Wheat, Droplets, Cookie, Leaf } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { NutritionData } from "@/lib/nutrition-api";
+
+// Accept a more flexible nutrition type
+interface NutritionInput {
+  foodName?: string;
+  calories: number;
+  protein: number;
+  carbs?: number;
+  carbohydrates?: number;
+  fat: number;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  servingSize?: string;
+  nutriScore?: string;
+  novaGroup?: number;
+  source?: string;
+  brandName?: string;
+}
 
 interface NutritionCardProps {
-  nutrition: NutritionData;
+  nutrition: NutritionInput;
   className?: string;
 }
 
@@ -20,7 +37,8 @@ interface MacroItemProps {
 }
 
 function MacroItem({ icon, label, value, unit, color, dailyValue }: MacroItemProps) {
-  const percentage = dailyValue ? Math.min((value / dailyValue) * 100, 100) : 0;
+  const safeValue = value ?? 0;
+  const percentage = dailyValue ? Math.min((safeValue / dailyValue) * 100, 100) : 0;
 
   return (
     <div className="flex flex-col items-center p-3 bg-white rounded-2xl shadow-sm">
@@ -28,7 +46,7 @@ function MacroItem({ icon, label, value, unit, color, dailyValue }: MacroItemPro
         {icon}
       </div>
       <span className="text-lg font-bold text-gray-800">
-        {value.toFixed(1)}
+        {safeValue.toFixed(1)}
         <span className="text-xs font-normal text-gray-500 ml-0.5">{unit}</span>
       </span>
       <span className="text-xs text-gray-500 mt-1">{label}</span>
@@ -39,7 +57,7 @@ function MacroItem({ icon, label, value, unit, color, dailyValue }: MacroItemPro
               initial={{ width: 0 }}
               animate={{ width: `${percentage}%` }}
               transition={{ duration: 0.5, delay: 0.2 }}
-              className={cn("h-full rounded-full", color.replace("bg-", "bg-").replace("/20", ""))}
+              className={cn("h-full rounded-full", color.replace("/20", ""))}
             />
           </div>
           <span className="text-[10px] text-gray-400 mt-0.5">{percentage.toFixed(0)}% DV</span>
@@ -50,6 +68,14 @@ function MacroItem({ icon, label, value, unit, color, dailyValue }: MacroItemPro
 }
 
 export function NutritionCard({ nutrition, className }: NutritionCardProps) {
+  // Handle both carbs and carbohydrates field names
+  const carbs = nutrition.carbs ?? nutrition.carbohydrates ?? 0;
+  const fiber = nutrition.fiber ?? 0;
+  const sugar = nutrition.sugar ?? 0;
+  const calories = nutrition.calories ?? 0;
+  const protein = nutrition.protein ?? 0;
+  const fat = nutrition.fat ?? 0;
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -71,7 +97,7 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
           <div className="w-28 h-28 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center shadow-lg">
             <div className="text-center text-white">
               <Flame className="w-6 h-6 mx-auto mb-1" />
-              <span className="text-2xl font-bold">{Math.round(nutrition.calories)}</span>
+              <span className="text-2xl font-bold">{Math.round(calories)}</span>
               <span className="text-xs block">kcal</span>
             </div>
           </div>
@@ -82,7 +108,7 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
             className="absolute -top-1 -right-1 w-8 h-8 bg-white rounded-full shadow-md flex items-center justify-center"
           >
             <span className="text-xs font-bold text-orange-500">
-              {Math.round((nutrition.calories / 2000) * 100)}%
+              {Math.round((calories / 2000) * 100)}%
             </span>
           </motion.div>
         </div>
@@ -93,7 +119,7 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
         <MacroItem
           icon={<Beef className="w-5 h-5 text-red-600" />}
           label="Protein"
-          value={nutrition.protein}
+          value={protein}
           unit="g"
           color="bg-red-100"
           dailyValue={50}
@@ -101,7 +127,7 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
         <MacroItem
           icon={<Wheat className="w-5 h-5 text-amber-600" />}
           label="Carbs"
-          value={nutrition.carbohydrates}
+          value={carbs}
           unit="g"
           color="bg-amber-100"
           dailyValue={300}
@@ -109,7 +135,7 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
         <MacroItem
           icon={<Droplets className="w-5 h-5 text-yellow-600" />}
           label="Fat"
-          value={nutrition.fat}
+          value={fat}
           unit="g"
           color="bg-yellow-100"
           dailyValue={65}
@@ -121,14 +147,14 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
         <div className="flex items-center gap-2 p-2 bg-white/70 rounded-xl">
           <Leaf className="w-4 h-4 text-green-500" />
           <div>
-            <span className="text-sm font-medium text-gray-700">{nutrition.fiber.toFixed(1)}g</span>
+            <span className="text-sm font-medium text-gray-700">{fiber.toFixed(1)}g</span>
             <span className="text-xs text-gray-500 ml-1">Fiber</span>
           </div>
         </div>
         <div className="flex items-center gap-2 p-2 bg-white/70 rounded-xl">
           <Cookie className="w-4 h-4 text-pink-500" />
           <div>
-            <span className="text-sm font-medium text-gray-700">{nutrition.sugar.toFixed(1)}g</span>
+            <span className="text-sm font-medium text-gray-700">{sugar.toFixed(1)}g</span>
             <span className="text-xs text-gray-500 ml-1">Sugar</span>
           </div>
         </div>
@@ -143,13 +169,13 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
                 key={grade}
                 className={cn(
                   "w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold text-white transition-transform",
-                  grade === nutrition.nutriScore && "scale-125 shadow-lg",
+                  grade === nutrition.nutriScore?.toUpperCase() && "scale-125 shadow-lg",
                   grade === "A" && "bg-green-600",
                   grade === "B" && "bg-lime-500",
                   grade === "C" && "bg-yellow-500",
                   grade === "D" && "bg-orange-500",
                   grade === "E" && "bg-red-500",
-                  grade !== nutrition.nutriScore && "opacity-40"
+                  grade !== nutrition.nutriScore?.toUpperCase() && "opacity-40"
                 )}
               >
                 {grade}
@@ -162,7 +188,7 @@ export function NutritionCard({ nutrition, className }: NutritionCardProps) {
       {/* Source badge */}
       <div className="mt-4 text-center">
         <span className="text-[10px] text-gray-400">
-          Data from {nutrition.source === "usda" ? "USDA FoodData Central" : "Open Food Facts"}
+          Data from {nutrition.source === "usda" ? "USDA FoodData Central" : nutrition.source === "openfoodfacts" ? "Open Food Facts" : "Nutrition Database"}
         </span>
       </div>
     </motion.div>
