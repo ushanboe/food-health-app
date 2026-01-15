@@ -1,14 +1,14 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Camera, Clock, User } from "lucide-react";
+import { Home, Camera, BookOpen, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
 const navItems = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/camera", icon: Camera, label: "Scan" },
-  { href: "/history", icon: Clock, label: "History" },
+  { href: "/diary", icon: BookOpen, label: "Diary" },
   { href: "/profile", icon: User, label: "Profile" },
 ];
 

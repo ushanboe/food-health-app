@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Share2, BookmarkPlus, AlertCircle, Barcode } from "lucide-react";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, MealType } from "@/lib/store";
 import { analyzeFood, getHealthierAlternatives } from "@/lib/ai-vision";
 import { getNutritionByName, getOpenFoodFactsNutrition, NutritionData } from "@/lib/nutrition-api";
 import { HealthScore } from "@/components/HealthScore";
@@ -62,8 +62,12 @@ export default function AnalysisPage() {
     setScannedBarcode,
     setCurrentImage,
     addToHistory,
+    addMealEntry,
     aiSettings,
   } = useAppStore();
+
+  const [showMealPicker, setShowMealPicker] = useState(false);
+  const [addedToDiary, setAddedToDiary] = useState(false);
 
   const [loading, setLoading] = useState(true);
   const [loadingMessage, setLoadingMessage] = useState("Analyzing...");
@@ -422,11 +426,63 @@ export default function AnalysisPage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5 }}
-            className="pt-4 pb-8"
+            className="pt-4 pb-8 space-y-3"
           >
+            {/* Add to Diary Button */}
+            {!addedToDiary ? (
+              <div className="relative">
+                <button
+                  onClick={() => setShowMealPicker(!showMealPicker)}
+                  className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-2xl btn-press flex items-center justify-center gap-2"
+                >
+                  <BookmarkPlus className="w-5 h-5" />
+                  Add to Food Diary
+                </button>
+                {showMealPicker && (
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-2 grid grid-cols-2 gap-2"
+                  >
+                    {(["breakfast", "lunch", "dinner", "snacks"] as MealType[]).map((meal) => (
+                      <button
+                        key={meal}
+                        onClick={() => {
+                          addMealEntry({
+                            id: `meal-${Date.now()}`,
+                            mealType: meal,
+                            foodName: result.foodName,
+                            calories: result.nutrition.calories || 0,
+                            protein: result.nutrition.protein || 0,
+                            carbs: result.nutrition.carbohydrates || result.nutrition.carbs || 0,
+                            fat: result.nutrition.fat || 0,
+                            fiber: result.nutrition.fiber,
+                            sugar: result.nutrition.sugar,
+                            servingSize: result.nutrition.servingSize,
+                            imageData: displayImage || undefined,
+                            timestamp: new Date(),
+                            sourceAnalysisId: result.barcode || undefined,
+                          });
+                          setShowMealPicker(false);
+                          setAddedToDiary(true);
+                        }}
+                        className="py-3 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg text-sm font-medium capitalize transition-colors"
+                      >
+                        {meal === "breakfast" ? "🌅" : meal === "lunch" ? "☀️" : meal === "dinner" ? "🌙" : "🍿"} {meal}
+                      </button>
+                    ))}
+                  </motion.div>
+                )}
+              </div>
+            ) : (
+              <div className="w-full py-4 bg-green-100 text-green-700 font-semibold rounded-2xl text-center">
+                ✓ Added to Diary!
+              </div>
+            )}
+
             <button
               onClick={() => router.push("/camera")}
-              className="w-full py-4 bg-green-500 text-white font-semibold rounded-2xl btn-press"
+              className="w-full py-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-2xl btn-press"
             >
               Scan Another Food
             </button>
