@@ -11,7 +11,8 @@ import { Utensils,
   ExternalLink,
   Shield,
   ChevronRight,
-  ArrowLeft
+  ArrowLeft,
+  Cloud
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
@@ -323,6 +324,25 @@ export default function SettingsPage() {
               </ul>
             </motion.div>
           )}
+
+          {/* Cloud Sync Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            onClick={() => router.push('/cloud-sync')}
+            className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100 cursor-pointer hover:border-blue-300 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl flex items-center justify-center">
+                <Cloud className="w-6 h-6 text-white" />
+              </div>
+              <div className="flex-1">
+                <h2 className="text-lg font-semibold text-gray-800">Cloud Sync</h2>
+                <p className="text-gray-500 text-sm">Backup & sync across devices</p>
+              </div>
+              <ChevronRight className="w-5 h-5 text-gray-400" />
+            </div>
+          </motion.div>
 
           {/* Help Section */}
           <div className="bg-blue-50 rounded-2xl p-4 border border-blue-100">
