@@ -19,14 +19,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
   // Function to speak text using Web Speech API
   const speak = (text: string, delay: number = 0) => {
-    // Check if speech has already been played this session
-    if (typeof window !== 'undefined') {
-      const hasSpoken = sessionStorage.getItem('nutriHasSpoken');
-      if (hasSpoken) {
-        return; // Don't speak again this session
-      }
-    }
-    
     if (!speechEnabled || typeof window === 'undefined') return;
     
     setTimeout(() => {
@@ -71,18 +63,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   };
 
   useEffect(() => {
-    // Check if this is truly the first load (speech hasn't been played)
-    if (typeof window !== 'undefined') {
-      const hasSpoken = sessionStorage.getItem('nutriHasSpoken');
-      if (hasSpoken) {
-        // Speech already played this session, disable it
-        setSpeechEnabled(false);
-      } else {
-        // Mark that speech will be played
-        sessionStorage.setItem('nutriHasSpoken', 'true');
-      }
-    }
-    
     // Set random health tip
     const tip = getRandomHealthTip();
     setHealthTip(tip);
@@ -108,7 +88,6 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       setTimeout(() => window.speechSynthesis.getVoices(), 100);
     }
 
-    // Only speak if this is the first time (checked in speak function)
     // Speak greeting after Nutri appears (3 seconds - adjusted for 12s total)
     speak(`${greetingText} I'm Nutri, your friendly health buddy!`, 3000);
     
@@ -134,7 +113,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         window.speechSynthesis.cancel();
       }
     };
-  }, [onComplete]); // Removed speechEnabled from dependencies to prevent re-triggering
+  }, [onComplete, speechEnabled]);
 
   const toggleSpeech = () => {
     setSpeechEnabled(!speechEnabled);
