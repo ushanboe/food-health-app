@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { AIProvider } from "./ai-vision";
+import { FitnessProvider, FitnessConnection, AggregatedFitnessData } from "./fitness-sync/types";
 
 export interface FoodAnalysis {
   id: string;
@@ -231,6 +232,31 @@ interface AppState {
   getDailyFitnessLog: (date: string) => DailyFitnessLog | undefined;
   getDailyCaloriesBurned: (date: string) => number;
   getNetCalories: (date: string) => number;
+
+  // Fitness Sync State (External Providers)
+  fitnessConnections: Record<FitnessProvider, FitnessConnection | null>;
+  syncedFitnessData: AggregatedFitnessData | null;
+  fitnessSyncPreferences: {
+    autoSyncEnabled: boolean;
+    syncIntervalMinutes: number;
+    syncDaysBack: number;
+    preferredStepsSource: FitnessProvider | 'manual' | 'auto';
+    preferredCaloriesSource: FitnessProvider | 'manual' | 'auto';
+  };
+  lastFitnessSyncAt: string | null;
+  isFitnessSyncing: boolean;
+  fitnessSyncError: string | null;
+
+  // Fitness Sync Actions
+  setFitnessConnection: (provider: FitnessProvider, connection: FitnessConnection | null) => void;
+  clearFitnessConnection: (provider: FitnessProvider) => void;
+  setSyncedFitnessData: (data: AggregatedFitnessData | null) => void;
+  updateFitnessSyncPreferences: (prefs: Partial<AppState['fitnessSyncPreferences']>) => void;
+  setFitnessSyncing: (syncing: boolean) => void;
+  setFitnessSyncError: (error: string | null) => void;
+  setLastFitnessSyncAt: (timestamp: string | null) => void;
+  getConnectedFitnessProviders: () => FitnessProvider[];
+  isFitnessProviderConnected: (provider: FitnessProvider) => boolean;
 }
 
 export const getTodayString = () => new Date().toISOString().split("T")[0];
@@ -291,6 +317,25 @@ export const useAppStore = create<AppState>()(
       },
       recipes: [],
       fitnessLogs: [],
+
+      // Fitness Sync State
+      fitnessConnections: {
+        google_fit: null,
+        fitbit: null,
+        strava: null,
+        garmin: null,
+      },
+      syncedFitnessData: null,
+      fitnessSyncPreferences: {
+        autoSyncEnabled: false,
+        syncIntervalMinutes: 60,
+        syncDaysBack: 7,
+        preferredStepsSource: 'auto',
+        preferredCaloriesSource: 'auto',
+      },
+      lastFitnessSyncAt: null,
+      isFitnessSyncing: false,
+      fitnessSyncError: null,
 
       setCurrentImage: (image) => set({ currentImage: image }),
       setScannedBarcode: (barcode) => set({ scannedBarcode: barcode }),
@@ -472,6 +517,51 @@ export const useAppStore = create<AppState>()(
         const consumed = get().getDailyTotals(date).calories;
         const burned = get().getDailyCaloriesBurned(date);
         return consumed - burned;
+      },
+
+      // Fitness Sync Actions
+      setFitnessConnection: (provider, connection) =>
+        set((state) => ({
+          fitnessConnections: {
+            ...state.fitnessConnections,
+            [provider]: connection,
+          },
+        })),
+
+      clearFitnessConnection: (provider) =>
+        set((state) => ({
+          fitnessConnections: {
+            ...state.fitnessConnections,
+            [provider]: null,
+          },
+        })),
+
+      setSyncedFitnessData: (data) => set({ syncedFitnessData: data }),
+
+      updateFitnessSyncPreferences: (prefs) =>
+        set((state) => ({
+          fitnessSyncPreferences: {
+            ...state.fitnessSyncPreferences,
+            ...prefs,
+          },
+        })),
+
+      setFitnessSyncing: (syncing) => set({ isFitnessSyncing: syncing }),
+
+      setFitnessSyncError: (error) => set({ fitnessSyncError: error }),
+
+      setLastFitnessSyncAt: (timestamp) => set({ lastFitnessSyncAt: timestamp }),
+
+      getConnectedFitnessProviders: () => {
+        const state = get();
+        return (Object.entries(state.fitnessConnections) as [FitnessProvider, FitnessConnection | null][])
+          .filter(([_, conn]) => conn?.isConnected)
+          .map(([provider]) => provider);
+      },
+
+      isFitnessProviderConnected: (provider) => {
+        const state = get();
+        return state.fitnessConnections[provider]?.isConnected ?? false;
       },
     }),
     {

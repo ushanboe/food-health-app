@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Camera, Sparkles, Target, ChevronRight, Barcode, Flame, Footprints, Dumbbell } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import { useFitnessSync, useFitnessDataForDate } from "@/lib/fitness-sync/hooks";
 import { ProgressRing } from "@/components/ProgressRing";
 import BottomNav from "@/components/BottomNav";
 
@@ -22,16 +23,27 @@ export default function HomePage() {
 
   const today = getTodayString();
   const todayLog = dailyLogs?.find(l => l.date === today);
+
+  // Synced fitness data from external providers
+  const { connectedProviders, syncAllProviders, isLoading: isSyncingFitness } = useFitnessSync();
+  const syncedFitnessData = useFitnessDataForDate(today);
+  const hasSyncedData = connectedProviders.length > 0;
   const todayTotals = todayLog?.meals?.reduce(
     (acc, m) => ({ calories: acc.calories + (m.calories || 0), protein: acc.protein + (m.protein || 0), carbs: acc.carbs + (m.carbs || 0), fat: acc.fat + (m.fat || 0) }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   ) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
-  // Fitness data
+  // Fitness data (manual + synced)
   const fitnessLog = getDailyFitnessLog(today);
-  const caloriesBurned = getDailyCaloriesBurned(today);
-  const steps = fitnessLog?.steps || 0;
+  const manualCaloriesBurned = getDailyCaloriesBurned(today);
+  const manualSteps = fitnessLog?.steps || 0;
   const exerciseCount = fitnessLog?.exercises?.length || 0;
+
+  // Combine manual and synced data (prefer synced if available)
+  const syncedSteps = syncedFitnessData.steps?.value || 0;
+  const syncedCalories = syncedFitnessData.calories?.value || 0;
+  const steps = Math.max(manualSteps, syncedSteps);
+  const caloriesBurned = Math.max(manualCaloriesBurned, syncedCalories);
   const netCalories = getNetCalories(today);
 
   const recentScans = analysisHistory?.slice(0, 3) || [];

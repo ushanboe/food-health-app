@@ -9,7 +9,9 @@ import {
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { useAppStore, EXERCISE_TYPES, calculateCaloriesBurned, ExerciseEntry, ExerciseCategory } from '@/lib/store';
+import { FitnessActivity } from '@/lib/fitness-sync/types';
 import BottomNav from '@/components/BottomNav';
+import SyncedActivities from '@/components/fitness/SyncedActivities';
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
 
@@ -97,6 +99,41 @@ export default function FitnessPage() {
     }
   };
 
+  // Handle importing activity from external fitness providers
+  const handleImportActivity = (activity: FitnessActivity) => {
+    const entry: ExerciseEntry = {
+      id: `imported-${activity.id}`,
+      exerciseId: activity.type.toLowerCase().replace(/\s+/g, '-'),
+      exerciseName: activity.name,
+      category: mapActivityTypeToCategory(activity.type),
+      duration: Math.round(activity.duration),
+      caloriesBurned: activity.calories || Math.round(activity.duration * 5),
+      intensity: 'moderate',
+      notes: `Imported from ${activity.source}`,
+      timestamp: new Date(activity.startTime),
+      date: new Date(activity.startTime).toISOString().split('T')[0],
+    };
+    addExerciseEntry(entry);
+  };
+
+  // Map external activity types to our categories
+  const mapActivityTypeToCategory = (type: string): ExerciseCategory => {
+    const lowerType = type.toLowerCase();
+    if (lowerType.includes('run') || lowerType.includes('walk') || lowerType.includes('cycling') || lowerType.includes('swim')) {
+      return 'cardio';
+    }
+    if (lowerType.includes('weight') || lowerType.includes('strength')) {
+      return 'strength';
+    }
+    if (lowerType.includes('yoga') || lowerType.includes('stretch')) {
+      return 'flexibility';
+    }
+    if (lowerType.includes('soccer') || lowerType.includes('basketball') || lowerType.includes('tennis')) {
+      return 'sports';
+    }
+    return 'cardio'; // Default
+  };
+
   const stepCalories = Math.round(currentSteps * 0.04);
   const exerciseCalories = caloriesBurned - stepCalories;
   const totalActiveMinutes = todayLog?.exercises.reduce((sum, e) => sum + e.duration, 0) || 0;
@@ -175,6 +212,12 @@ export default function FitnessPage() {
           </motion.div>
         </div>
       </div>
+            {/* Synced Activities from External Providers */}
+            <SyncedActivities 
+              date={today} 
+              onImportActivity={handleImportActivity}
+            />
+
 
       {/* Today's Exercises */}
       <div className="p-4">

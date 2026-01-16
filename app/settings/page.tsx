@@ -16,6 +16,7 @@ import { Utensils,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
+import FitnessConnections from "@/components/fitness/FitnessConnections";
 import { AIProvider } from "@/lib/ai-vision";
 
 const AI_PROVIDERS = [
@@ -324,6 +325,15 @@ export default function SettingsPage() {
               </ul>
             </motion.div>
           )}
+
+          {/* Fitness Connections Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="bg-white rounded-3xl p-5 shadow-sm border border-gray-100"
+          >
+            <FitnessConnections />
+          </motion.div>
 
           {/* Cloud Sync Section */}
           <motion.div
