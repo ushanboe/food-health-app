@@ -230,7 +230,7 @@ export default function ProfilePage() {
         <div className="p-4 mt-6">
           <div className="bg-gray-50 rounded-2xl p-4 text-center">
             <p className="text-2xl mb-1">🥗</p>
-            <p className="font-semibold text-gray-800">NutriScan</p>
+            <p className="font-semibold text-gray-800">FitFork</p>
             <p className="text-sm text-gray-500">Version 1.1.0</p>
             <p className="text-xs text-gray-400 mt-2">
               AI-powered food health analysis

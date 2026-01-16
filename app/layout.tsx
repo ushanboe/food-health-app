@@ -6,13 +6,13 @@ import { ClientLayout } from "@/components/ClientLayout";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "NutriScan - Food Health Analyzer",
+  title: "FitFork - Food Health Analyzer",
   description: "Scan food and get instant health analysis with nutritional information",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "NutriScan",
+    title: "FitFork",
   },
   formatDetection: {
     telephone: false,

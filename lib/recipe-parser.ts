@@ -151,7 +151,7 @@ export async function searchIngredient(query: string): Promise<any[]> {
       { 
         signal: controller.signal,
         headers: {
-          'User-Agent': 'NutriScan/1.0 (https://nutriscan.app)'
+          'User-Agent': 'FitFork/1.0 (https://fitfork.app)'
         }
       }
     );

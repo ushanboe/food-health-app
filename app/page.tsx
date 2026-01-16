@@ -8,6 +8,7 @@ import { useAppStore } from "@/lib/store";
 import { useFitnessSync, useFitnessDataForDate } from "@/lib/fitness-sync/hooks";
 import { ProgressRing } from "@/components/ProgressRing";
 import BottomNav from "@/components/BottomNav";
+import { RunningNutri } from "@/components/RunningNutri";
 
 const getTodayString = () => new Date().toISOString().split('T')[0];
 
@@ -163,6 +164,7 @@ export default function HomePage() {
         </motion.div>
       </div>
       <BottomNav />
+      <RunningNutri />
     </div>
   );
 }

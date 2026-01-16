@@ -1,6 +1,6 @@
 {
-  "name": "NutriScan - Food Health Analyzer",
-  "short_name": "NutriScan",
+  "name": "FitFork - Food Health Analyzer",
+  "short_name": "FitFork",
   "description": "Scan food and get instant health analysis with nutritional information",
   "start_url": "/",
   "display": "standalone",
