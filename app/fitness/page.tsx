@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   ArrowLeft, Plus, Flame, Footprints, Clock, Dumbbell,
@@ -40,6 +40,8 @@ export default function FitnessPage() {
   const [showAddExercise, setShowAddExercise] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<ExerciseCategory | 'all'>('all');
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const formRef = useRef<HTMLDivElement>(null);
+
   const [duration, setDuration] = useState(30);
   const [intensity, setIntensity] = useState<'light' | 'moderate' | 'vigorous'>('moderate');
   const [notes, setNotes] = useState('');
@@ -315,7 +317,10 @@ export default function FitnessPage() {
                   <motion.button
                     key={exercise.id}
                     whileTap={{ scale: 0.95 }}
-                    onClick={() => setSelectedExercise(exercise.id)}
+                    onClick={() => {
+                      setSelectedExercise(exercise.id);
+                      setTimeout(() => formRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+                    }}
                     className={`p-3 rounded-xl text-center transition-colors ${
                       selectedExercise === exercise.id
                         ? 'bg-orange-500'
@@ -330,7 +335,7 @@ export default function FitnessPage() {
 
               {/* Duration & Intensity */}
               {selectedExercise && (
-                <motion.div
+                <motion.div ref={formRef}
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   className="space-y-4"
