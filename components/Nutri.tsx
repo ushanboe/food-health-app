@@ -3,93 +3,117 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
-type NutriState = "happy" | "celebrating" | "thinking" | "sleeping" | "waving" | "running" | "walking" | "dancing";
+type NutriState = "happy" | "excited" | "waving" | "thinking" | "celebrating" | "running" | "walking" | "dancing";
 
 interface NutriProps {
   state?: NutriState;
-  message?: string;
   size?: number;
   showSparkles?: boolean;
 }
 
-export function Nutri({
-  state = "happy",
-  message,
-  size = 120,
-  showSparkles = false
-}: NutriProps) {
-  
+export function Nutri({ state = "happy", size = 120, showSparkles = false }: NutriProps) {
   // Animation variants for different states
   const animations = {
     happy: {
-      y: [0, -10, 0],
+      y: [0, -8, 0],
       rotate: [0, 5, -5, 0],
       transition: {
-        duration: 2,
+        duration: 3,  // Increased from 2
         repeat: Infinity,
         ease: "easeInOut"
       }
     },
-    celebrating: {
-      y: [0, -20, 0],
-      rotate: [0, 10, -10, 10, 0],
+    excited: {
+      y: [0, -15, 0],
       scale: [1, 1.1, 1],
       transition: {
-        duration: 0.6,
-        repeat: Infinity,
-        ease: "easeInOut"
-      }
-    },
-    thinking: {
-      rotate: [-5, 5, -5],
-      transition: {
-        duration: 1.5,
-        repeat: Infinity,
-        ease: "easeInOut"
-      }
-    },
-    sleeping: {
-      y: [0, 5, 0],
-      transition: {
-        duration: 3,
+        duration: 1,  // Increased from 0.6
         repeat: Infinity,
         ease: "easeInOut"
       }
     },
     waving: {
-      rotate: [0, 15, -15, 15, 0],
+      rotate: [0, 10, -10, 10, 0],
       transition: {
-        duration: 1,
-        repeat: 3,
+        duration: 2.5,  // Increased from 1.5
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    },
+    thinking: {
+      rotate: [0, -5, 5, -5, 0],
+      y: [0, -5, 0],
+      transition: {
+        duration: 4,  // Increased from 3
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    },
+    celebrating: {
+      rotate: [0, -15, 15, -15, 15, 0],
+      y: [0, -20, 0, -10, 0],
+      scale: [1, 1.15, 1, 1.1, 1],
+      transition: {
+        duration: 1.5,  // Increased from 1
+        repeat: Infinity,
         ease: "easeInOut"
       }
     },
     running: {
-      x: [0, 5, 0, -5, 0],
-      y: [0, -8, 0, -8, 0],
-      rotate: [0, -10, 0, 10, 0],
+      x: [0, 3, -3, 0],
+      y: [0, -6, 0],
+      rotate: [0, -3, 3, 0],
       transition: {
-        duration: 0.6,
+        duration: 1.2,  // Increased from 0.8
         repeat: Infinity,
-        ease: "linear"
+        ease: "easeInOut"
       }
     },
     walking: {
-      x: [0, 3, 0, -3, 0],
-      y: [0, -5, 0, -5, 0],
-      rotate: [0, -5, 0, 5, 0],
+      x: [0, 2, -2, 0],
+      y: [0, -3, 0],
+      rotate: [0, -2, 2, 0],
       transition: {
-        duration: 1.2,
+        duration: 2.5,  // Increased from 1.5
         repeat: Infinity,
         ease: "easeInOut"
       }
     },
     dancing: {
-      rotate: [0, -15, 15, -15, 15, 0],
-      scale: [1, 1.05, 0.95, 1.05, 0.95, 1],
-      y: [0, -10, 0, -10, 0, 0],
+      rotate: [0, -10, 10, -10, 10, 0],
+      y: [0, -8, 0, -8, 0],
+      scale: [1, 1.08, 1, 1.08, 1],
       transition: {
-        duration: 1,
+        duration: 2,  // Increased from 1.2
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    }
+  };
+
+  // Arm animations for different states
+  const armAnimations = {
+    running: {
+      rotate: [0, -25, 25, 0],
+      transition: {
+        duration: 1.2,  // Increased from 0.8
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    },
+    walking: {
+      rotate: [0, -15, 15, 0],
+      transition: {
+        duration: 2.5,  // Increased from 1.5
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    },
+    dancing: {
+      rotate: [0, 45, -45, 45, 0],
+      y: [0, -5, 5, 0],
+      transition: {
+        duration: 2,  // Increased from 1.2
         repeat: Infinity,
         ease: "easeInOut"
       }
@@ -97,215 +121,79 @@ export function Nutri({
   };
 
   return (
-    <div className="flex flex-col items-center gap-4">
-      {/* Sparkles decoration */}
+    <div className="relative" style={{ width: size, height: size }}>
+      {/* Sparkles effect */}
       {showSparkles && (
         <motion.div
-          initial={{ opacity: 0, scale: 0 }}
-          animate={{ opacity: 1, scale: 1 }}
-          className="absolute inset-0 flex items-center justify-center pointer-events-none"
+          className="absolute -top-2 -right-2 text-yellow-400"
+          animate={{
+            scale: [1, 1.3, 1],
+            rotate: [0, 180, 360],
+            opacity: [0.7, 1, 0.7]
+          }}
+          transition={{
+            duration: 2.5,  // Increased from 1.5
+            repeat: Infinity,
+            ease: "easeInOut"
+          }}
         >
-          <Sparkles className="w-8 h-8 text-yellow-400 absolute -top-4 -left-4" />
-          <Sparkles className="w-6 h-6 text-yellow-300 absolute -top-2 right-0" />
-          <Sparkles className="w-7 h-7 text-yellow-400 absolute bottom-0 -right-4" />
+          <Sparkles size={size * 0.25} />
         </motion.div>
       )}
 
-      {/* Nutri the Avocado */}
+      {/* Main avocado body */}
       <motion.div
-        initial={{ scale: 0, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1, ...animations[state] }}
-        style={{ width: size, height: size }}
-        className="relative"
+        className="relative w-full h-full"
+        animate={animations[state]}
       >
-        <svg
-          viewBox="0 0 200 200"
-          fill="none"
-          xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full drop-shadow-lg"
-        >
-          {/* Avocado body */}
-          <ellipse
-            cx="100"
-            cy="110"
-            rx="70"
-            ry="85"
-            fill="#84cc16"
-            className="drop-shadow-md"
-          />
-          
-          {/* Avocado pit (belly) */}
-          <circle
-            cx="100"
-            cy="115"
-            r="35"
-            fill="#fbbf24"
-          />
-          
-          {/* Cute face */}
-          {/* Eyes */}
-          <g>
-            {state === "sleeping" ? (
-              // Sleeping eyes (closed)
-              <>
-                <path d="M 75 85 Q 80 90 85 85" stroke="#065f46" strokeWidth="3" strokeLinecap="round" fill="none" />
-                <path d="M 115 85 Q 120 90 125 85" stroke="#065f46" strokeWidth="3" strokeLinecap="round" fill="none" />
-              </>
-            ) : (
-              // Open eyes
-              <>
-                <circle cx="80" cy="85" r="8" fill="#065f46" />
-                <circle cx="120" cy="85" r="8" fill="#065f46" />
-                {/* Eye shine */}
-                <circle cx="83" cy="82" r="3" fill="white" />
-                <circle cx="123" cy="82" r="3" fill="white" />
-              </>
-            )}
-          </g>
-          
-          {/* Mouth */}
-          {state === "celebrating" || state === "dancing" ? (
-            // Big happy smile
-            <path
-              d="M 75 105 Q 100 125 125 105"
-              stroke="#065f46"
-              strokeWidth="3"
-              strokeLinecap="round"
-              fill="none"
+        {/* Avocado shape */}
+        <div className="absolute inset-0 bg-gradient-to-br from-green-400 to-green-600 rounded-[45%] shadow-lg" />
+        
+        {/* Seed */}
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[35%] h-[35%] bg-gradient-to-br from-amber-700 to-amber-900 rounded-full shadow-inner" />
+        
+        {/* Eyes */}
+        <div className="absolute top-[35%] left-1/2 -translate-x-1/2 flex gap-[15%] w-[60%]">
+          <motion.div 
+            className="w-[30%] aspect-square bg-white rounded-full shadow-sm flex items-center justify-center"
+            animate={state === "waving" ? { scaleY: [1, 0.3, 1] } : {}}
+            transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2.5 }}  // Increased from 1.5
+          >
+            <div className="w-[45%] h-[45%] bg-gray-900 rounded-full" />
+          </motion.div>
+          <motion.div 
+            className="w-[30%] aspect-square bg-white rounded-full shadow-sm flex items-center justify-center"
+            animate={state === "waving" ? { scaleY: [1, 0.3, 1] } : {}}
+            transition={{ duration: 2.5, repeat: Infinity, repeatDelay: 2.5 }}  // Increased from 1.5
+          >
+            <div className="w-[45%] h-[45%] bg-gray-900 rounded-full" />
+          </motion.div>
+        </div>
+        
+        {/* Smile */}
+        <div className="absolute top-[58%] left-1/2 -translate-x-1/2 w-[40%] h-[15%] border-b-4 border-gray-800 rounded-b-full" />
+        
+        {/* Arms - only show for running, walking, dancing */}
+        {(state === "running" || state === "walking" || state === "dancing") && (
+          <>
+            {/* Left arm */}
+            <motion.div
+              className="absolute top-[45%] left-[8%] w-[15%] h-[8%] bg-gradient-to-br from-green-400 to-green-600 rounded-full origin-right"
+              animate={armAnimations[state]}
+              style={{ transformOrigin: "right center" }}
             />
-          ) : state === "thinking" ? (
-            // Thoughtful expression
-            <path
-              d="M 85 105 L 115 105"
-              stroke="#065f46"
-              strokeWidth="3"
-              strokeLinecap="round"
-              fill="none"
+            {/* Right arm */}
+            <motion.div
+              className="absolute top-[45%] right-[8%] w-[15%] h-[8%] bg-gradient-to-br from-green-400 to-green-600 rounded-full origin-left"
+              animate={{
+                ...armAnimations[state],
+                rotate: armAnimations[state].rotate.map((r: number) => -r)
+              }}
+              style={{ transformOrigin: "left center" }}
             />
-          ) : (
-            // Normal smile
-            <path
-              d="M 80 105 Q 100 115 120 105"
-              stroke="#065f46"
-              strokeWidth="3"
-              strokeLinecap="round"
-              fill="none"
-            />
-          )}
-          
-          {/* Rosy cheeks */}
-          <circle cx="60" cy="100" r="8" fill="#fca5a5" opacity="0.6" />
-          <circle cx="140" cy="100" r="8" fill="#fca5a5" opacity="0.6" />
-          
-          {/* Arms */}
-          {state === "waving" || state === "celebrating" || state === "dancing" ? (
-            <>
-              {/* Left arm up */}
-              <motion.path
-                d="M 40 100 Q 20 80 25 60"
-                stroke="#65a30d"
-                strokeWidth="8"
-                strokeLinecap="round"
-                fill="none"
-                animate={{ 
-                  rotate: state === "waving" ? [0, 20, -20, 0] : 
-                          state === "dancing" ? [0, 30, -30, 30, 0] : 0 
-                }}
-                transition={{ 
-                  duration: state === "dancing" ? 0.5 : 0.5, 
-                  repeat: (state === "waving" || state === "dancing") ? Infinity : 0 
-                }}
-              />
-              {/* Right arm up */}
-              <motion.path
-                d="M 160 100 Q 180 80 175 60"
-                stroke="#65a30d"
-                strokeWidth="8"
-                strokeLinecap="round"
-                fill="none"
-                animate={{ 
-                  rotate: state === "waving" ? [0, -20, 20, 0] : 
-                          state === "dancing" ? [0, -30, 30, -30, 0] : 0 
-                }}
-                transition={{ 
-                  duration: state === "dancing" ? 0.5 : 0.5, 
-                  repeat: (state === "waving" || state === "dancing") ? Infinity : 0 
-                }}
-              />
-            </>
-          ) : state === "running" || state === "walking" ? (
-            <>
-              {/* Animated running/walking arms */}
-              <motion.path
-                d="M 40 120 Q 20 130 25 145"
-                stroke="#65a30d"
-                strokeWidth="8"
-                strokeLinecap="round"
-                fill="none"
-                animate={{ 
-                  rotate: [0, 20, -20, 0],
-                }}
-                transition={{ 
-                  duration: state === "running" ? 0.3 : 0.6,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-              />
-              <motion.path
-                d="M 160 120 Q 180 130 175 145"
-                stroke="#65a30d"
-                strokeWidth="8"
-                strokeLinecap="round"
-                fill="none"
-                animate={{ 
-                  rotate: [0, -20, 20, 0],
-                }}
-                transition={{ 
-                  duration: state === "running" ? 0.3 : 0.6,
-                  repeat: Infinity,
-                  ease: "linear"
-                }}
-              />
-            </>
-          ) : (
-            <>
-              {/* Left arm down */}
-              <path
-                d="M 40 120 Q 20 130 25 145"
-                stroke="#65a30d"
-                strokeWidth="8"
-                strokeLinecap="round"
-                fill="none"
-              />
-              {/* Right arm down */}
-              <path
-                d="M 160 120 Q 180 130 175 145"
-                stroke="#65a30d"
-                strokeWidth="8"
-                strokeLinecap="round"
-                fill="none"
-              />
-            </>
-          )}
-        </svg>
+          </>
+        )}
       </motion.div>
-
-      {/* Speech bubble with message */}
-      {message && (
-        <motion.div
-          initial={{ opacity: 0, y: 10, scale: 0.9 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 0.3 }}
-          className="relative bg-white rounded-2xl px-5 py-3 shadow-lg max-w-xs"
-        >
-          {/* Speech bubble pointer */}
-          <div className="absolute -top-2 left-1/2 transform -translate-x-1/2 w-4 h-4 bg-white rotate-45" />
-          
-          <p className="text-sm text-gray-700 text-center relative z-10">
-            {message}
-          </p>
-        </motion.div>
-      )}
     </div>
   );
 }

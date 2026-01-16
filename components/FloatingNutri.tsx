@@ -92,8 +92,8 @@ export function FloatingNutri({
           exit={slideVariants[position].exit}
           transition={{
             type: "spring",
-            stiffness: 200,
-            damping: 20
+            stiffness: 100,  // Reduced from 200 for smoother motion
+            damping: 25      // Increased from 20 for less bounce
           }}
           className={`fixed ${positionClasses[position]} z-40 pointer-events-none`}
         >
