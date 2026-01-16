@@ -24,6 +24,12 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
+  // Allow ngrok for development
+  allowedDevOrigins: [
+    'https://dac21f3cbfc2.ngrok-free.app',
+    'https://*.ngrok-free.app',
+    'https://*.ngrok.io',
+  ],
 };
 
 module.exports = withPWA(nextConfig);
