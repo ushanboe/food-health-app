@@ -3,7 +3,7 @@
 import { motion } from "framer-motion";
 import { Sparkles } from "lucide-react";
 
-type NutriState = "happy" | "celebrating" | "thinking" | "sleeping" | "waving";
+type NutriState = "happy" | "celebrating" | "thinking" | "sleeping" | "waving" | "running" | "walking" | "dancing";
 
 interface NutriProps {
   state?: NutriState;
@@ -12,8 +12,8 @@ interface NutriProps {
   showSparkles?: boolean;
 }
 
-export function Nutri({ 
-  state = "happy", 
+export function Nutri({
+  state = "happy",
   message,
   size = 120,
   showSparkles = false
@@ -61,6 +61,36 @@ export function Nutri({
       transition: {
         duration: 1,
         repeat: 3,
+        ease: "easeInOut"
+      }
+    },
+    running: {
+      x: [0, 5, 0, -5, 0],
+      y: [0, -8, 0, -8, 0],
+      rotate: [0, -10, 0, 10, 0],
+      transition: {
+        duration: 0.6,
+        repeat: Infinity,
+        ease: "linear"
+      }
+    },
+    walking: {
+      x: [0, 3, 0, -3, 0],
+      y: [0, -5, 0, -5, 0],
+      rotate: [0, -5, 0, 5, 0],
+      transition: {
+        duration: 1.2,
+        repeat: Infinity,
+        ease: "easeInOut"
+      }
+    },
+    dancing: {
+      rotate: [0, -15, 15, -15, 15, 0],
+      scale: [1, 1.05, 0.95, 1.05, 0.95, 1],
+      y: [0, -10, 0, -10, 0, 0],
+      transition: {
+        duration: 1,
+        repeat: Infinity,
         ease: "easeInOut"
       }
     }
@@ -134,7 +164,7 @@ export function Nutri({
           </g>
           
           {/* Mouth */}
-          {state === "celebrating" ? (
+          {state === "celebrating" || state === "dancing" ? (
             // Big happy smile
             <path
               d="M 75 105 Q 100 125 125 105"
@@ -168,7 +198,7 @@ export function Nutri({
           <circle cx="140" cy="100" r="8" fill="#fca5a5" opacity="0.6" />
           
           {/* Arms */}
-          {state === "waving" || state === "celebrating" ? (
+          {state === "waving" || state === "celebrating" || state === "dancing" ? (
             <>
               {/* Left arm up */}
               <motion.path
@@ -177,8 +207,14 @@ export function Nutri({
                 strokeWidth="8"
                 strokeLinecap="round"
                 fill="none"
-                animate={{ rotate: state === "waving" ? [0, 20, -20, 0] : 0 }}
-                transition={{ duration: 0.5, repeat: state === "waving" ? Infinity : 0 }}
+                animate={{ 
+                  rotate: state === "waving" ? [0, 20, -20, 0] : 
+                          state === "dancing" ? [0, 30, -30, 30, 0] : 0 
+                }}
+                transition={{ 
+                  duration: state === "dancing" ? 0.5 : 0.5, 
+                  repeat: (state === "waving" || state === "dancing") ? Infinity : 0 
+                }}
               />
               {/* Right arm up */}
               <motion.path
@@ -187,8 +223,48 @@ export function Nutri({
                 strokeWidth="8"
                 strokeLinecap="round"
                 fill="none"
-                animate={{ rotate: state === "waving" ? [0, -20, 20, 0] : 0 }}
-                transition={{ duration: 0.5, repeat: state === "waving" ? Infinity : 0 }}
+                animate={{ 
+                  rotate: state === "waving" ? [0, -20, 20, 0] : 
+                          state === "dancing" ? [0, -30, 30, -30, 0] : 0 
+                }}
+                transition={{ 
+                  duration: state === "dancing" ? 0.5 : 0.5, 
+                  repeat: (state === "waving" || state === "dancing") ? Infinity : 0 
+                }}
+              />
+            </>
+          ) : state === "running" || state === "walking" ? (
+            <>
+              {/* Animated running/walking arms */}
+              <motion.path
+                d="M 40 120 Q 20 130 25 145"
+                stroke="#65a30d"
+                strokeWidth="8"
+                strokeLinecap="round"
+                fill="none"
+                animate={{ 
+                  rotate: [0, 20, -20, 0],
+                }}
+                transition={{ 
+                  duration: state === "running" ? 0.3 : 0.6,
+                  repeat: Infinity,
+                  ease: "linear"
+                }}
+              />
+              <motion.path
+                d="M 160 120 Q 180 130 175 145"
+                stroke="#65a30d"
+                strokeWidth="8"
+                strokeLinecap="round"
+                fill="none"
+                animate={{ 
+                  rotate: [0, -20, 20, 0],
+                }}
+                transition={{ 
+                  duration: state === "running" ? 0.3 : 0.6,
+                  repeat: Infinity,
+                  ease: "linear"
+                }}
               />
             </>
           ) : (
