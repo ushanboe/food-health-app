@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Nutri } from "./Nutri";
 import { getRandomHealthTip } from "@/lib/health-tips";
-import { Volume2, VolumeX } from "lucide-react";
 
 interface SplashScreenProps {
   onComplete?: () => void;
@@ -14,114 +13,90 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [healthTip, setHealthTip] = useState("");
   const [greeting, setGreeting] = useState("");
-  const [isSpeaking, setIsSpeaking] = useState(false);
-  const [speechEnabled, setSpeechEnabled] = useState(true);
 
-  // Function to speak text using Web Speech API
-  const speak = (text: string, delay: number = 0) => {
-    if (!speechEnabled || typeof window === 'undefined') return;
+  // Play motivational sound effect
+  const playSound = () => {
+    if (typeof window === 'undefined') return;
     
-    setTimeout(() => {
-      // Check if speech synthesis is supported
-      if ('speechSynthesis' in window) {
-        // Cancel any ongoing speech
-        window.speechSynthesis.cancel();
+    try {
+      // Create a simple cheerful beep using Web Audio API
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      
+      // Create oscillator for a pleasant chime sound
+      const oscillator = audioContext.createOscillator();
+      const gainNode = audioContext.createGain();
+      
+      oscillator.connect(gainNode);
+      gainNode.connect(audioContext.destination);
+      
+      // Pleasant chime frequencies (C major chord)
+      oscillator.frequency.setValueAtTime(523.25, audioContext.currentTime); // C5
+      oscillator.type = "sine";
+      
+      // Fade in and out for smooth sound
+      gainNode.gain.setValueAtTime(0, audioContext.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1);
+      gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.5);
+      
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+      
+      // Add second note for harmony
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
         
-        const utterance = new SpeechSynthesisUtterance(text);
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
         
-        // Configure voice settings for perky, motivating female voice
-        utterance.rate = 1.0; // Normal speed, clear and energetic
-        utterance.pitch = 1.3; // Higher pitch for upbeat, perky tone
-        utterance.volume = 0.9; // Slightly louder for motivation
+        osc2.frequency.setValueAtTime(659.25, audioContext.currentTime); // E5
+        osc2.type = "sine";
         
-        // Try to use a perky female voice
-        const voices = window.speechSynthesis.getVoices();
+        gain2.gain.setValueAtTime(0, audioContext.currentTime);
+        gain2.gain.linearRampToValueAtTime(0.25, audioContext.currentTime + 0.1);
+        gain2.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.4);
         
-        // Prioritize energetic female voices
-        const preferredVoice = voices.find(voice => 
-          // Look for specific perky voices
-          voice.name.includes('Samantha') || // macOS - friendly
-          voice.name.includes('Victoria') || // macOS - upbeat
-          voice.name.includes('Karen') || // macOS - energetic
-          voice.name.includes('Google US English Female') || // Google - clear
-          voice.name.includes('Microsoft Zira') || // Windows - friendly
-          voice.name.includes('Female') || // Any female voice
-          (voice.name.includes('Google') && voice.lang.startsWith('en'))
-        ) || voices.find(voice => voice.lang.startsWith('en-US'));
-        
-        if (preferredVoice) {
-          utterance.voice = preferredVoice;
-        }
-        
-        utterance.onstart = () => setIsSpeaking(true);
-        utterance.onend = () => setIsSpeaking(false);
-        utterance.onerror = () => setIsSpeaking(false);
-        
-        window.speechSynthesis.speak(utterance);
-      }
-    }, delay);
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.4);
+      }, 150);
+      
+    } catch (error) {
+      console.log('Sound playback not supported', error);
+    }
   };
 
   useEffect(() => {
     // Set random health tip
     const tip = getRandomHealthTip();
     setHealthTip(tip);
-    
-    // Set greeting based on time of day
+
+    // Set time-based greeting
     const hour = new Date().getHours();
-    let greetingText = "Hello!";
-    
-    if (hour < 12) {
-      greetingText = "Good morning!";
-    } else if (hour < 18) {
-      greetingText = "Good afternoon!";
-    } else {
-      greetingText = "Good evening!";
+    let greetingText = "Good morning";
+    if (hour >= 12 && hour < 17) {
+      greetingText = "Good afternoon";
+    } else if (hour >= 17) {
+      greetingText = "Good evening";
     }
-    
-    setGreeting(greetingText);
+    setGreeting(`${greetingText}! 👋`);
 
-    // Load voices (needed for some browsers)
-    if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.getVoices();
-      // Some browsers need a second call after a delay
-      setTimeout(() => window.speechSynthesis.getVoices(), 100);
-    }
+    // Play cheerful sound after Nutri appears (2 seconds)
+    setTimeout(() => {
+      playSound();
+    }, 2000);
 
-    // Speak greeting after Nutri appears (3 seconds - adjusted for 12s total)
-    speak(`${greetingText} I'm Nutri, your friendly health buddy!`, 3000);
-    
-    // Speak health tip exactly as shown on screen (5 seconds - adjusted for 12s total)
-    speak(`Here's a health tip for you: ${tip}`, 5000);
-
-    // Hide splash screen after 12 seconds (increased from 7)
+    // Hide splash screen after 8 seconds
     const timer = setTimeout(() => {
       setIsVisible(false);
-      // Cancel any ongoing speech when closing
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
       setTimeout(() => {
         onComplete?.();
-      }, 1000); // Longer exit animation
-    }, 12000);
+      }, 1000); // Wait for exit animation
+    }, 8000);
 
     return () => {
       clearTimeout(timer);
-      // Cleanup speech on unmount
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
     };
-  }, [onComplete, speechEnabled]);
-
-  const toggleSpeech = () => {
-    setSpeechEnabled(!speechEnabled);
-    if (speechEnabled && typeof window !== 'undefined' && 'speechSynthesis' in window) {
-      window.speechSynthesis.cancel();
-      setIsSpeaking(false);
-    }
-  };
+  }, [onComplete]);
 
   return (
     <AnimatePresence>
@@ -129,154 +104,120 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 1 }} // Slower fade
-          className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 p-6"
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1 }}
+          className="fixed inset-0 z-50 flex items-center justify-center bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50"
         >
-          {/* Speech toggle button */}
-          <motion.button
+          {/* Animated background circles */}
+          <motion.div
+            className="absolute inset-0 overflow-hidden"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            onClick={toggleSpeech}
-            className="absolute top-6 right-6 p-3 bg-white/20 backdrop-blur-sm rounded-full border border-white/30 hover:bg-white/30 transition-colors"
-            aria-label={speechEnabled ? "Mute speech" : "Enable speech"}
+            transition={{ duration: 1.5 }}
           >
-            {speechEnabled ? (
-              <Volume2 className="w-5 h-5 text-white" />
-            ) : (
-              <VolumeX className="w-5 h-5 text-white" />
-            )}
-          </motion.button>
-
-          {/* Speaking indicator */}
-          {isSpeaking && (
             <motion.div
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.8 }}
-              className="absolute top-6 left-6 flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur-sm rounded-full border border-white/30"
-            >
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity }}
-                className="w-2 h-2 bg-white rounded-full"
-              />
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: 0.2 }}
-                className="w-2 h-2 bg-white rounded-full"
-              />
-              <motion.div
-                animate={{ scale: [1, 1.2, 1] }}
-                transition={{ duration: 0.6, repeat: Infinity, delay: 0.4 }}
-                className="w-2 h-2 bg-white rounded-full"
-              />
-            </motion.div>
-          )}
-
-          {/* Animated background circles - slower for 12s duration */}
-          <motion.div
-            animate={{
-              scale: [1, 1.2, 1],
-              opacity: [0.3, 0.5, 0.3],
-            }}
-            transition={{
-              duration: 8, // Slower
-              repeat: Infinity,
-              ease: "easeInOut"
-            }}
-            className="absolute top-20 left-10 w-32 h-32 bg-white/20 rounded-full blur-xl"
-          />
-          <motion.div
-            animate={{
-              scale: [1, 1.3, 1],
-              opacity: [0.2, 0.4, 0.2],
-            }}
-            transition={{
-              duration: 10, // Slower
-              repeat: Infinity,
-              ease: "easeInOut",
-              delay: 0.5
-            }}
-            className="absolute bottom-32 right-10 w-40 h-40 bg-white/20 rounded-full blur-xl"
-          />
+              className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-200/30 rounded-full blur-3xl"
+              animate={{
+                scale: [1, 1.2, 1],
+                x: [0, 50, 0],
+                y: [0, 30, 0],
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+            <motion.div
+              className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-emerald-200/30 rounded-full blur-3xl"
+              animate={{
+                scale: [1, 1.3, 1],
+                x: [0, -50, 0],
+                y: [0, -30, 0],
+              }}
+              transition={{
+                duration: 10,
+                repeat: Infinity,
+                ease: "easeInOut",
+              }}
+            />
+          </motion.div>
 
           {/* Content */}
-          <div className="relative z-10 flex flex-col items-center gap-6 max-w-md">
-            {/* App Logo/Name - adjusted timing for 12s */}
+          <div className="relative z-10 flex flex-col items-center justify-center space-y-8 px-6 text-center">
+            {/* Logo */}
             <motion.div
-              initial={{ y: -30, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.6, duration: 1 }}
-              className="text-center"
+              initial={{ scale: 0, rotate: -180 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{
+                type: "spring",
+                stiffness: 200,
+                damping: 20,
+                delay: 0.3,
+              }}
+              className="w-24 h-24 bg-gradient-to-br from-green-400 to-emerald-500 rounded-3xl flex items-center justify-center shadow-2xl"
             >
-              <h1 className="text-5xl font-bold text-white mb-2">
-                Nutri<span className="text-yellow-300">Scan</span>
-              </h1>
-              <p className="text-white/90 text-lg">Your Health Companion</p>
+              <span className="text-5xl">🥗</span>
             </motion.div>
 
-            {/* Nutri Mascot - adjusted timing for 12s */}
+            {/* Nutri Mascot */}
             <motion.div
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ 
-                delay: 1.5, // Longer delay
-                duration: 1,
-                type: "spring", 
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{
+                type: "spring",
                 stiffness: 150,
-                damping: 15 
+                damping: 15,
+                delay: 1,
               }}
             >
-              <Nutri 
-                state="waving" 
-                size={160}
-                showSparkles
-              />
+              <Nutri state="wave" size={120} />
             </motion.div>
 
-            {/* Greeting - adjusted timing for 12s */}
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
+            {/* Greeting */}
+            <motion.h1
+              initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 3, duration: 1 }}
-              className="text-center"
+              transition={{ delay: 1.8, duration: 0.8 }}
+              className="text-4xl font-bold text-gray-800"
             >
-              <h2 className="text-2xl font-bold text-white mb-2">
-                {greeting}
-              </h2>
-              <p className="text-white/90 text-sm">I'm Nutri, your friendly health buddy! 🥑</p>
-            </motion.div>
+              {greeting}
+            </motion.h1>
 
-            {/* Health Tip - adjusted timing for 12s */}
+            {/* Health Tip */}
             <motion.div
-              initial={{ y: 20, opacity: 0 }}
+              initial={{ y: 30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 4.5, duration: 1 }}
-              className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30"
+              transition={{ delay: 2.5, duration: 0.8 }}
+              className="max-w-md"
             >
-              <p className="text-sm text-white font-medium text-center">
-                💡 <span className="font-bold">Health Tip:</span>
-              </p>
-              <p className="text-sm text-white/90 text-center mt-2">
-                {healthTip}
+              <p className="text-lg text-gray-600 leading-relaxed">
+                💡 {healthTip}
               </p>
             </motion.div>
 
-            {/* Loading indicator - adjusted timing for 12s */}
+            {/* Loading indicator */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 7, duration: 1 }}
-              className="flex items-center gap-2"
+              transition={{ delay: 3.5, duration: 0.8 }}
+              className="flex space-x-2"
             >
-              <motion.div
-                animate={{ rotate: 360 }}
-                transition={{ duration: 2, repeat: Infinity, ease: "linear" }}
-                className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full"
-              />
-              <p className="text-white/70 text-sm">Loading your health journey...</p>
+              {[0, 1, 2].map((i) => (
+                <motion.div
+                  key={i}
+                  className="w-3 h-3 bg-green-500 rounded-full"
+                  animate={{
+                    scale: [1, 1.5, 1],
+                    opacity: [0.5, 1, 0.5],
+                  }}
+                  transition={{
+                    duration: 1.5,
+                    repeat: Infinity,
+                    delay: i * 0.2,
+                  }}
+                />
+              ))}
             </motion.div>
           </div>
         </motion.div>
