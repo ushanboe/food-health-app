@@ -1,6 +1,7 @@
 // ============================================================
 // Google Fit API Client
 // https://developers.google.com/fit/rest
+// Note: OAuth is handled server-side. This client is for data fetching.
 // ============================================================
 
 import { BaseFitnessClient } from './base-client';
@@ -37,355 +38,293 @@ const ACTIVITY_TYPE_MAP: Record<number, ActivityType> = {
 };
 
 export class GoogleFitClient extends BaseFitnessClient {
-  private clientId: string;
-  private clientSecret: string;
+  private apiBaseUrl = 'https://www.googleapis.com/fitness/v1/users/me';
 
-  constructor(clientId?: string, clientSecret?: string) {
+  constructor() {
     super('google_fit');
-    this.clientId = clientId || process.env.NEXT_PUBLIC_GOOGLE_FIT_CLIENT_ID || '';
-    this.clientSecret = clientSecret || process.env.GOOGLE_FIT_CLIENT_SECRET || '';
   }
 
   // ============================================================
-  // OAuth Methods
+  // Data Fetching Methods (used after OAuth is complete)
   // ============================================================
 
-  getAuthUrl(redirectUri: string, state?: string): string {
-    const params = new URLSearchParams({
-      client_id: this.clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: this.config.scopes.join(' '),
-      access_type: 'offline',
-      prompt: 'consent',
-      ...(state && { state }),
-    });
+  async getSteps(tokens: FitnessTokens, startDate: string, endDate: string): Promise<StepData[]> {
+    const startTimeMillis = new Date(startDate).setHours(0, 0, 0, 0);
+    const endTimeMillis = new Date(endDate).setHours(23, 59, 59, 999);
 
-    return `${this.config.authUrl}?${params.toString()}`;
-  }
-
-  async exchangeCodeForTokens(
-    code: string,
-    redirectUri: string
-  ): Promise<FitnessTokens> {
-    const response = await fetch(this.config.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new FitnessSyncError(
-        `Failed to exchange code: ${error}`,
-        'google_fit',
-        'API_ERROR'
-      );
-    }
-
-    const data = await response.json();
-    const tokens: FitnessTokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: Date.now() + data.expires_in * 1000,
-      scope: data.scope,
-      tokenType: data.token_type,
-    };
-
-    this.setTokens(tokens);
-    return tokens;
-  }
-
-  async refreshAccessToken(): Promise<FitnessTokens> {
-    if (!this.tokens?.refreshToken) {
-      throw new FitnessSyncError(
-        'No refresh token available',
-        'google_fit',
-        'AUTH_REQUIRED'
-      );
-    }
-
-    const response = await fetch(this.config.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: new URLSearchParams({
-        client_id: this.clientId,
-        client_secret: this.clientSecret,
-        refresh_token: this.tokens.refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    });
-
-    if (!response.ok) {
-      throw new FitnessSyncError(
-        'Failed to refresh token',
-        'google_fit',
-        'TOKEN_REFRESH_FAILED'
-      );
-    }
-
-    const data = await response.json();
-    const tokens: FitnessTokens = {
-      accessToken: data.access_token,
-      refreshToken: this.tokens.refreshToken, // Keep existing refresh token
-      expiresAt: Date.now() + data.expires_in * 1000,
-      scope: data.scope,
-      tokenType: data.token_type,
-    };
-
-    this.setTokens(tokens);
-    return tokens;
-  }
-
-  // ============================================================
-  // Data Fetching Methods
-  // ============================================================
-
-  private getTimeRange(startDate: string, endDate: string): { startTimeMillis: string; endTimeMillis: string } {
-    const start = new Date(startDate);
-    start.setHours(0, 0, 0, 0);
-    const end = new Date(endDate);
-    end.setHours(23, 59, 59, 999);
-    
-    return {
-      startTimeMillis: start.getTime().toString(),
-      endTimeMillis: end.getTime().toString(),
-    };
-  }
-
-  async fetchSteps(startDate: string, endDate: string): Promise<StepData[]> {
-    const { startTimeMillis, endTimeMillis } = this.getTimeRange(startDate, endDate);
-    
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/dataset:aggregate`,
-      {
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/dataset:aggregate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           aggregateBy: [{
             dataTypeName: 'com.google.step_count.delta',
-            dataSourceId: DATA_SOURCES.STEPS,
           }],
           bucketByTime: { durationMillis: 86400000 }, // 1 day
-          startTimeMillis,
-          endTimeMillis,
+          startTimeMillis: startTimeMillis.toString(),
+          endTimeMillis: endTimeMillis.toString(),
         }),
+      });
+
+      if (!response.ok) {
+        throw new FitnessSyncError(
+          `Failed to fetch steps: ${response.statusText}`,
+          'google_fit',
+          'API_ERROR'
+        );
       }
-    );
 
-    const data = await response.json();
-    const steps: StepData[] = [];
+      const data = await response.json();
+      const steps: StepData[] = [];
 
-    for (const bucket of data.bucket || []) {
-      const date = new Date(parseInt(bucket.startTimeMillis)).toISOString().split('T')[0];
-      let totalSteps = 0;
+      for (const bucket of data.bucket || []) {
+        const date = new Date(parseInt(bucket.startTimeMillis)).toISOString().split('T')[0];
+        let totalSteps = 0;
 
-      for (const dataset of bucket.dataset || []) {
-        for (const point of dataset.point || []) {
-          for (const value of point.value || []) {
-            totalSteps += value.intVal || 0;
+        for (const dataset of bucket.dataset || []) {
+          for (const point of dataset.point || []) {
+            for (const value of point.value || []) {
+              if (value.intVal) {
+                totalSteps += value.intVal;
+              }
+            }
           }
+        }
+
+        if (totalSteps > 0) {
+          steps.push({
+            date,
+            steps: totalSteps,
+            source: 'google_fit',
+            syncedAt: new Date().toISOString(),
+          });
         }
       }
 
-      if (totalSteps > 0) {
-        steps.push({
-          date,
-          steps: totalSteps,
-          source: 'google_fit',
-          syncedAt: new Date().toISOString(),
-        });
-      }
+      return steps;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch steps',
+        'google_fit',
+        'NETWORK_ERROR'
+      );
     }
-
-    return steps;
   }
 
-  async fetchActivities(startDate: string, endDate: string): Promise<SyncedActivity[]> {
-    const { startTimeMillis, endTimeMillis } = this.getTimeRange(startDate, endDate);
-    
-    // Fetch activity sessions
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/sessions?startTime=${new Date(startDate).toISOString()}&endTime=${new Date(endDate + 'T23:59:59').toISOString()}`
-    );
+  async getHeartRate(tokens: FitnessTokens, startDate: string, endDate: string): Promise<HeartRateData[]> {
+    const startTimeMillis = new Date(startDate).setHours(0, 0, 0, 0);
+    const endTimeMillis = new Date(endDate).setHours(23, 59, 59, 999);
 
-    const data = await response.json();
-    const activities: SyncedActivity[] = [];
-
-    for (const session of data.session || []) {
-      const startTime = new Date(parseInt(session.startTimeMillis));
-      const endTime = new Date(parseInt(session.endTimeMillis));
-      const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      const activityType = ACTIVITY_TYPE_MAP[session.activityType] || 'other';
-
-      activities.push({
-        id: `gfit_${session.id}`,
-        externalId: session.id,
-        source: 'google_fit',
-        name: session.name || this.getActivityName(session.activityType),
-        type: activityType,
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        duration,
-        calories: session.activeTimeMillis ? Math.round(duration * 5) : undefined, // Estimate
-        imported: false,
-        syncedAt: new Date().toISOString(),
-      });
-    }
-
-    return activities;
-  }
-
-  async fetchHeartRate(startDate: string, endDate: string): Promise<HeartRateData[]> {
-    const { startTimeMillis, endTimeMillis } = this.getTimeRange(startDate, endDate);
-    
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/dataset:aggregate`,
-      {
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/dataset:aggregate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           aggregateBy: [{
             dataTypeName: 'com.google.heart_rate.bpm',
           }],
           bucketByTime: { durationMillis: 86400000 },
-          startTimeMillis,
-          endTimeMillis,
+          startTimeMillis: startTimeMillis.toString(),
+          endTimeMillis: endTimeMillis.toString(),
         }),
+      });
+
+      if (!response.ok) {
+        throw new FitnessSyncError(
+          `Failed to fetch heart rate: ${response.statusText}`,
+          'google_fit',
+          'API_ERROR'
+        );
       }
-    );
 
-    const data = await response.json();
-    const heartRates: HeartRateData[] = [];
+      const data = await response.json();
+      const heartRates: HeartRateData[] = [];
 
-    for (const bucket of data.bucket || []) {
-      const date = new Date(parseInt(bucket.startTimeMillis)).toISOString().split('T')[0];
-      const readings: number[] = [];
+      for (const bucket of data.bucket || []) {
+        const date = new Date(parseInt(bucket.startTimeMillis)).toISOString().split('T')[0];
+        const readings: number[] = [];
 
-      for (const dataset of bucket.dataset || []) {
-        for (const point of dataset.point || []) {
-          for (const value of point.value || []) {
-            if (value.fpVal) readings.push(value.fpVal);
+        for (const dataset of bucket.dataset || []) {
+          for (const point of dataset.point || []) {
+            for (const value of point.value || []) {
+              if (value.fpVal) {
+                readings.push(value.fpVal);
+              }
+            }
           }
+        }
+
+        if (readings.length > 0) {
+          heartRates.push({
+            date,
+            averageHr: Math.round(readings.reduce((a, b) => a + b, 0) / readings.length),
+            maxHr: Math.max(...readings),
+            minHr: Math.min(...readings),
+            source: 'google_fit',
+            syncedAt: new Date().toISOString(),
+          });
         }
       }
 
-      if (readings.length > 0) {
-        heartRates.push({
-          date,
-          averageHr: Math.round(readings.reduce((a, b) => a + b, 0) / readings.length),
-          maxHr: Math.max(...readings),
-          minHr: Math.min(...readings),
-          source: 'google_fit',
-          syncedAt: new Date().toISOString(),
-        });
-      }
+      return heartRates;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch heart rate',
+        'google_fit',
+        'NETWORK_ERROR'
+      );
     }
-
-    return heartRates;
   }
 
-  async fetchCalories(startDate: string, endDate: string): Promise<CaloriesData[]> {
-    const { startTimeMillis, endTimeMillis } = this.getTimeRange(startDate, endDate);
-    
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/dataset:aggregate`,
-      {
+  async getActivities(tokens: FitnessTokens, startDate: string, endDate: string): Promise<SyncedActivity[]> {
+    try {
+      const response = await fetch(
+        `${this.apiBaseUrl}/sessions?startTime=${new Date(startDate).toISOString()}&endTime=${new Date(endDate + 'T23:59:59').toISOString()}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new FitnessSyncError(
+          `Failed to fetch activities: ${response.statusText}`,
+          'google_fit',
+          'API_ERROR'
+        );
+      }
+
+      const data = await response.json();
+      const activities: SyncedActivity[] = [];
+
+      for (const session of data.session || []) {
+        const activityType = ACTIVITY_TYPE_MAP[session.activityType] || 'other';
+        const startTime = new Date(parseInt(session.startTimeMillis));
+        const endTime = new Date(parseInt(session.endTimeMillis));
+        const durationMinutes = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
+
+        activities.push({
+          id: `gfit_${session.id}`,
+          externalId: session.id,
+          source: 'google_fit',
+          type: activityType,
+          name: session.name || this.getActivityName(activityType),
+          startTime: startTime.toISOString(),
+          endTime: endTime.toISOString(),
+          duration: durationMinutes,
+          syncedAt: new Date().toISOString(),
+          imported: false,
+        });
+      }
+
+      return activities;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch activities',
+        'google_fit',
+        'NETWORK_ERROR'
+      );
+    }
+  }
+
+  async getCalories(tokens: FitnessTokens, startDate: string, endDate: string): Promise<CaloriesData[]> {
+    const startTimeMillis = new Date(startDate).setHours(0, 0, 0, 0);
+    const endTimeMillis = new Date(endDate).setHours(23, 59, 59, 999);
+
+    try {
+      const response = await fetch(`${this.apiBaseUrl}/dataset:aggregate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Authorization': `Bearer ${tokens.accessToken}`,
+          'Content-Type': 'application/json',
+        },
         body: JSON.stringify({
           aggregateBy: [{
             dataTypeName: 'com.google.calories.expended',
           }],
           bucketByTime: { durationMillis: 86400000 },
-          startTimeMillis,
-          endTimeMillis,
+          startTimeMillis: startTimeMillis.toString(),
+          endTimeMillis: endTimeMillis.toString(),
         }),
+      });
+
+      if (!response.ok) {
+        throw new FitnessSyncError(
+          `Failed to fetch calories: ${response.statusText}`,
+          'google_fit',
+          'API_ERROR'
+        );
       }
-    );
 
-    const data = await response.json();
-    const calories: CaloriesData[] = [];
+      const data = await response.json();
+      const calories: CaloriesData[] = [];
 
-    for (const bucket of data.bucket || []) {
-      const date = new Date(parseInt(bucket.startTimeMillis)).toISOString().split('T')[0];
-      let totalCalories = 0;
+      for (const bucket of data.bucket || []) {
+        const date = new Date(parseInt(bucket.startTimeMillis)).toISOString().split('T')[0];
+        let totalCalories = 0;
 
-      for (const dataset of bucket.dataset || []) {
-        for (const point of dataset.point || []) {
-          for (const value of point.value || []) {
-            totalCalories += value.fpVal || 0;
+        for (const dataset of bucket.dataset || []) {
+          for (const point of dataset.point || []) {
+            for (const value of point.value || []) {
+              if (value.fpVal) {
+                totalCalories += value.fpVal;
+              }
+            }
           }
+        }
+
+        if (totalCalories > 0) {
+          calories.push({
+            date,
+            totalBurned: Math.round(totalCalories),
+            activeCalories: Math.round(totalCalories),
+            source: 'google_fit',
+            syncedAt: new Date().toISOString(),
+          });
         }
       }
 
-      if (totalCalories > 0) {
-        calories.push({
-          date,
-          totalBurned: Math.round(totalCalories),
-          activeCalories: Math.round(totalCalories * 0.3), // Estimate active portion
-          source: 'google_fit',
-          syncedAt: new Date().toISOString(),
-        });
-      }
+      return calories;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch calories',
+        'google_fit',
+        'NETWORK_ERROR'
+      );
     }
-
-    return calories;
   }
 
-  async fetchSleep(startDate: string, endDate: string): Promise<SleepData[]> {
-    // Google Fit sleep data requires specific data source
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/sessions?startTime=${new Date(startDate).toISOString()}&endTime=${new Date(endDate + 'T23:59:59').toISOString()}&activityType=72`
-    );
-
-    const data = await response.json();
-    const sleepData: SleepData[] = [];
-
-    for (const session of data.session || []) {
-      const startTime = new Date(parseInt(session.startTimeMillis));
-      const endTime = new Date(parseInt(session.endTimeMillis));
-      const duration = Math.round((endTime.getTime() - startTime.getTime()) / 60000);
-
-      sleepData.push({
-        date: startTime.toISOString().split('T')[0],
-        startTime: startTime.toISOString(),
-        endTime: endTime.toISOString(),
-        duration,
-        source: 'google_fit',
-        syncedAt: new Date().toISOString(),
-      });
-    }
-
-    return sleepData;
+  async getSleep(tokens: FitnessTokens, startDate: string, endDate: string): Promise<SleepData[]> {
+    // Google Fit sleep data requires different approach
+    // For now, return empty array - can be implemented with sleep.read scope
+    return [];
   }
 
-  // ============================================================
-  // Helper Methods
-  // ============================================================
-
-  private getActivityName(activityType: number): string {
-    const names: Record<number, string> = {
-      7: 'Walking',
-      8: 'Running',
-      1: 'Cycling',
-      82: 'Swimming',
-      13: 'Hiking',
-      97: 'Strength Training',
-      100: 'Yoga',
-      0: 'Unknown Activity',
+  private getActivityName(type: ActivityType): string {
+    const names: Record<ActivityType, string> = {
+      walking: 'Walking',
+      running: 'Running',
+      cycling: 'Cycling',
+      swimming: 'Swimming',
+      hiking: 'Hiking',
+      strength: 'Strength Training',
+      yoga: 'Yoga',
+      cardio: 'Cardio',
+      sports: 'Sports',
+      other: 'Workout',
+      workout: 'Workout',
     };
-    return names[activityType] || 'Activity';
+    return names[type] || 'Workout';
   }
 }

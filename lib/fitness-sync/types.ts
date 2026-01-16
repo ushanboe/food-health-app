@@ -127,6 +127,8 @@ export type ActivityType =
   | 'workout'
   | 'strength'
   | 'yoga'
+  | 'cardio'
+  | 'sports'
   | 'other';
 
 export interface ActivityLap {

@@ -1,81 +1,75 @@
 // ============================================================
 // Fitness Provider Configuration
-// OAuth endpoints and settings for each fitness provider
+// Public configuration for fitness providers (no secrets!)
 // ============================================================
 
 import { FitnessProvider } from './types';
 
 export interface ProviderConfig {
   name: string;
-  clientId: string;
-  authUrl: string;
-  tokenUrl: string;
-  apiBaseUrl: string;
-  scopes: string[];
+  description: string;
+  features: string[];
+  icon: string;
+  color: string;
+  bgColor: string;
+  // Note: OAuth URLs and credentials are handled server-side only
+  // This config is safe to expose to the client
 }
 
 /**
- * Configuration for each fitness provider
- * Client IDs are loaded from environment variables
+ * Public configuration for each fitness provider
+ * No secrets or OAuth URLs - those are server-side only
  */
 export const PROVIDER_CONFIGS: Record<FitnessProvider, ProviderConfig> = {
   google_fit: {
     name: 'Google Fit',
-    clientId: process.env.NEXT_PUBLIC_GOOGLE_FIT_CLIENT_ID || '',
-    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-    tokenUrl: 'https://oauth2.googleapis.com/token',
-    apiBaseUrl: 'https://www.googleapis.com/fitness/v1/users/me',
-    scopes: [
-      'https://www.googleapis.com/auth/fitness.activity.read',
-      'https://www.googleapis.com/auth/fitness.body.read',
-      'https://www.googleapis.com/auth/fitness.heart_rate.read',
-      'https://www.googleapis.com/auth/fitness.location.read',
-    ],
+    description: 'Sync steps, workouts & calories',
+    features: ['Steps', 'Workouts', 'Calories', 'Heart Rate'],
+    icon: '🏃',
+    color: 'text-blue-600',
+    bgColor: 'bg-blue-100',
   },
   fitbit: {
     name: 'Fitbit',
-    clientId: process.env.NEXT_PUBLIC_FITBIT_CLIENT_ID || '',
-    authUrl: 'https://www.fitbit.com/oauth2/authorize',
-    tokenUrl: 'https://api.fitbit.com/oauth2/token',
-    apiBaseUrl: 'https://api.fitbit.com/1/user/-',
-    scopes: [
-      'activity',
-      'heartrate',
-      'profile',
-      'sleep',
-    ],
+    description: 'Sync activities & health metrics',
+    features: ['Steps', 'Activities', 'Heart Rate', 'Sleep'],
+    icon: '⌚',
+    color: 'text-teal-600',
+    bgColor: 'bg-teal-100',
   },
   strava: {
     name: 'Strava',
-    clientId: process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID || '',
-    authUrl: 'https://www.strava.com/oauth/authorize',
-    tokenUrl: 'https://www.strava.com/oauth/token',
-    apiBaseUrl: 'https://www.strava.com/api/v3',
-    scopes: [
-      'read',
-      'activity:read',
-    ],
+    description: 'Sync running, cycling & swimming',
+    features: ['Running', 'Cycling', 'Swimming', 'Workouts'],
+    icon: '🚴',
+    color: 'text-orange-600',
+    bgColor: 'bg-orange-100',
   },
   garmin: {
     name: 'Garmin Connect',
-    clientId: process.env.NEXT_PUBLIC_GARMIN_CLIENT_ID || '',
-    authUrl: 'https://connect.garmin.com/oauthConfirm',
-    tokenUrl: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
-    apiBaseUrl: 'https://apis.garmin.com',
-    scopes: [],
+    description: 'Sync activities & health data',
+    features: ['Steps', 'Activities', 'Heart Rate', 'Sleep'],
+    icon: '⌚',
+    color: 'text-indigo-600',
+    bgColor: 'bg-indigo-100',
   },
 };
 
 /**
- * Check if a provider is configured (has client ID)
+ * All supported providers
  */
-export function isProviderConfigured(provider: FitnessProvider): boolean {
-  return !!PROVIDER_CONFIGS[provider].clientId;
+export const ALL_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
+
+/**
+ * Get provider display name
+ */
+export function getProviderName(provider: FitnessProvider): string {
+  return PROVIDER_CONFIGS[provider]?.name || provider;
 }
 
 /**
- * Get all configured providers
+ * Get provider config
  */
-export function getConfiguredProviders(): FitnessProvider[] {
-  return (Object.keys(PROVIDER_CONFIGS) as FitnessProvider[]).filter(isProviderConfigured);
+export function getProviderConfig(provider: FitnessProvider): ProviderConfig | undefined {
+  return PROVIDER_CONFIGS[provider];
 }

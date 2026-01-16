@@ -1,6 +1,7 @@
 // ============================================================
 // Unified Fitness Sync Service
 // Aggregates data from all connected fitness providers
+// Note: OAuth is handled server-side via API routes
 // ============================================================
 
 import { GoogleFitClient } from './google-fit';
@@ -19,30 +20,13 @@ import {
   SleepData,
   FitnessSyncResult,
   AggregatedFitnessData,
-  FitnessSyncError,
 } from './types';
 
 // Storage keys
 const STORAGE_KEYS = {
   CONNECTIONS: 'fitness_connections',
-  TOKENS: 'fitness_tokens',
   LAST_SYNC: 'fitness_last_sync',
   SYNCED_DATA: 'fitness_synced_data',
-};
-
-// Simple encryption for token storage (in production, use proper encryption)
-const encryptToken = (token: string): string => {
-  if (typeof window === 'undefined') return token;
-  return btoa(token);
-};
-
-const decryptToken = (encrypted: string): string => {
-  if (typeof window === 'undefined') return encrypted;
-  try {
-    return atob(encrypted);
-  } catch {
-    return encrypted;
-  }
 };
 
 export class FitnessSyncService {
@@ -67,16 +51,16 @@ export class FitnessSyncService {
 
   async initialize(): Promise<void> {
     if (this.initialized) return;
-    
-    // Load saved connections and tokens
+
+    // Load saved connections from localStorage
     this.loadConnections();
-    this.loadTokens();
-    
+
     this.initialized = true;
   }
 
   // ============================================================
   // Connection Management
+  // Note: Actual OAuth is handled by server-side API routes
   // ============================================================
 
   getClient(provider: FitnessProvider): BaseFitnessClient | undefined {
@@ -102,141 +86,32 @@ export class FitnessSyncService {
     return connection?.isConnected ?? false;
   }
 
-  // ============================================================
-  // OAuth Flow
-  // ============================================================
-
-  getAuthUrl(provider: FitnessProvider, redirectUri: string, state?: string): string {
-    const client = this.clients.get(provider);
-    if (!client) {
-      throw new FitnessSyncError(`Unknown provider: ${provider}`, provider, 'UNKNOWN_PROVIDER');
-    }
-    return client.getAuthUrl(redirectUri, state);
+  // Called after successful OAuth callback from server
+  setConnected(provider: FitnessProvider): void {
+    const connection: FitnessConnection = {
+      provider,
+      isConnected: true,
+      connectedAt: new Date().toISOString(),
+      lastSyncAt: null,
+      syncEnabled: true,
+    };
+    this.connections.set(provider, connection);
+    this.saveConnections();
   }
 
-  async handleOAuthCallback(
-    provider: FitnessProvider,
-    code: string,
-    redirectUri: string
-  ): Promise<FitnessConnection> {
-    const client = this.clients.get(provider);
-    if (!client) {
-      throw new FitnessSyncError(`Unknown provider: ${provider}`, provider, 'UNKNOWN_PROVIDER');
-    }
-
-    try {
-      const tokens = await client.exchangeCodeForTokens(code, redirectUri);
-      
-      const connection: FitnessConnection = {
-        provider,
-        isConnected: true,
-        connectedAt: new Date().toISOString(),
-        lastSyncAt: null,
-        syncEnabled: true,
-      };
-
-      this.connections.set(provider, connection);
-      this.saveConnections();
-      this.saveTokens(provider, tokens);
-
-      return connection;
-    } catch (error) {
-      throw new FitnessSyncError(
-        `Failed to connect ${provider}: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        provider,
-        'AUTH_FAILED'
-      );
-    }
-  }
-
-  async disconnect(provider: FitnessProvider): Promise<void> {
-    const client = this.clients.get(provider);
-    if (client) {
-      client.clearTokens();
-    }
-
+  // Called after disconnect API call
+  setDisconnected(provider: FitnessProvider): void {
     this.connections.delete(provider);
     this.saveConnections();
-    this.removeTokens(provider);
   }
 
-  // ============================================================
-  // Data Syncing
-  // ============================================================
-
-  async syncProvider(
-    provider: FitnessProvider,
-    startDate: string,
-    endDate: string
-  ): Promise<FitnessSyncResult> {
-    const client = this.clients.get(provider);
+  updateLastSync(provider: FitnessProvider): void {
     const connection = this.connections.get(provider);
-
-    if (!client || !connection?.isConnected) {
-      return {
-        provider,
-        success: false,
-        error: 'Provider not connected',
-        syncedAt: new Date().toISOString(),
-      };
-    }
-
-    try {
-      // Ensure tokens are valid
-      await client.ensureValidToken();
-
-      // Fetch all data types in parallel
-      const [steps, activities, heartRate, calories, sleep] = await Promise.all([
-        client.fetchSteps(startDate, endDate).catch(() => []),
-        client.fetchActivities(startDate, endDate).catch(() => []),
-        client.fetchHeartRate(startDate, endDate).catch(() => []),
-        client.fetchCalories(startDate, endDate).catch(() => []),
-        client.fetchSleep(startDate, endDate).catch(() => []),
-      ]);
-
-      const result: FitnessSyncResult = {
-        provider,
-        success: true,
-        syncedAt: new Date().toISOString(),
-        data: {
-          steps,
-          activities,
-          heartRate,
-          calories,
-          sleep,
-        },
-      };
-
-      // Update connection last sync time
-      connection.lastSyncAt = result.syncedAt;
+    if (connection) {
+      connection.lastSyncAt = new Date().toISOString();
       this.connections.set(provider, connection);
       this.saveConnections();
-
-      return result;
-    } catch (error) {
-      return {
-        provider,
-        success: false,
-        error: error instanceof Error ? error.message : 'Sync failed',
-        syncedAt: new Date().toISOString(),
-      };
     }
-  }
-
-  async syncAll(
-    startDate: string,
-    endDate: string
-  ): Promise<FitnessSyncResult[]> {
-    const connectedProviders = this.getConnectedProviders();
-    
-    const results = await Promise.all(
-      connectedProviders.map(provider => this.syncProvider(provider, startDate, endDate))
-    );
-
-    // Save aggregated data
-    this.saveLastSyncData(results);
-
-    return results;
   }
 
   // ============================================================
@@ -244,7 +119,6 @@ export class FitnessSyncService {
   // ============================================================
 
   aggregateData(results: FitnessSyncResult[]): AggregatedFitnessData {
-    // Use internal type with required arrays for aggregation
     const aggregated = {
       steps: [] as StepData[],
       activities: [] as SyncedActivity[],
@@ -286,7 +160,6 @@ export class FitnessSyncService {
       for (const hr of result.data?.heartRate || []) {
         const existing = aggregated.heartRate.find(h => h.date === hr.date);
         if (existing) {
-          // Average the values
           if (hr.averageHr && existing.averageHr) {
             existing.averageHr = Math.round((existing.averageHr + hr.averageHr) / 2);
           } else if (hr.averageHr) {
@@ -339,12 +212,12 @@ export class FitnessSyncService {
   }
 
   // ============================================================
-  // Storage Methods
+  // Storage Methods (localStorage for connection state)
   // ============================================================
 
   private loadConnections(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.CONNECTIONS);
       if (stored) {
@@ -360,7 +233,7 @@ export class FitnessSyncService {
 
   private saveConnections(): void {
     if (typeof window === 'undefined') return;
-    
+
     try {
       const connections = Array.from(this.connections.values());
       localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connections));
@@ -369,69 +242,9 @@ export class FitnessSyncService {
     }
   }
 
-  private loadTokens(): void {
+  saveLastSyncData(results: FitnessSyncResult[]): void {
     if (typeof window === 'undefined') return;
-    
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TOKENS);
-      if (stored) {
-        const tokens: Record<FitnessProvider, FitnessTokens> = JSON.parse(stored);
-        for (const [provider, encryptedTokens] of Object.entries(tokens)) {
-          const client = this.clients.get(provider as FitnessProvider);
-          if (client && encryptedTokens) {
-            const decryptedTokens = {
-              ...encryptedTokens,
-              accessToken: decryptToken(encryptedTokens.accessToken),
-              refreshToken: encryptedTokens.refreshToken 
-                ? decryptToken(encryptedTokens.refreshToken) 
-                : undefined,
-            } as FitnessTokens;
-            client.setTokens(decryptedTokens);
-          }
-        }
-      }
-    } catch (error) {
-      console.warn('Failed to load fitness tokens:', error);
-    }
-  }
 
-  private saveTokens(provider: FitnessProvider, tokens: FitnessTokens): void {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TOKENS);
-      const allTokens: Record<string, FitnessTokens> = stored ? JSON.parse(stored) : {};
-      
-      allTokens[provider] = {
-        ...tokens,
-        accessToken: encryptToken(tokens.accessToken),
-        refreshToken: tokens.refreshToken ? encryptToken(tokens.refreshToken) : undefined,
-      } as FitnessTokens;
-      
-      localStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(allTokens));
-    } catch (error) {
-      console.warn('Failed to save fitness tokens:', error);
-    }
-  }
-
-  private removeTokens(provider: FitnessProvider): void {
-    if (typeof window === 'undefined') return;
-    
-    try {
-      const stored = localStorage.getItem(STORAGE_KEYS.TOKENS);
-      if (stored) {
-        const allTokens: Record<string, FitnessTokens> = JSON.parse(stored);
-        delete allTokens[provider];
-        localStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(allTokens));
-      }
-    } catch (error) {
-      console.warn('Failed to remove fitness tokens:', error);
-    }
-  }
-
-  private saveLastSyncData(results: FitnessSyncResult[]): void {
-    if (typeof window === 'undefined') return;
-    
     try {
       const aggregated = this.aggregateData(results);
       localStorage.setItem(STORAGE_KEYS.SYNCED_DATA, JSON.stringify(aggregated));
@@ -443,7 +256,7 @@ export class FitnessSyncService {
 
   getLastSyncData(): AggregatedFitnessData | null {
     if (typeof window === 'undefined') return null;
-    
+
     try {
       const stored = localStorage.getItem(STORAGE_KEYS.SYNCED_DATA);
       return stored ? JSON.parse(stored) : null;

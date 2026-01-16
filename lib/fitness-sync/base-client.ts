@@ -1,12 +1,12 @@
 // ============================================================
 // Base Fitness Client
 // Abstract base class for all fitness provider clients
+// Note: OAuth is handled server-side. This client is for data fetching.
 // ============================================================
 
 import {
   FitnessProvider,
   FitnessTokens,
-  FitnessConnection,
   SyncOptions,
   SyncResult,
   StepData,
@@ -21,7 +21,7 @@ import {
 export abstract class BaseFitnessClient {
   protected provider: FitnessProvider;
   protected tokens: FitnessTokens | null = null;
-  
+
   constructor(provider: FitnessProvider) {
     this.provider = provider;
   }
@@ -31,7 +31,7 @@ export abstract class BaseFitnessClient {
   }
 
   // ============================================================
-  // Token Management
+  // Token Management (tokens are set from server-side OAuth)
   // ============================================================
 
   setTokens(tokens: FitnessTokens): void {
@@ -46,21 +46,8 @@ export abstract class BaseFitnessClient {
     this.tokens = null;
   }
 
-  async ensureValidToken(): Promise<void> {
-    if (!this.tokens) {
-      throw new FitnessSyncError(
-        'Not authenticated',
-        this.provider,
-        'AUTH_REQUIRED'
-      );
-    }
-    if (this.isTokenExpired()) {
-      await this.refreshAccessToken();
-    }
-  }
-
-  isAuthenticated(): boolean {
-    return this.tokens !== null && this.tokens.expiresAt > Date.now();
+  hasValidTokens(): boolean {
+    return this.tokens !== null && !this.isTokenExpired();
   }
 
   isTokenExpired(): boolean {
@@ -70,60 +57,51 @@ export abstract class BaseFitnessClient {
   }
 
   // ============================================================
-  // OAuth Flow Methods (to be implemented by subclasses)
-  // ============================================================
-
-  abstract getAuthUrl(redirectUri: string, state?: string): string;
-  
-  abstract exchangeCodeForTokens(
-    code: string,
-    redirectUri: string
-  ): Promise<FitnessTokens>;
-  
-  abstract refreshAccessToken(): Promise<FitnessTokens>;
-
-  // ============================================================
   // Data Fetching Methods (to be implemented by subclasses)
+  // These methods receive tokens as parameters since OAuth is server-side
   // ============================================================
 
-  abstract fetchSteps(startDate: string, endDate: string): Promise<StepData[]>;
-  
-  abstract fetchActivities(
+  abstract getSteps(
+    tokens: FitnessTokens,
+    startDate: string,
+    endDate: string
+  ): Promise<StepData[]>;
+
+  abstract getActivities(
+    tokens: FitnessTokens,
     startDate: string,
     endDate: string
   ): Promise<SyncedActivity[]>;
-  
-  abstract fetchHeartRate(
+
+  abstract getHeartRate(
+    tokens: FitnessTokens,
     startDate: string,
     endDate: string
   ): Promise<HeartRateData[]>;
-  
-  abstract fetchCalories(
+
+  abstract getCalories(
+    tokens: FitnessTokens,
     startDate: string,
     endDate: string
   ): Promise<CaloriesData[]>;
-  
-  abstract fetchSleep(
+
+  abstract getSleep(
+    tokens: FitnessTokens,
     startDate: string,
     endDate: string
   ): Promise<SleepData[]>;
 
   // ============================================================
-  // Unified Sync Method
+  // Unified Sync Method (uses tokens passed in)
   // ============================================================
 
-  async sync(options: SyncOptions = {}): Promise<SyncResult> {
+  async sync(tokens: FitnessTokens, options: SyncOptions = {}): Promise<SyncResult> {
     const now = new Date();
     const endDate = options.endDate || now.toISOString().split('T')[0];
-    const startDate = options.startDate || 
+    const startDate = options.startDate ||
       new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
 
     try {
-      // Check and refresh token if needed
-      if (this.isTokenExpired()) {
-        await this.refreshAccessToken();
-      }
-
       const features = options.features || this.config.features;
       const result: SyncResult = {
         provider: this.provider,
@@ -135,7 +113,7 @@ export abstract class BaseFitnessClient {
       // Fetch data based on requested features
       if (features.includes('steps')) {
         try {
-          result.data!.steps = await this.fetchSteps(startDate, endDate);
+          result.data!.steps = await this.getSteps(tokens, startDate, endDate);
         } catch (e) {
           console.warn(`Failed to fetch steps from ${this.provider}:`, e);
         }
@@ -143,7 +121,7 @@ export abstract class BaseFitnessClient {
 
       if (features.some(f => ['workouts', 'running', 'cycling', 'swimming'].includes(f))) {
         try {
-          result.data!.activities = await this.fetchActivities(startDate, endDate);
+          result.data!.activities = await this.getActivities(tokens, startDate, endDate);
         } catch (e) {
           console.warn(`Failed to fetch activities from ${this.provider}:`, e);
         }
@@ -151,7 +129,7 @@ export abstract class BaseFitnessClient {
 
       if (features.includes('heart_rate')) {
         try {
-          result.data!.heartRate = await this.fetchHeartRate(startDate, endDate);
+          result.data!.heartRate = await this.getHeartRate(tokens, startDate, endDate);
         } catch (e) {
           console.warn(`Failed to fetch heart rate from ${this.provider}:`, e);
         }
@@ -159,7 +137,7 @@ export abstract class BaseFitnessClient {
 
       if (features.includes('calories')) {
         try {
-          result.data!.calories = await this.fetchCalories(startDate, endDate);
+          result.data!.calories = await this.getCalories(tokens, startDate, endDate);
         } catch (e) {
           console.warn(`Failed to fetch calories from ${this.provider}:`, e);
         }
@@ -167,7 +145,7 @@ export abstract class BaseFitnessClient {
 
       if (features.includes('sleep')) {
         try {
-          result.data!.sleep = await this.fetchSleep(startDate, endDate);
+          result.data!.sleep = await this.getSleep(tokens, startDate, endDate);
         } catch (e) {
           console.warn(`Failed to fetch sleep from ${this.provider}:`, e);
         }
@@ -185,79 +163,19 @@ export abstract class BaseFitnessClient {
   }
 
   // ============================================================
-  // HTTP Helper Methods
+  // Helper Methods
   // ============================================================
-
-  protected async fetchWithAuth(
-    url: string,
-    options: RequestInit = {}
-  ): Promise<Response> {
-    if (!this.tokens) {
-      throw new FitnessSyncError(
-        'Not authenticated',
-        this.provider,
-        'AUTH_REQUIRED'
-      );
-    }
-
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        Authorization: `Bearer ${this.tokens.accessToken}`,
-      },
-    });
-
-    if (response.status === 401) {
-      // Try to refresh token
-      try {
-        await this.refreshAccessToken();
-        // Retry request with new token
-        return fetch(url, {
-          ...options,
-          headers: {
-            ...options.headers,
-            Authorization: `Bearer ${this.tokens.accessToken}`,
-          },
-        });
-      } catch {
-        throw new FitnessSyncError(
-          'Token refresh failed',
-          this.provider,
-          'TOKEN_REFRESH_FAILED'
-        );
-      }
-    }
-
-    if (response.status === 429) {
-      throw new FitnessSyncError(
-        'Rate limited',
-        this.provider,
-        'RATE_LIMITED'
-      );
-    }
-
-    if (!response.ok) {
-      throw new FitnessSyncError(
-        `API error: ${response.status}`,
-        this.provider,
-        'API_ERROR'
-      );
-    }
-
-    return response;
-  }
 
   protected getDateRange(startDate: string, endDate: string): string[] {
     const dates: string[] = [];
     const current = new Date(startDate);
     const end = new Date(endDate);
-    
+
     while (current <= end) {
       dates.push(current.toISOString().split('T')[0]);
       current.setDate(current.getDate() + 1);
     }
-    
+
     return dates;
   }
 }

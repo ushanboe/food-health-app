@@ -1,6 +1,7 @@
 // ============================================================
 // Fitbit API Client
 // https://dev.fitbit.com/build/reference/web-api/
+// Note: OAuth is handled server-side. This client is for data fetching.
 // ============================================================
 
 import { BaseFitnessClient } from './base-client';
@@ -13,12 +14,10 @@ import {
   SleepData,
   ActivityType,
   FitnessSyncError,
-  HeartRateZone,
-  SleepStage,
 } from './types';
 
 // Fitbit activity type mapping
-const FITBIT_ACTIVITY_MAP: Record<string, ActivityType> = {
+const ACTIVITY_TYPE_MAP: Record<string, ActivityType> = {
   'Walk': 'walking',
   'Run': 'running',
   'Bike': 'cycling',
@@ -26,319 +25,279 @@ const FITBIT_ACTIVITY_MAP: Record<string, ActivityType> = {
   'Hike': 'hiking',
   'Weights': 'strength',
   'Yoga': 'yoga',
-  'Workout': 'workout',
-  'Sport': 'other',
+  'Aerobic Workout': 'cardio',
+  'Sport': 'sports',
 };
 
 export class FitbitClient extends BaseFitnessClient {
-  private clientId: string;
-  private clientSecret: string;
+  private apiBaseUrl = 'https://api.fitbit.com/1/user/-';
 
-  constructor(clientId?: string, clientSecret?: string) {
+  constructor() {
     super('fitbit');
-    this.clientId = clientId || process.env.NEXT_PUBLIC_FITBIT_CLIENT_ID || '';
-    this.clientSecret = clientSecret || process.env.FITBIT_CLIENT_SECRET || '';
   }
 
   // ============================================================
-  // OAuth Methods
+  // Data Fetching Methods (used after OAuth is complete)
   // ============================================================
 
-  getAuthUrl(redirectUri: string, state?: string): string {
-    const params = new URLSearchParams({
-      client_id: this.clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: this.config.scopes.join(' '),
-      ...(state && { state }),
-    });
-
-    return `${this.config.authUrl}?${params.toString()}`;
-  }
-
-  async exchangeCodeForTokens(
-    code: string,
-    redirectUri: string
-  ): Promise<FitnessTokens> {
-    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-    
-    const response = await fetch(this.config.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${credentials}`,
-      },
-      body: new URLSearchParams({
-        code,
-        grant_type: 'authorization_code',
-        redirect_uri: redirectUri,
-      }),
-    });
-
-    if (!response.ok) {
-      const error = await response.text();
-      throw new FitnessSyncError(
-        `Failed to exchange code: ${error}`,
-        'fitbit',
-        'API_ERROR'
+  async getSteps(tokens: FitnessTokens, startDate: string, endDate: string): Promise<StepData[]> {
+    try {
+      const response = await fetch(
+        `${this.apiBaseUrl}/activities/steps/date/${startDate}/${endDate}.json`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.accessToken}`,
+          },
+        }
       );
-    }
 
-    const data = await response.json();
-    const tokens: FitnessTokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: Date.now() + data.expires_in * 1000,
-      scope: data.scope,
-      tokenType: data.token_type,
-    };
-
-    this.setTokens(tokens);
-    return tokens;
-  }
-
-  async refreshAccessToken(): Promise<FitnessTokens> {
-    if (!this.tokens?.refreshToken) {
-      throw new FitnessSyncError(
-        'No refresh token available',
-        'fitbit',
-        'AUTH_REQUIRED'
-      );
-    }
-
-    const credentials = Buffer.from(`${this.clientId}:${this.clientSecret}`).toString('base64');
-
-    const response = await fetch(this.config.tokenUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/x-www-form-urlencoded',
-        'Authorization': `Basic ${credentials}`,
-      },
-      body: new URLSearchParams({
-        refresh_token: this.tokens.refreshToken,
-        grant_type: 'refresh_token',
-      }),
-    });
-
-    if (!response.ok) {
-      throw new FitnessSyncError(
-        'Failed to refresh token',
-        'fitbit',
-        'TOKEN_REFRESH_FAILED'
-      );
-    }
-
-    const data = await response.json();
-    const tokens: FitnessTokens = {
-      accessToken: data.access_token,
-      refreshToken: data.refresh_token,
-      expiresAt: Date.now() + data.expires_in * 1000,
-      scope: data.scope,
-      tokenType: data.token_type,
-    };
-
-    this.setTokens(tokens);
-    return tokens;
-  }
-
-  // ============================================================
-  // Data Fetching Methods
-  // ============================================================
-
-  async fetchSteps(startDate: string, endDate: string): Promise<StepData[]> {
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/activities/steps/date/${startDate}/${endDate}.json`
-    );
-
-    const data = await response.json();
-    const steps: StepData[] = [];
-
-    for (const entry of data['activities-steps'] || []) {
-      const stepCount = parseInt(entry.value);
-      if (stepCount > 0) {
-        steps.push({
-          date: entry.dateTime,
-          steps: stepCount,
-          source: 'fitbit',
-          syncedAt: new Date().toISOString(),
-        });
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new FitnessSyncError('Token expired', 'fitbit', 'TOKEN_EXPIRED');
+        }
+        throw new FitnessSyncError(
+          `Failed to fetch steps: ${response.statusText}`,
+          'fitbit',
+          'API_ERROR'
+        );
       }
-    }
 
-    return steps;
+      const data = await response.json();
+      const steps: StepData[] = [];
+
+      for (const entry of data['activities-steps'] || []) {
+        const stepCount = parseInt(entry.value);
+        if (stepCount > 0) {
+          steps.push({
+            date: entry.dateTime,
+            steps: stepCount,
+            source: 'fitbit',
+            syncedAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      return steps;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch steps',
+        'fitbit',
+        'NETWORK_ERROR'
+      );
+    }
   }
 
-  async fetchActivities(startDate: string, endDate: string): Promise<SyncedActivity[]> {
+  async getHeartRate(tokens: FitnessTokens, startDate: string, endDate: string): Promise<HeartRateData[]> {
+    try {
+      const response = await fetch(
+        `${this.apiBaseUrl}/activities/heart/date/${startDate}/${endDate}.json`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new FitnessSyncError('Token expired', 'fitbit', 'TOKEN_EXPIRED');
+        }
+        throw new FitnessSyncError(
+          `Failed to fetch heart rate: ${response.statusText}`,
+          'fitbit',
+          'API_ERROR'
+        );
+      }
+
+      const data = await response.json();
+      const heartRates: HeartRateData[] = [];
+
+      for (const entry of data['activities-heart'] || []) {
+        if (entry.value?.restingHeartRate) {
+          heartRates.push({
+            date: entry.dateTime,
+            restingHr: entry.value.restingHeartRate,
+            source: 'fitbit',
+            syncedAt: new Date().toISOString(),
+          });
+        }
+      }
+
+      return heartRates;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch heart rate',
+        'fitbit',
+        'NETWORK_ERROR'
+      );
+    }
+  }
+
+  async getActivities(tokens: FitnessTokens, startDate: string, endDate: string): Promise<SyncedActivity[]> {
     const activities: SyncedActivity[] = [];
     const dates = this.getDateRange(startDate, endDate);
 
     // Fitbit requires fetching activities day by day
-    for (const date of dates) {
+    // Limit to 7 days to avoid rate limits
+    for (const date of dates.slice(0, 7)) {
       try {
-        const response = await this.fetchWithAuth(
-          `${this.config.apiBaseUrl}/activities/date/${date}.json`
+        const response = await fetch(
+          `${this.apiBaseUrl}/activities/date/${date}.json`,
+          {
+            headers: {
+              'Authorization': `Bearer ${tokens.accessToken}`,
+            },
+          }
         );
+
+        if (!response.ok) {
+          if (response.status === 401) {
+            throw new FitnessSyncError('Token expired', 'fitbit', 'TOKEN_EXPIRED');
+          }
+          continue; // Skip this day on error
+        }
 
         const data = await response.json();
 
         for (const activity of data.activities || []) {
-          const activityType = this.mapActivityType(activity.name);
-          
+          const activityType = ACTIVITY_TYPE_MAP[activity.name] || 'other';
+
           activities.push({
             id: `fitbit_${activity.logId}`,
             externalId: activity.logId.toString(),
             source: 'fitbit',
-            name: activity.name,
             type: activityType,
+            name: activity.name,
             startTime: `${date}T${activity.startTime || '00:00:00'}`,
             duration: activity.duration ? Math.round(activity.duration / 60000) : 0,
             calories: activity.calories,
-            distance: activity.distance ? activity.distance * 1000 : undefined, // Convert km to m
-            averageHeartRate: activity.averageHeartRate,
+            distance: activity.distance ? activity.distance * 1000 : undefined, // Convert to meters
             steps: activity.steps,
-            imported: false,
             syncedAt: new Date().toISOString(),
+            imported: false,
           });
         }
       } catch (error) {
-        console.warn(`Failed to fetch Fitbit activities for ${date}:`, error);
+        if (error instanceof FitnessSyncError && error.code === 'TOKEN_EXPIRED') {
+          throw error;
+        }
+        // Continue with other days on error
+        continue;
       }
     }
 
     return activities;
   }
 
-  async fetchHeartRate(startDate: string, endDate: string): Promise<HeartRateData[]> {
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/activities/heart/date/${startDate}/${endDate}.json`
-    );
+  async getCalories(tokens: FitnessTokens, startDate: string, endDate: string): Promise<CaloriesData[]> {
+    try {
+      const response = await fetch(
+        `${this.apiBaseUrl}/activities/calories/date/${startDate}/${endDate}.json`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.accessToken}`,
+          },
+        }
+      );
 
-    const data = await response.json();
-    const heartRates: HeartRateData[] = [];
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new FitnessSyncError('Token expired', 'fitbit', 'TOKEN_EXPIRED');
+        }
+        throw new FitnessSyncError(
+          `Failed to fetch calories: ${response.statusText}`,
+          'fitbit',
+          'API_ERROR'
+        );
+      }
 
-    for (const entry of data['activities-heart'] || []) {
-      const value = entry.value;
-      if (!value) continue;
+      const data = await response.json();
+      const calories: CaloriesData[] = [];
 
-      const zones: HeartRateZone[] = (value.heartRateZones || []).map((zone: any) => ({
-        name: zone.name,
-        min: zone.min,
-        max: zone.max,
-        minutes: zone.minutes || 0,
-      }));
+      for (const entry of data['activities-calories'] || []) {
+        const totalCalories = parseInt(entry.value);
+        if (totalCalories > 0) {
+          calories.push({
+            date: entry.dateTime,
+            totalBurned: totalCalories,
+            activeCalories: totalCalories,
+            source: 'fitbit',
+            syncedAt: new Date().toISOString(),
+          });
+        }
+      }
 
-      heartRates.push({
-        date: entry.dateTime,
-        restingHr: value.restingHeartRate,
-        zones,
-        source: 'fitbit',
-        syncedAt: new Date().toISOString(),
-      });
+      return calories;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch calories',
+        'fitbit',
+        'NETWORK_ERROR'
+      );
     }
-
-    return heartRates;
   }
 
-  async fetchCalories(startDate: string, endDate: string): Promise<CaloriesData[]> {
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/activities/calories/date/${startDate}/${endDate}.json`
-    );
+  async getSleep(tokens: FitnessTokens, startDate: string, endDate: string): Promise<SleepData[]> {
+    try {
+      const response = await fetch(
+        `${this.apiBaseUrl}/sleep/date/${startDate}/${endDate}.json`,
+        {
+          headers: {
+            'Authorization': `Bearer ${tokens.accessToken}`,
+          },
+        }
+      );
 
-    const data = await response.json();
-    const calories: CaloriesData[] = [];
+      if (!response.ok) {
+        if (response.status === 401) {
+          throw new FitnessSyncError('Token expired', 'fitbit', 'TOKEN_EXPIRED');
+        }
+        throw new FitnessSyncError(
+          `Failed to fetch sleep: ${response.statusText}`,
+          'fitbit',
+          'API_ERROR'
+        );
+      }
 
-    for (const entry of data['activities-calories'] || []) {
-      const totalBurned = parseInt(entry.value);
-      if (totalBurned > 0) {
-        calories.push({
-          date: entry.dateTime,
-          totalBurned,
-          activeCalories: Math.round(totalBurned * 0.3), // Estimate
+      const data = await response.json();
+      const sleepData: SleepData[] = [];
+
+      for (const sleep of data.sleep || []) {
+        sleepData.push({
+          date: sleep.dateOfSleep,
+          startTime: sleep.startTime,
+          endTime: sleep.endTime,
+          duration: sleep.duration ? Math.round(sleep.duration / 60000) : 0,
+          efficiency: sleep.efficiency,
           source: 'fitbit',
           syncedAt: new Date().toISOString(),
         });
       }
+
+      return sleepData;
+    } catch (error) {
+      if (error instanceof FitnessSyncError) throw error;
+      throw new FitnessSyncError(
+        error instanceof Error ? error.message : 'Failed to fetch sleep',
+        'fitbit',
+        'NETWORK_ERROR'
+      );
+    }
+  }
+
+  protected getDateRange(startDate: string, endDate: string): string[] {
+    const dates: string[] = [];
+    const current = new Date(startDate);
+    const end = new Date(endDate);
+
+    while (current <= end) {
+      dates.push(current.toISOString().split('T')[0]);
+      current.setDate(current.getDate() + 1);
     }
 
-    return calories;
-  }
-
-  async fetchSleep(startDate: string, endDate: string): Promise<SleepData[]> {
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/sleep/date/${startDate}/${endDate}.json`
-    );
-
-    const data = await response.json();
-    const sleepData: SleepData[] = [];
-
-    for (const sleep of data.sleep || []) {
-      const stages: SleepStage[] = [];
-      
-      if (sleep.levels?.data) {
-        for (const level of sleep.levels.data) {
-          const stageMap: Record<string, SleepStage['stage']> = {
-            'wake': 'awake',
-            'light': 'light',
-            'deep': 'deep',
-            'rem': 'rem',
-          };
-          
-          if (stageMap[level.level]) {
-            stages.push({
-              stage: stageMap[level.level],
-              startTime: level.dateTime,
-              duration: Math.round(level.seconds / 60),
-            });
-          }
-        }
-      }
-
-      sleepData.push({
-        date: sleep.dateOfSleep,
-        startTime: sleep.startTime,
-        endTime: sleep.endTime,
-        duration: sleep.duration ? Math.round(sleep.duration / 60000) : 0,
-        stages,
-        efficiency: sleep.efficiency,
-        source: 'fitbit',
-        syncedAt: new Date().toISOString(),
-      });
-    }
-
-    return sleepData;
-  }
-
-  // ============================================================
-  // Helper Methods
-  // ============================================================
-
-  private mapActivityType(name: string): ActivityType {
-    const normalizedName = name.toLowerCase();
-    
-    if (normalizedName.includes('walk')) return 'walking';
-    if (normalizedName.includes('run') || normalizedName.includes('jog')) return 'running';
-    if (normalizedName.includes('bike') || normalizedName.includes('cycl')) return 'cycling';
-    if (normalizedName.includes('swim')) return 'swimming';
-    if (normalizedName.includes('hike')) return 'hiking';
-    if (normalizedName.includes('weight') || normalizedName.includes('strength')) return 'strength';
-    if (normalizedName.includes('yoga')) return 'yoga';
-    
-    return 'workout';
-  }
-
-  // Get user profile
-  async getProfile(): Promise<{ id: string; displayName: string; avatar?: string }> {
-    const response = await this.fetchWithAuth(
-      `${this.config.apiBaseUrl}/profile.json`
-    );
-
-    const data = await response.json();
-    const user = data.user;
-
-    return {
-      id: user.encodedId,
-      displayName: user.displayName,
-      avatar: user.avatar,
-    };
+    return dates;
   }
 }

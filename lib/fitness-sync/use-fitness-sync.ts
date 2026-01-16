@@ -1,6 +1,7 @@
 // ============================================================
 // React Hook for Fitness Sync
 // Provides easy integration with React components
+// Uses server-side OAuth flow - tokens stored in httpOnly cookies
 // ============================================================
 
 'use client';
@@ -11,19 +12,16 @@ import {
   FitnessConnection,
   FitnessSyncResult,
   AggregatedFitnessData,
-  FitnessTokens,
   StepData,
   SyncedActivity,
   HeartRateData,
   CaloriesData,
   SleepData,
 } from './types';
-import { PROVIDER_CONFIGS } from './config';
 
-// Storage keys
+// Storage keys for local state (not tokens - those are in httpOnly cookies)
 const STORAGE_KEYS = {
   CONNECTIONS: 'fitness_connections',
-  TOKENS: 'fitness_tokens',
   SYNCED_DATA: 'fitness_synced_data',
   LAST_SYNC: 'fitness_last_sync',
 };
@@ -35,36 +33,30 @@ export interface UseFitnessSyncReturn {
   connections: Record<FitnessProvider, FitnessConnection | null>;
   isConnected: (provider: FitnessProvider) => boolean;
   connectedProviders: FitnessProvider[];
-  
+
   // OAuth actions
   connect: (provider: FitnessProvider) => void;
   disconnect: (provider: FitnessProvider) => Promise<void>;
-  handleOAuthCallback: (provider: FitnessProvider, code: string) => Promise<boolean>;
-  
+
   // Sync actions
   syncProvider: (provider: FitnessProvider, days?: number) => Promise<FitnessSyncResult | null>;
   syncAll: (days?: number) => Promise<FitnessSyncResult[]>;
-  
+
   // Data
   syncedData: AggregatedFitnessData | null;
   lastSyncTime: string | null;
-  
+
   // Status
   isSyncing: boolean;
   syncError: string | null;
   isLoading: boolean;
+
+  // Refresh connection status from server
+  refreshConnectionStatus: () => Promise<void>;
 }
 
 export function useFitnessSync(): UseFitnessSyncReturn {
   const [connections, setConnections] = useState<Record<FitnessProvider, FitnessConnection | null>>(
-    () => ({
-      google_fit: null,
-      fitbit: null,
-      strava: null,
-      garmin: null,
-    })
-  );
-  const [tokens, setTokens] = useState<Record<FitnessProvider, FitnessTokens | null>>(
     () => ({
       google_fit: null,
       fitbit: null,
@@ -78,14 +70,15 @@ export function useFitnessSync(): UseFitnessSyncReturn {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Load saved state on mount
+  // Load saved state and check server connection status on mount
   useEffect(() => {
     loadSavedState();
+    refreshConnectionStatus();
   }, []);
 
   const loadSavedState = () => {
     try {
-      // Load connections
+      // Load cached connections (will be verified with server)
       const savedConnections = localStorage.getItem(STORAGE_KEYS.CONNECTIONS);
       if (savedConnections) {
         const parsed: FitnessConnection[] = JSON.parse(savedConnections);
@@ -99,30 +92,6 @@ export function useFitnessSync(): UseFitnessSyncReturn {
           connMap[conn.provider] = conn;
         }
         setConnections(connMap);
-      }
-
-      // Load tokens
-      const savedTokens = localStorage.getItem(STORAGE_KEYS.TOKENS);
-      if (savedTokens) {
-        const parsed = JSON.parse(savedTokens);
-        const tokenMap: Record<FitnessProvider, FitnessTokens | null> = {
-          google_fit: null,
-          fitbit: null,
-          strava: null,
-          garmin: null,
-        };
-        for (const [provider, token] of Object.entries(parsed)) {
-          if (token) {
-            tokenMap[provider as FitnessProvider] = {
-              ...(token as FitnessTokens),
-              accessToken: atob((token as FitnessTokens).accessToken),
-              refreshToken: (token as FitnessTokens).refreshToken 
-                ? atob((token as FitnessTokens).refreshToken!) 
-                : undefined,
-            } as FitnessTokens;
-          }
-        }
-        setTokens(tokenMap);
       }
 
       // Load synced data
@@ -143,23 +112,43 @@ export function useFitnessSync(): UseFitnessSyncReturn {
     }
   };
 
+  // Refresh connection status from server (checks httpOnly cookies)
+  const refreshConnectionStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/fitness/status');
+      if (response.ok) {
+        const data = await response.json();
+        const connMap: Record<FitnessProvider, FitnessConnection | null> = {
+          google_fit: null,
+          fitbit: null,
+          strava: null,
+          garmin: null,
+        };
+
+        for (const provider of ALL_PROVIDERS) {
+          const status = data.connections?.[provider];
+          if (status?.connected) {
+            connMap[provider] = {
+              provider,
+              isConnected: true,
+              connectedAt: status.connectedAt || new Date().toISOString(),
+              lastSyncAt: status.lastSyncAt || null,
+              syncEnabled: true,
+            };
+          }
+        }
+
+        setConnections(connMap);
+        saveConnections(connMap);
+      }
+    } catch (error) {
+      console.error('Failed to refresh connection status:', error);
+    }
+  }, []);
+
   const saveConnections = (conns: Record<FitnessProvider, FitnessConnection | null>) => {
     const connArray = Object.values(conns).filter(Boolean) as FitnessConnection[];
     localStorage.setItem(STORAGE_KEYS.CONNECTIONS, JSON.stringify(connArray));
-  };
-
-  const saveTokens = (tkns: Record<FitnessProvider, FitnessTokens | null>) => {
-    const encrypted: Record<string, FitnessTokens | null> = {};
-    for (const [provider, token] of Object.entries(tkns)) {
-      if (token) {
-        encrypted[provider] = {
-          ...token,
-          accessToken: btoa(token.accessToken),
-          refreshToken: token.refreshToken ? btoa(token.refreshToken) : undefined,
-        } as FitnessTokens;
-      }
-    }
-    localStorage.setItem(STORAGE_KEYS.TOKENS, JSON.stringify(encrypted));
   };
 
   const isConnected = useCallback((provider: FitnessProvider): boolean => {
@@ -171,138 +160,50 @@ export function useFitnessSync(): UseFitnessSyncReturn {
     .map(([provider]) => provider as FitnessProvider);
 
   // ============================================================
-  // OAuth Methods
+  // OAuth Methods - Server-Side Flow
   // ============================================================
 
+  /**
+   * Initiates OAuth flow by redirecting to server-side connect endpoint
+   * The server handles all OAuth logic and stores tokens in httpOnly cookies
+   */
   const connect = useCallback((provider: FitnessProvider) => {
-    const config = PROVIDER_CONFIGS[provider];
-    if (!config) {
-      setSyncError(`Unknown provider: ${provider}`);
-      return;
-    }
-
-    const redirectUri = `${window.location.origin}/auth/callback/${provider}`;
-    const state = Math.random().toString(36).substring(7);
-    
-    // Store state for verification
-    sessionStorage.setItem(`oauth_state_${provider}`, state);
-
-    const params = new URLSearchParams({
-      client_id: config.clientId,
-      redirect_uri: redirectUri,
-      response_type: 'code',
-      scope: config.scopes.join(provider === 'strava' ? ',' : ' '),
-      state,
-    });
-
-    // Provider-specific params
-    if (provider === 'google_fit') {
-      params.set('access_type', 'offline');
-      params.set('prompt', 'consent');
-    } else if (provider === 'strava') {
-      params.set('approval_prompt', 'auto');
-    }
-
-    window.location.href = `${config.authUrl}?${params.toString()}`;
+    // Redirect to server-side OAuth initiation
+    window.location.href = `/api/fitness/connect/${provider}`;
   }, []);
 
-  const handleOAuthCallback = useCallback(async (
-    provider: FitnessProvider,
-    code: string
-  ): Promise<boolean> => {
+  /**
+   * Disconnects a provider by calling server-side disconnect endpoint
+   * Server removes tokens from httpOnly cookies
+   */
+  const disconnect = useCallback(async (provider: FitnessProvider) => {
     try {
-      setSyncError(null);
-      const redirectUri = `${window.location.origin}/auth/callback/${provider}`;
-
-      // Exchange code for tokens via API
-      const response = await fetch('/api/fitness/oauth', {
+      const response = await fetch(`/api/fitness/disconnect/${provider}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ provider, code, redirectUri }),
       });
 
       if (!response.ok) {
         const error = await response.json();
-        throw new Error(error.error || 'OAuth failed');
+        throw new Error(error.error || 'Disconnect failed');
       }
 
-      const newTokens: FitnessTokens = await response.json();
-
-      // Update tokens
-      const updatedTokens = { ...tokens, [provider]: newTokens };
-      setTokens(updatedTokens);
-      saveTokens(updatedTokens);
-
-      // Update connection
-      const newConnection: FitnessConnection = {
-        provider,
-        isConnected: true,
-        connectedAt: new Date().toISOString(),
-        lastSyncAt: null,
-        syncEnabled: true,
-      };
-      const updatedConnections = { ...connections, [provider]: newConnection };
+      // Update local state
+      const updatedConnections = { ...connections, [provider]: null };
       setConnections(updatedConnections);
       saveConnections(updatedConnections);
-
-      return true;
     } catch (error) {
-      setSyncError(error instanceof Error ? error.message : 'Connection failed');
-      return false;
+      setSyncError(error instanceof Error ? error.message : 'Disconnect failed');
     }
-  }, [connections, tokens]);
-
-  const disconnect = useCallback(async (provider: FitnessProvider) => {
-    // Clear tokens
-    const updatedTokens = { ...tokens, [provider]: null };
-    setTokens(updatedTokens);
-    saveTokens(updatedTokens);
-
-    // Clear connection
-    const updatedConnections = { ...connections, [provider]: null };
-    setConnections(updatedConnections);
-    saveConnections(updatedConnections);
-  }, [connections, tokens]);
+  }, [connections]);
 
   // ============================================================
   // Sync Methods
   // ============================================================
 
-  const refreshTokenIfNeeded = async (provider: FitnessProvider): Promise<string | null> => {
-    const token = tokens[provider];
-    if (!token) return null;
-
-    // Check if token is expired (with 5 min buffer)
-    if (token.expiresAt && token.expiresAt < Date.now() + 5 * 60 * 1000) {
-      try {
-        const response = await fetch('/api/fitness/oauth', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            provider,
-            refreshToken: token.refreshToken,
-          }),
-        });
-
-        if (!response.ok) {
-          throw new Error('Token refresh failed');
-        }
-
-        const newTokens: FitnessTokens = await response.json();
-        const updatedTokens = { ...tokens, [provider]: newTokens };
-        setTokens(updatedTokens);
-        saveTokens(updatedTokens);
-        return newTokens.accessToken;
-      } catch {
-        // Token refresh failed, disconnect
-        await disconnect(provider);
-        return null;
-      }
-    }
-
-    return token.accessToken;
-  };
-
+  /**
+   * Syncs data from a specific provider
+   * Server handles token refresh automatically using httpOnly cookies
+   */
   const syncProvider = useCallback(async (
     provider: FitnessProvider,
     days: number = 7
@@ -315,22 +216,15 @@ export function useFitnessSync(): UseFitnessSyncReturn {
       setIsSyncing(true);
       setSyncError(null);
 
-      const accessToken = await refreshTokenIfNeeded(provider);
-      if (!accessToken) {
-        throw new Error('Not authenticated');
-      }
-
       const endDate = new Date().toISOString().split('T')[0];
       const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
         .toISOString()
         .split('T')[0];
 
-      const response = await fetch('/api/fitness/sync', {
+      const response = await fetch(`/api/fitness/sync/${provider}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider,
-          accessToken,
           startDate,
           endDate,
         }),
@@ -338,6 +232,14 @@ export function useFitnessSync(): UseFitnessSyncReturn {
 
       if (!response.ok) {
         const error = await response.json();
+
+        // If not connected, update local state
+        if (error.code === 'NOT_CONNECTED' || error.code === 'TOKEN_REFRESH_FAILED') {
+          const updatedConnections = { ...connections, [provider]: null };
+          setConnections(updatedConnections);
+          saveConnections(updatedConnections);
+        }
+
         throw new Error(error.error || 'Sync failed');
       }
 
@@ -368,8 +270,11 @@ export function useFitnessSync(): UseFitnessSyncReturn {
     } finally {
       setIsSyncing(false);
     }
-  }, [connections, tokens, isConnected]);
+  }, [connections, isConnected]);
 
+  /**
+   * Syncs data from all connected providers
+   */
   const syncAll = useCallback(async (days: number = 7): Promise<FitnessSyncResult[]> => {
     setIsSyncing(true);
     setSyncError(null);
@@ -388,7 +293,7 @@ export function useFitnessSync(): UseFitnessSyncReturn {
       const aggregated = aggregateResults(results);
       setSyncedData(aggregated);
       localStorage.setItem(STORAGE_KEYS.SYNCED_DATA, JSON.stringify(aggregated));
-      
+
       const now = new Date().toISOString();
       setLastSyncTime(now);
       localStorage.setItem(STORAGE_KEYS.LAST_SYNC, now);
@@ -404,7 +309,6 @@ export function useFitnessSync(): UseFitnessSyncReturn {
     connectedProviders,
     connect,
     disconnect,
-    handleOAuthCallback,
     syncProvider,
     syncAll,
     syncedData,
@@ -412,6 +316,7 @@ export function useFitnessSync(): UseFitnessSyncReturn {
     isSyncing,
     syncError,
     isLoading,
+    refreshConnectionStatus,
   };
 }
 
@@ -420,7 +325,6 @@ export function useFitnessSync(): UseFitnessSyncReturn {
 // ============================================================
 
 function aggregateResults(results: FitnessSyncResult[]): AggregatedFitnessData {
-  // Use explicit type assertions for arrays to avoid optional property issues
   const aggregated = {
     steps: [] as StepData[],
     activities: [] as SyncedActivity[],

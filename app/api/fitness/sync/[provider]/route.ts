@@ -1,49 +1,168 @@
 // ============================================================
-// Fitness Data Sync API
-// Server-side data fetching from fitness providers
+// Fitness Sync Route (Provider-Specific)
+// Syncs fitness data using stored tokens, handles token refresh
 // ============================================================
 
 import { NextRequest, NextResponse } from 'next/server';
-import { FitnessProvider } from '@/lib/fitness-sync/types';
-import { PROVIDER_CONFIGS } from '@/lib/fitness-sync/config';
+import { FitnessProvider, FitnessTokens } from '@/lib/fitness-sync/types';
+import { cookies } from 'next/headers';
 
-export async function POST(request: NextRequest) {
+const VALID_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
+
+// Provider API configurations
+const PROVIDER_CONFIG: Record<FitnessProvider, {
+  apiBaseUrl: string;
+  tokenUrl: string;
+  clientId: string;
+  clientSecret: string;
+}> = {
+  google_fit: {
+    apiBaseUrl: 'https://www.googleapis.com/fitness/v1/users/me',
+    tokenUrl: 'https://oauth2.googleapis.com/token',
+    clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
+    clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
+  },
+  fitbit: {
+    apiBaseUrl: 'https://api.fitbit.com/1/user/-',
+    tokenUrl: 'https://api.fitbit.com/oauth2/token',
+    clientId: process.env.FITBIT_CLIENT_ID || '',
+    clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
+  },
+  strava: {
+    apiBaseUrl: 'https://www.strava.com/api/v3',
+    tokenUrl: 'https://www.strava.com/oauth/token',
+    clientId: process.env.STRAVA_CLIENT_ID || '',
+    clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
+  },
+  garmin: {
+    apiBaseUrl: 'https://apis.garmin.com',
+    tokenUrl: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
+    clientId: process.env.GARMIN_CONSUMER_KEY || '',
+    clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
+  },
+};
+
+interface SyncRequest {
+  startDate?: string;  // YYYY-MM-DD
+  endDate?: string;    // YYYY-MM-DD
+  dataTypes?: string[];
+}
+
+/**
+ * POST /api/fitness/sync/[provider]
+ * Syncs fitness data for a specific provider using stored tokens
+ */
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ provider: string }> }
+) {
+  const { provider } = await params;
+
+  // Validate provider
+  if (!VALID_PROVIDERS.includes(provider as FitnessProvider)) {
+    return NextResponse.json(
+      { error: 'Invalid provider' },
+      { status: 400 }
+    );
+  }
+
+  const providerKey = provider as FitnessProvider;
+  const cookieStore = await cookies();
+
+  // Get stored tokens
+  const tokenCookie = cookieStore.get(`fitness_tokens_${provider}`);
+  if (!tokenCookie) {
+    return NextResponse.json(
+      { error: 'Not connected', code: 'NOT_CONNECTED' },
+      { status: 401 }
+    );
+  }
+
+  let tokenData: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+    connectedAt: string;
+  };
+
   try {
-    const body = await request.json();
-    const { provider, accessToken, startDate, endDate, dataTypes } = body;
+    tokenData = JSON.parse(
+      Buffer.from(tokenCookie.value, 'base64').toString('utf-8')
+    );
+  } catch {
+    return NextResponse.json(
+      { error: 'Invalid token data', code: 'INVALID_TOKENS' },
+      { status: 401 }
+    );
+  }
 
-    if (!provider || !accessToken || !startDate || !endDate) {
+  // Check if token needs refresh
+  let accessToken = tokenData.accessToken;
+  if (tokenData.expiresAt && tokenData.expiresAt < Date.now() + 60000) {
+    // Token expires in less than 1 minute - refresh it
+    try {
+      const newTokens = await refreshAccessToken(providerKey, tokenData.refreshToken);
+      accessToken = newTokens.accessToken;
+
+      // Update stored tokens
+      const updatedTokenData = {
+        ...tokenData,
+        accessToken: newTokens.accessToken,
+        refreshToken: newTokens.refreshToken || tokenData.refreshToken,
+        expiresAt: newTokens.expiresAt,
+      };
+
+      cookieStore.set(`fitness_tokens_${provider}`, 
+        Buffer.from(JSON.stringify(updatedTokenData)).toString('base64'),
+        {
+          httpOnly: true,
+          secure: process.env.NODE_ENV === 'production',
+          sameSite: 'lax',
+          maxAge: 365 * 24 * 60 * 60,
+          path: '/',
+        }
+      );
+    } catch (refreshError) {
+      console.error(`Token refresh failed for ${provider}:`, refreshError);
       return NextResponse.json(
-        { error: 'Missing required parameters' },
-        { status: 400 }
+        { error: 'Token refresh failed', code: 'TOKEN_REFRESH_FAILED' },
+        { status: 401 }
       );
     }
+  }
 
-    const config = PROVIDER_CONFIGS[provider as FitnessProvider];
-    if (!config) {
-      return NextResponse.json(
-        { error: 'Invalid provider' },
-        { status: 400 }
-      );
-    }
+  // Parse request body
+  let body: SyncRequest = {};
+  try {
+    body = await request.json();
+  } catch {
+    // Use defaults
+  }
 
+  const endDate = body.endDate || new Date().toISOString().split('T')[0];
+  const startDate = body.startDate || new Date(
+    Date.now() - 7 * 24 * 60 * 60 * 1000
+  ).toISOString().split('T')[0];
+  const dataTypes = body.dataTypes || ['steps', 'activities', 'heartRate', 'calories', 'sleep'];
+
+  // Fetch data from provider
+  try {
     const results: Record<string, any[]> = {};
-    const types = dataTypes || ['steps', 'activities', 'heartRate', 'calories', 'sleep'];
+    const config = PROVIDER_CONFIG[providerKey];
 
-    // Fetch each data type
-    for (const dataType of types) {
+    for (const dataType of dataTypes) {
       try {
         const data = await fetchDataType(
-          provider as FitnessProvider,
+          providerKey,
           accessToken,
           dataType,
           startDate,
           endDate,
-          config
+          config.apiBaseUrl
         );
         results[dataType] = data;
-      } catch (error) {
-        console.error(`Failed to fetch ${dataType} from ${provider}:`, error);
+      } catch (err) {
+        console.error(`Failed to fetch ${dataType} from ${provider}:`, err);
         results[dataType] = [];
       }
     }
@@ -55,7 +174,7 @@ export async function POST(request: NextRequest) {
       data: results,
     });
   } catch (error) {
-    console.error('Sync error:', error);
+    console.error(`Sync error for ${provider}:`, error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : 'Sync failed' },
       { status: 500 }
@@ -63,13 +182,104 @@ export async function POST(request: NextRequest) {
   }
 }
 
+// ============================================================
+// Token Refresh
+// ============================================================
+
+async function refreshAccessToken(
+  provider: FitnessProvider,
+  refreshToken: string
+): Promise<FitnessTokens> {
+  const config = PROVIDER_CONFIG[provider];
+  let response: Response;
+
+  switch (provider) {
+    case 'google_fit':
+      response = await fetch(config.tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
+      break;
+
+    case 'fitbit': {
+      const basicAuth = Buffer.from(
+        `${config.clientId}:${config.clientSecret}`
+      ).toString('base64');
+
+      response = await fetch(config.tokenUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Authorization': `Basic ${basicAuth}`,
+        },
+        body: new URLSearchParams({
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
+      break;
+    }
+
+    case 'strava':
+      response = await fetch(config.tokenUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_id: config.clientId,
+          client_secret: config.clientSecret,
+          refresh_token: refreshToken,
+          grant_type: 'refresh_token',
+        }),
+      });
+      break;
+
+    case 'garmin':
+      // OAuth 1.0a tokens don't expire
+      return {
+        accessToken: refreshToken,
+        refreshToken,
+        expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      };
+
+    default:
+      throw new Error(`Unsupported provider: ${provider}`);
+  }
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`Token refresh failed: ${errorText}`);
+  }
+
+  const data = await response.json();
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token || refreshToken,
+    expiresAt: provider === 'strava'
+      ? data.expires_at * 1000
+      : Date.now() + (data.expires_in * 1000),
+    scope: data.scope,
+    tokenType: data.token_type,
+  };
+}
+
+// ============================================================
+// Data Fetching Functions
+// ============================================================
+
 async function fetchDataType(
   provider: FitnessProvider,
   accessToken: string,
   dataType: string,
   startDate: string,
   endDate: string,
-  config: typeof PROVIDER_CONFIGS[FitnessProvider]
+  apiBaseUrl: string
 ): Promise<any[]> {
   const headers = {
     'Authorization': `Bearer ${accessToken}`,
@@ -78,28 +288,25 @@ async function fetchDataType(
 
   switch (provider) {
     case 'google_fit':
-      return fetchGoogleFitData(dataType, startDate, endDate, headers, config);
+      return fetchGoogleFitData(dataType, startDate, endDate, headers, apiBaseUrl);
     case 'fitbit':
-      return fetchFitbitData(dataType, startDate, endDate, headers, config);
+      return fetchFitbitData(dataType, startDate, endDate, headers, apiBaseUrl);
     case 'strava':
-      return fetchStravaData(dataType, startDate, endDate, headers, config);
+      return fetchStravaData(dataType, startDate, endDate, headers, apiBaseUrl);
     case 'garmin':
-      return fetchGarminData(dataType, startDate, endDate, accessToken, config);
+      return []; // Garmin requires OAuth 1.0a
     default:
       return [];
   }
 }
 
-// ============================================================
-// Google Fit Data Fetching
-// ============================================================
-
+// Google Fit data fetching
 async function fetchGoogleFitData(
   dataType: string,
   startDate: string,
   endDate: string,
   headers: Record<string, string>,
-  config: typeof PROVIDER_CONFIGS['google_fit']
+  apiBaseUrl: string
 ): Promise<any[]> {
   const startTimeMillis = new Date(startDate).setHours(0, 0, 0, 0).toString();
   const endTimeMillis = new Date(endDate).setHours(23, 59, 59, 999).toString();
@@ -112,7 +319,7 @@ async function fetchGoogleFitData(
 
   if (dataType === 'activities') {
     const response = await fetch(
-      `${config.apiBaseUrl}/sessions?startTime=${new Date(startDate).toISOString()}&endTime=${new Date(endDate + 'T23:59:59').toISOString()}`,
+      `${apiBaseUrl}/sessions?startTime=${new Date(startDate).toISOString()}&endTime=${new Date(endDate + 'T23:59:59').toISOString()}`,
       { headers }
     );
     if (!response.ok) return [];
@@ -129,27 +336,10 @@ async function fetchGoogleFitData(
     }));
   }
 
-  if (dataType === 'sleep') {
-    const response = await fetch(
-      `${config.apiBaseUrl}/sessions?startTime=${new Date(startDate).toISOString()}&endTime=${new Date(endDate + 'T23:59:59').toISOString()}&activityType=72`,
-      { headers }
-    );
-    if (!response.ok) return [];
-    const data = await response.json();
-    return (data.session || []).map((s: any) => ({
-      date: new Date(parseInt(s.startTimeMillis)).toISOString().split('T')[0],
-      startTime: new Date(parseInt(s.startTimeMillis)).toISOString(),
-      endTime: new Date(parseInt(s.endTimeMillis)).toISOString(),
-      duration: Math.round((parseInt(s.endTimeMillis) - parseInt(s.startTimeMillis)) / 60000),
-      source: 'google_fit',
-      syncedAt: new Date().toISOString(),
-    }));
-  }
-
   const googleDataType = dataTypeMap[dataType];
   if (!googleDataType) return [];
 
-  const response = await fetch(`${config.apiBaseUrl}/dataset:aggregate`, {
+  const response = await fetch(`${apiBaseUrl}/dataset:aggregate`, {
     method: 'POST',
     headers,
     body: JSON.stringify({
@@ -198,16 +388,13 @@ async function fetchGoogleFitData(
   return results;
 }
 
-// ============================================================
-// Fitbit Data Fetching
-// ============================================================
-
+// Fitbit data fetching
 async function fetchFitbitData(
   dataType: string,
   startDate: string,
   endDate: string,
   headers: Record<string, string>,
-  config: typeof PROVIDER_CONFIGS['fitbit']
+  apiBaseUrl: string
 ): Promise<any[]> {
   const endpointMap: Record<string, string> = {
     steps: `/activities/steps/date/${startDate}/${endDate}.json`,
@@ -217,26 +404,24 @@ async function fetchFitbitData(
   };
 
   if (dataType === 'activities') {
-    // Fitbit requires day-by-day fetching for activities
     const activities: any[] = [];
     const dates = getDateRange(startDate, endDate);
-    
-    for (const date of dates) {
+
+    for (const date of dates.slice(0, 7)) { // Limit to 7 days to avoid rate limits
       try {
         const response = await fetch(
-          `${config.apiBaseUrl}/activities/date/${date}.json`,
+          `${apiBaseUrl}/activities/date/${date}.json`,
           { headers }
         );
         if (!response.ok) continue;
         const data = await response.json();
-        
+
         for (const activity of data.activities || []) {
           activities.push({
             id: `fitbit_${activity.logId}`,
             externalId: activity.logId.toString(),
             source: 'fitbit',
             name: activity.name,
-            type: mapFitbitActivityType(activity.name),
             startTime: `${date}T${activity.startTime || '00:00:00'}`,
             duration: activity.duration ? Math.round(activity.duration / 60000) : 0,
             calories: activity.calories,
@@ -255,7 +440,7 @@ async function fetchFitbitData(
   const endpoint = endpointMap[dataType];
   if (!endpoint) return [];
 
-  const response = await fetch(`${config.apiBaseUrl}${endpoint}`, { headers });
+  const response = await fetch(`${apiBaseUrl}${endpoint}`, { headers });
   if (!response.ok) return [];
   const data = await response.json();
 
@@ -281,15 +466,9 @@ async function fetchFitbitData(
     return (data['activities-heart'] || []).map((e: any) => ({
       date: e.dateTime,
       restingHr: e.value?.restingHeartRate,
-      zones: e.value?.heartRateZones?.map((z: any) => ({
-        name: z.name,
-        min: z.min,
-        max: z.max,
-        minutes: z.minutes || 0,
-      })),
       source: 'fitbit',
       syncedAt: new Date().toISOString(),
-    })).filter((h: any) => h.restingHr || h.zones?.length);
+    })).filter((h: any) => h.restingHr);
   }
 
   if (dataType === 'sleep') {
@@ -307,18 +486,14 @@ async function fetchFitbitData(
   return [];
 }
 
-// ============================================================
-// Strava Data Fetching
-// ============================================================
-
+// Strava data fetching
 async function fetchStravaData(
   dataType: string,
   startDate: string,
   endDate: string,
   headers: Record<string, string>,
-  config: typeof PROVIDER_CONFIGS['strava']
+  apiBaseUrl: string
 ): Promise<any[]> {
-  // Strava primarily provides activities
   if (dataType !== 'activities' && dataType !== 'steps' && dataType !== 'calories') {
     return [];
   }
@@ -329,9 +504,9 @@ async function fetchStravaData(
   const activities: any[] = [];
   let page = 1;
 
-  while (true) {
+  while (page <= 3) { // Limit pages to avoid rate limits
     const response = await fetch(
-      `${config.apiBaseUrl}/athlete/activities?after=${after}&before=${before}&page=${page}&per_page=50`,
+      `${apiBaseUrl}/athlete/activities?after=${after}&before=${before}&page=${page}&per_page=50`,
       { headers }
     );
     if (!response.ok) break;
@@ -405,50 +580,18 @@ async function fetchStravaData(
   return [];
 }
 
-// ============================================================
-// Garmin Data Fetching (placeholder - requires OAuth 1.0a)
-// ============================================================
-
-async function fetchGarminData(
-  dataType: string,
-  startDate: string,
-  endDate: string,
-  accessToken: string,
-  config: typeof PROVIDER_CONFIGS['garmin']
-): Promise<any[]> {
-  // Garmin requires OAuth 1.0a signature for each request
-  // This is a simplified placeholder
-  console.warn('Garmin sync requires OAuth 1.0a implementation');
-  return [];
-}
-
-// ============================================================
-// Helper Functions
-// ============================================================
-
+// Helper functions
 function getDateRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
   const current = new Date(startDate);
   const end = new Date(endDate);
-  
+
   while (current <= end) {
     dates.push(current.toISOString().split('T')[0]);
     current.setDate(current.getDate() + 1);
   }
-  
-  return dates;
-}
 
-function mapFitbitActivityType(name: string): string {
-  const n = name.toLowerCase();
-  if (n.includes('walk')) return 'walking';
-  if (n.includes('run') || n.includes('jog')) return 'running';
-  if (n.includes('bike') || n.includes('cycl')) return 'cycling';
-  if (n.includes('swim')) return 'swimming';
-  if (n.includes('hike')) return 'hiking';
-  if (n.includes('weight') || n.includes('strength')) return 'strength';
-  if (n.includes('yoga')) return 'yoga';
-  return 'workout';
+  return dates;
 }
 
 function mapStravaActivityType(type: string): string {

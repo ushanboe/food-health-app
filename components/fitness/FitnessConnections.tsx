@@ -1,11 +1,12 @@
 // ============================================================
 // Fitness Connections Component
 // Manage connections to external fitness providers
+// Uses server-side OAuth - no client-side credentials needed
 // ============================================================
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Activity,
@@ -20,10 +21,10 @@ import {
   Watch,
   Bike,
   Heart,
+  CheckCircle,
 } from 'lucide-react';
 import { useAppStore } from '@/lib/store';
 import { FitnessProvider, FitnessConnection } from '@/lib/fitness-sync/types';
-import { PROVIDER_CONFIGS } from '@/lib/fitness-sync/config';
 
 // Provider display info
 const PROVIDER_INFO: Record<FitnessProvider, {
@@ -70,6 +71,15 @@ const PROVIDER_INFO: Record<FitnessProvider, {
 
 const ALL_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
 
+interface ProviderStatus {
+  provider: FitnessProvider;
+  configured: boolean;
+  connected: boolean;
+  connectedAt?: string;
+  expiresAt?: number;
+  needsRefresh?: boolean;
+}
+
 export default function FitnessConnections() {
   const {
     fitnessConnections,
@@ -87,84 +97,155 @@ export default function FitnessConnections() {
 
   const [expandedProvider, setExpandedProvider] = useState<FitnessProvider | null>(null);
   const [isConnecting, setIsConnecting] = useState<FitnessProvider | null>(null);
+  const [providerStatuses, setProviderStatuses] = useState<ProviderStatus[]>([]);
+  const [isLoadingStatus, setIsLoadingStatus] = useState(true);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  // Check for OAuth callback on mount
+  // Fetch connection status from server
+  const fetchStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/fitness/status');
+      if (response.ok) {
+        const data = await response.json();
+        setProviderStatuses(data.providers);
+
+        // Update local store with server status
+        for (const status of data.providers) {
+          if (status.connected) {
+            const existingConnection = fitnessConnections[status.provider as FitnessProvider];
+            setFitnessConnection(status.provider, {
+              provider: status.provider,
+              isConnected: true,
+              connectedAt: status.connectedAt || existingConnection?.connectedAt || new Date().toISOString(),
+              lastSyncAt: existingConnection?.lastSyncAt || null,
+              syncEnabled: existingConnection?.syncEnabled ?? true,
+            });
+          } else if (fitnessConnections[status.provider as FitnessProvider]?.isConnected) {
+            // Server says not connected but local says connected - clear local
+            clearFitnessConnection(status.provider);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Failed to fetch fitness status:', error);
+    } finally {
+      setIsLoadingStatus(false);
+    }
+  }, [fitnessConnections, setFitnessConnection, clearFitnessConnection]);
+
+  // Check for OAuth callback results on mount
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
-    const provider = urlParams.get('provider') as FitnessProvider | null;
-    const success = urlParams.get('success');
-    const error = urlParams.get('error');
+    const connectedProvider = urlParams.get('fitness_connected');
+    const errorMessage = urlParams.get('fitness_error');
+    const errorProvider = urlParams.get('provider');
+    const disconnectedProvider = urlParams.get('fitness_disconnected');
 
-    if (provider && success === 'true') {
-      // Connection successful - update state
-      const connection: FitnessConnection = {
-        provider,
-        isConnected: true,
-        connectedAt: new Date().toISOString(),
-        lastSyncAt: null,
-        syncEnabled: true,
-      };
-      setFitnessConnection(provider, connection);
-      
+    if (connectedProvider) {
+      setSuccessMessage(`Successfully connected to ${PROVIDER_INFO[connectedProvider as FitnessProvider]?.name || connectedProvider}!`);
       // Clean URL
       window.history.replaceState({}, '', window.location.pathname);
-    } else if (provider && error) {
-      setFitnessSyncError(`Failed to connect ${PROVIDER_INFO[provider]?.name}: ${error}`);
+      // Refresh status
+      fetchStatus();
+    } else if (disconnectedProvider) {
+      setSuccessMessage(`Disconnected from ${PROVIDER_INFO[disconnectedProvider as FitnessProvider]?.name || disconnectedProvider}`);
+      window.history.replaceState({}, '', window.location.pathname);
+      fetchStatus();
+    } else if (errorMessage) {
+      let displayError = errorMessage;
+      if (errorMessage === 'not_configured') {
+        displayError = `${PROVIDER_INFO[errorProvider as FitnessProvider]?.name || errorProvider} is coming soon!`;
+      } else if (errorMessage === 'garmin_oauth1') {
+        displayError = 'Garmin Connect integration is coming soon!';
+      } else if (errorMessage === 'invalid_state') {
+        displayError = 'Authentication failed. Please try again.';
+      }
+      setFitnessSyncError(displayError);
       window.history.replaceState({}, '', window.location.pathname);
     }
-  }, [setFitnessConnection, setFitnessSyncError]);
 
-  const handleConnect = async (provider: FitnessProvider) => {
+    // Initial status fetch
+    fetchStatus();
+  }, [fetchStatus, setFitnessSyncError]);
+
+  // Clear success message after 5 seconds
+  useEffect(() => {
+    if (successMessage) {
+      const timer = setTimeout(() => setSuccessMessage(null), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [successMessage]);
+
+  const handleConnect = (provider: FitnessProvider) => {
     setIsConnecting(provider);
     setFitnessSyncError(null);
-
-    try {
-      const config = PROVIDER_CONFIGS[provider];
-      if (!config.clientId) {
-        throw new Error(`${PROVIDER_INFO[provider].name} is not configured. Please add API credentials.`);
-      }
-
-      const redirectUri = `${window.location.origin}/auth/callback/${provider}`;
-      const state = Math.random().toString(36).substring(7);
-      
-      // Store state for verification
-      sessionStorage.setItem(`oauth_state_${provider}`, state);
-
-      const params = new URLSearchParams({
-        client_id: config.clientId,
-        redirect_uri: redirectUri,
-        response_type: 'code',
-        scope: config.scopes.join(provider === 'strava' ? ',' : ' '),
-        state,
-      });
-
-      // Provider-specific params
-      if (provider === 'google_fit') {
-        params.set('access_type', 'offline');
-        params.set('prompt', 'consent');
-      } else if (provider === 'strava') {
-        params.set('approval_prompt', 'auto');
-      }
-
-      window.location.href = `${config.authUrl}?${params.toString()}`;
-    } catch (error) {
-      setFitnessSyncError(error instanceof Error ? error.message : 'Connection failed');
-      setIsConnecting(null);
-    }
+    // Redirect to server-side OAuth initiation
+    window.location.href = `/api/fitness/connect/${provider}`;
   };
 
   const handleDisconnect = async (provider: FitnessProvider) => {
-    clearFitnessConnection(provider);
-    // Also clear tokens from localStorage
     try {
-      const savedTokens = localStorage.getItem('fitness_tokens');
-      if (savedTokens) {
-        const tokens = JSON.parse(savedTokens);
-        delete tokens[provider];
-        localStorage.setItem('fitness_tokens', JSON.stringify(tokens));
+      const response = await fetch(`/api/fitness/disconnect/${provider}`, {
+        method: 'POST',
+      });
+
+      if (response.ok) {
+        clearFitnessConnection(provider);
+        setSuccessMessage(`Disconnected from ${PROVIDER_INFO[provider].name}`);
+        // Refresh status
+        fetchStatus();
+      } else {
+        const data = await response.json();
+        setFitnessSyncError(data.error || 'Failed to disconnect');
       }
-    } catch {
-      // Ignore errors
+    } catch (error) {
+      setFitnessSyncError('Failed to disconnect. Please try again.');
+    }
+  };
+
+  const handleSync = async (provider: FitnessProvider) => {
+    setFitnessSyncing(true);
+    setFitnessSyncError(null);
+
+    try {
+      const endDate = new Date().toISOString().split('T')[0];
+      const startDate = new Date(
+        Date.now() - (fitnessSyncPreferences.syncDaysBack || 7) * 24 * 60 * 60 * 1000
+      ).toISOString().split('T')[0];
+
+      const response = await fetch(`/api/fitness/sync/${provider}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ startDate, endDate }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        // Update last sync time for this provider
+        const connection = fitnessConnections[provider];
+        if (connection) {
+          setFitnessConnection(provider, {
+            ...connection,
+            lastSyncAt: result.syncedAt,
+          });
+        }
+        setLastFitnessSyncAt(new Date().toISOString());
+        setSuccessMessage(`Synced data from ${PROVIDER_INFO[provider].name}`);
+      } else {
+        const data = await response.json();
+        if (data.code === 'NOT_CONNECTED' || data.code === 'TOKEN_REFRESH_FAILED') {
+          // Token expired or invalid - need to reconnect
+          clearFitnessConnection(provider);
+          setFitnessSyncError(`Please reconnect to ${PROVIDER_INFO[provider].name}`);
+          fetchStatus();
+        } else {
+          setFitnessSyncError(data.error || 'Sync failed');
+        }
+      }
+    } catch (error) {
+      setFitnessSyncError('Sync failed. Please try again.');
+    } finally {
+      setFitnessSyncing(false);
     }
   };
 
@@ -173,64 +254,30 @@ export default function FitnessConnections() {
     setFitnessSyncError(null);
 
     try {
-      // Get connected providers
-      const connected = ALL_PROVIDERS.filter(p => fitnessConnections[p]?.isConnected);
-      
-      if (connected.length === 0) {
-        throw new Error('No fitness providers connected');
+      const connectedProviders = providerStatuses.filter(p => p.connected);
+
+      if (connectedProviders.length === 0) {
+        setFitnessSyncError('No fitness providers connected');
+        return;
       }
 
-      // Sync each provider
-      for (const provider of connected) {
-        try {
-          const savedTokens = localStorage.getItem('fitness_tokens');
-          if (!savedTokens) continue;
-          
-          const tokens = JSON.parse(savedTokens);
-          const token = tokens[provider];
-          if (!token) continue;
-
-          const endDate = new Date().toISOString().split('T')[0];
-          const startDate = new Date(
-            Date.now() - fitnessSyncPreferences.syncDaysBack * 24 * 60 * 60 * 1000
-          ).toISOString().split('T')[0];
-
-          const response = await fetch('/api/fitness/sync', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              provider,
-              accessToken: atob(token.accessToken),
-              startDate,
-              endDate,
-            }),
-          });
-
-          if (response.ok) {
-            const result = await response.json();
-            // Update last sync time for this provider
-            const connection = fitnessConnections[provider];
-            if (connection) {
-              setFitnessConnection(provider, {
-                ...connection,
-                lastSyncAt: result.syncedAt,
-              });
-            }
-          }
-        } catch (err) {
-          console.error(`Failed to sync ${provider}:`, err);
-        }
+      for (const status of connectedProviders) {
+        await handleSync(status.provider);
       }
 
       setLastFitnessSyncAt(new Date().toISOString());
     } catch (error) {
-      setFitnessSyncError(error instanceof Error ? error.message : 'Sync failed');
+      setFitnessSyncError('Sync failed. Please try again.');
     } finally {
       setFitnessSyncing(false);
     }
   };
 
-  const connectedCount = ALL_PROVIDERS.filter(p => fitnessConnections[p]?.isConnected).length;
+  const getProviderStatus = (provider: FitnessProvider): ProviderStatus | undefined => {
+    return providerStatuses.find(p => p.provider === provider);
+  };
+
+  const connectedCount = providerStatuses.filter(p => p.connected).length;
 
   const formatLastSync = (timestamp: string | null) => {
     if (!timestamp) return 'Never';
@@ -238,12 +285,33 @@ export default function FitnessConnections() {
     const now = new Date();
     const diffMs = now.getTime() - date.getTime();
     const diffMins = Math.floor(diffMs / 60000);
-    
+
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffMins < 1440) return `${Math.floor(diffMins / 60)}h ago`;
     return date.toLocaleDateString();
   };
+
+  if (isLoadingStatus) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-100 rounded-xl flex items-center justify-center">
+            <Smartphone className="w-5 h-5 text-purple-600" />
+          </div>
+          <div>
+            <h2 className="text-lg font-semibold text-gray-800">Fitness Connections</h2>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+        <div className="animate-pulse space-y-3">
+          {[1, 2, 3, 4].map(i => (
+            <div key={i} className="h-20 bg-gray-100 rounded-2xl" />
+          ))}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-4">
@@ -256,14 +324,14 @@ export default function FitnessConnections() {
           <div>
             <h2 className="text-lg font-semibold text-gray-800">Fitness Connections</h2>
             <p className="text-sm text-gray-500">
-              {connectedCount > 0 
+              {connectedCount > 0
                 ? `${connectedCount} provider${connectedCount > 1 ? 's' : ''} connected`
                 : 'Connect your fitness apps'
               }
             </p>
           </div>
         </div>
-        
+
         {connectedCount > 0 && (
           <motion.button
             whileTap={{ scale: 0.95 }}
@@ -276,6 +344,23 @@ export default function FitnessConnections() {
           </motion.button>
         )}
       </div>
+
+      {/* Success Message */}
+      <AnimatePresence>
+        {successMessage && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            className="bg-green-50 border border-green-200 rounded-xl p-3 flex items-start gap-2"
+          >
+            <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="text-sm text-green-700">{successMessage}</p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Error Message */}
       <AnimatePresence>
@@ -312,8 +397,10 @@ export default function FitnessConnections() {
       <div className="space-y-3">
         {ALL_PROVIDERS.map((provider) => {
           const info = PROVIDER_INFO[provider];
+          const status = getProviderStatus(provider);
           const connection = fitnessConnections[provider];
-          const isConnected = connection?.isConnected ?? false;
+          const isConnected = status?.connected ?? connection?.isConnected ?? false;
+          const isConfigured = status?.configured ?? true;
           const isExpanded = expandedProvider === provider;
           const isLoading = isConnecting === provider;
 
@@ -333,13 +420,18 @@ export default function FitnessConnections() {
                 <div className={`w-12 h-12 ${info.bgColor} rounded-xl flex items-center justify-center ${info.color}`}>
                   {info.icon}
                 </div>
-                
+
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <h3 className="font-semibold text-gray-800">{info.name}</h3>
                     {isConnected && (
                       <span className="px-2 py-0.5 bg-green-100 text-green-700 text-xs rounded-full">
                         Connected
+                      </span>
+                    )}
+                    {!isConfigured && (
+                      <span className="px-2 py-0.5 bg-gray-100 text-gray-500 text-xs rounded-full">
+                        Coming Soon
                       </span>
                     )}
                   </div>
@@ -393,19 +485,32 @@ export default function FitnessConnections() {
                         </div>
                       )}
 
-                      {/* Action Button */}
+                      {/* Action Buttons */}
                       {isConnected ? (
-                        <motion.button
-                          whileTap={{ scale: 0.98 }}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDisconnect(provider);
-                          }}
-                          className="w-full py-3 bg-red-50 text-red-600 font-medium rounded-xl flex items-center justify-center gap-2"
-                        >
-                          <Unlink className="w-4 h-4" />
-                          Disconnect
-                        </motion.button>
+                        <div className="flex gap-2">
+                          <motion.button
+                            whileTap={{ scale: 0.98 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleSync(provider);
+                            }}
+                            disabled={isFitnessSyncing}
+                            className={`flex-1 py-3 ${info.bgColor} ${info.color} font-medium rounded-xl flex items-center justify-center gap-2 disabled:opacity-50`}
+                          >
+                            <RefreshCw className={`w-4 h-4 ${isFitnessSyncing ? 'animate-spin' : ''}`} />
+                            Sync Now
+                          </motion.button>
+                          <motion.button
+                            whileTap={{ scale: 0.98 }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleDisconnect(provider);
+                            }}
+                            className="py-3 px-4 bg-red-50 text-red-600 font-medium rounded-xl flex items-center justify-center gap-2"
+                          >
+                            <Unlink className="w-4 h-4" />
+                          </motion.button>
+                        </div>
                       ) : (
                         <motion.button
                           whileTap={{ scale: 0.98 }}
@@ -413,7 +518,7 @@ export default function FitnessConnections() {
                             e.stopPropagation();
                             handleConnect(provider);
                           }}
-                          disabled={isLoading}
+                          disabled={isLoading || !isConfigured}
                           className={`w-full py-3 ${info.bgColor} ${info.color} font-medium rounded-xl flex items-center justify-center gap-2 disabled:opacity-50`}
                         >
                           {isLoading ? (
@@ -421,7 +526,7 @@ export default function FitnessConnections() {
                           ) : (
                             <Link2 className="w-4 h-4" />
                           )}
-                          {isLoading ? 'Connecting...' : 'Connect'}
+                          {isLoading ? 'Connecting...' : !isConfigured ? 'Coming Soon' : 'Connect'}
                         </motion.button>
                       )}
                     </div>
@@ -461,13 +566,11 @@ export default function FitnessConnections() {
         <h3 className="font-medium text-purple-800 mb-2">📱 How to connect</h3>
         <ol className="text-sm text-purple-700 space-y-1 list-decimal list-inside">
           <li>Tap on a fitness provider above</li>
-          <li>Click Connect to authorize access</li>
-          <li>Grant permissions in the provider's app</li>
+          <li>Click Connect to start authorization</li>
+          <li>Log in to your fitness account</li>
+          <li>Grant permissions to sync your data</li>
           <li>Your fitness data will sync automatically</li>
         </ol>
-        <p className="text-xs text-purple-600 mt-3">
-          Note: API credentials must be configured in environment variables for OAuth to work.
-        </p>
       </div>
     </div>
   );
