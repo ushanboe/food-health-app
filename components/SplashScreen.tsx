@@ -29,18 +29,25 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
         
         const utterance = new SpeechSynthesisUtterance(text);
         
-        // Configure voice settings
-        utterance.rate = 0.9; // Slightly slower for clarity
-        utterance.pitch = 1.1; // Slightly higher pitch for friendly tone
-        utterance.volume = 0.8; // Not too loud
+        // Configure voice settings for perky, motivating female voice
+        utterance.rate = 1.0; // Normal speed, clear and energetic
+        utterance.pitch = 1.3; // Higher pitch for upbeat, perky tone
+        utterance.volume = 0.9; // Slightly louder for motivation
         
-        // Try to use a friendly voice
+        // Try to use a perky female voice
         const voices = window.speechSynthesis.getVoices();
+        
+        // Prioritize energetic female voices
         const preferredVoice = voices.find(voice => 
-          voice.name.includes('Google') || 
-          voice.name.includes('Female') ||
-          voice.name.includes('Samantha')
-        );
+          // Look for specific perky voices
+          voice.name.includes('Samantha') || // macOS - friendly
+          voice.name.includes('Victoria') || // macOS - upbeat
+          voice.name.includes('Karen') || // macOS - energetic
+          voice.name.includes('Google US English Female') || // Google - clear
+          voice.name.includes('Microsoft Zira') || // Windows - friendly
+          voice.name.includes('Female') || // Any female voice
+          (voice.name.includes('Google') && voice.lang.startsWith('en'))
+        ) || voices.find(voice => voice.lang.startsWith('en-US'));
         
         if (preferredVoice) {
           utterance.voice = preferredVoice;
@@ -77,17 +84,17 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
     // Load voices (needed for some browsers)
     if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
       window.speechSynthesis.getVoices();
+      // Some browsers need a second call after a delay
+      setTimeout(() => window.speechSynthesis.getVoices(), 100);
     }
 
-    // Speak greeting after Nutri appears (2 seconds)
-    speak(`${greetingText} I'm Nutri, your friendly health buddy!`, 2000);
+    // Speak greeting after Nutri appears (3 seconds - adjusted for 12s total)
+    speak(`${greetingText} I'm Nutri, your friendly health buddy!`, 3000);
     
-    // Speak health tip after it appears (3.5 seconds)
-    // Remove emoji from speech for better clarity
-    const tipWithoutEmoji = tip.replace(/[\u{1F300}-\u{1F9FF}]/gu, '').trim();
-    speak(`Here's a health tip for you: ${tipWithoutEmoji}`, 3500);
+    // Speak health tip exactly as shown on screen (5 seconds - adjusted for 12s total)
+    speak(`Here's a health tip for you: ${tip}`, 5000);
 
-    // Hide splash screen after 7 seconds
+    // Hide splash screen after 12 seconds (increased from 7)
     const timer = setTimeout(() => {
       setIsVisible(false);
       // Cancel any ongoing speech when closing
@@ -96,8 +103,8 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
       }
       setTimeout(() => {
         onComplete?.();
-      }, 800);
-    }, 7000);
+      }, 1000); // Longer exit animation
+    }, 12000);
 
     return () => {
       clearTimeout(timer);
@@ -123,7 +130,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0, scale: 0.95 }}
-          transition={{ duration: 0.8 }}
+          transition={{ duration: 1 }} // Slower fade
           className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-gradient-to-br from-green-400 via-emerald-500 to-teal-600 p-6"
         >
           {/* Speech toggle button */}
@@ -168,14 +175,14 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
             </motion.div>
           )}
 
-          {/* Animated background circles */}
+          {/* Animated background circles - slower for 12s duration */}
           <motion.div
             animate={{
               scale: [1, 1.2, 1],
               opacity: [0.3, 0.5, 0.3],
             }}
             transition={{
-              duration: 5,
+              duration: 8, // Slower
               repeat: Infinity,
               ease: "easeInOut"
             }}
@@ -187,7 +194,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               opacity: [0.2, 0.4, 0.2],
             }}
             transition={{
-              duration: 6,
+              duration: 10, // Slower
               repeat: Infinity,
               ease: "easeInOut",
               delay: 0.5
@@ -197,11 +204,11 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
 
           {/* Content */}
           <div className="relative z-10 flex flex-col items-center gap-6 max-w-md">
-            {/* App Logo/Name */}
+            {/* App Logo/Name - adjusted timing for 12s */}
             <motion.div
               initial={{ y: -30, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
+              transition={{ delay: 0.6, duration: 1 }}
               className="text-center"
             >
               <h1 className="text-5xl font-bold text-white mb-2">
@@ -210,13 +217,13 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <p className="text-white/90 text-lg">Your Health Companion</p>
             </motion.div>
 
-            {/* Nutri Mascot */}
+            {/* Nutri Mascot - adjusted timing for 12s */}
             <motion.div
               initial={{ scale: 0, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ 
-                delay: 1,
-                duration: 0.8,
+                delay: 1.5, // Longer delay
+                duration: 1,
                 type: "spring", 
                 stiffness: 150,
                 damping: 15 
@@ -229,11 +236,11 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               />
             </motion.div>
 
-            {/* Greeting */}
+            {/* Greeting - adjusted timing for 12s */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 2, duration: 0.8 }}
+              transition={{ delay: 3, duration: 1 }}
               className="text-center"
             >
               <h2 className="text-2xl font-bold text-white mb-2">
@@ -242,11 +249,11 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               <p className="text-white/90 text-sm">I'm Nutri, your friendly health buddy! 🥑</p>
             </motion.div>
 
-            {/* Health Tip */}
+            {/* Health Tip - adjusted timing for 12s */}
             <motion.div
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 3, duration: 0.8 }}
+              transition={{ delay: 4.5, duration: 1 }}
               className="bg-white/20 backdrop-blur-sm rounded-2xl p-4 border border-white/30"
             >
               <p className="text-sm text-white font-medium text-center">
@@ -257,11 +264,11 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
               </p>
             </motion.div>
 
-            {/* Loading indicator */}
+            {/* Loading indicator - adjusted timing for 12s */}
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ delay: 4, duration: 0.8 }}
+              transition={{ delay: 7, duration: 1 }}
               className="flex items-center gap-2"
             >
               <motion.div
