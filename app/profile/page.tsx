@@ -100,7 +100,7 @@ export default function ProfilePage() {
           </motion.div>
         </div>
 
-        {/* AI Settings Card */}
+        {/* API Settings Card */}
         <div className="px-4 pb-4">
           <motion.button
             initial={{ opacity: 0, y: 20 }}
@@ -176,7 +176,7 @@ export default function ProfilePage() {
                 <Settings className="w-5 h-5 text-purple-600" />
               </div>
               <div className="text-left">
-                <p className="font-medium text-gray-800">AI Settings</p>
+                <p className="font-medium text-gray-800">API Settings</p>
                 <p className="text-sm text-gray-500">Choose AI provider & API keys</p>
               </div>
             </div>
