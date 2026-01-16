@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { Home, Camera, BookOpen, User } from "lucide-react";
+import { Home, Camera, BookOpen, User, Dumbbell } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
@@ -9,10 +9,11 @@ const navItems = [
   { href: "/", icon: Home, label: "Home" },
   { href: "/camera", icon: Camera, label: "Scan" },
   { href: "/diary", icon: BookOpen, label: "Diary" },
+  { href: "/fitness", icon: Dumbbell, label: "Fitness" },
   { href: "/profile", icon: User, label: "Profile" },
 ];
 
-export function BottomNav() {
+export default function BottomNav() {
   const pathname = usePathname();
   const router = useRouter();
 
@@ -33,7 +34,7 @@ export function BottomNav() {
               key={item.href}
               onClick={() => router.push(item.href)}
               className={cn(
-                "flex flex-col items-center justify-center py-2 px-4 rounded-2xl transition-all duration-200 btn-press",
+                "flex flex-col items-center justify-center py-2 px-3 rounded-2xl transition-all duration-200 btn-press",
                 isActive
                   ? "text-green-600 bg-green-50"
                   : "text-gray-500 hover:text-gray-700"
@@ -49,7 +50,7 @@ export function BottomNav() {
               >
                 <Icon
                   className={cn(
-                    "w-6 h-6 transition-colors",
+                    "w-5 h-5 transition-colors",
                     isActive ? "text-green-600" : "text-gray-500"
                   )}
                   strokeWidth={isActive ? 2.5 : 2}
@@ -57,7 +58,7 @@ export function BottomNav() {
               </motion.div>
               <span
                 className={cn(
-                  "text-xs mt-1 font-medium transition-colors",
+                  "text-[10px] mt-1 font-medium transition-colors",
                   isActive ? "text-green-600" : "text-gray-500"
                 )}
               >
@@ -77,3 +78,6 @@ export function BottomNav() {
     </nav>
   );
 }
+
+// Also export as named for backward compatibility
+export { BottomNav };

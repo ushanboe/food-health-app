@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
-import { BottomNav } from "@/components/BottomNav";
+import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
 
 export default function ProfilePage() {

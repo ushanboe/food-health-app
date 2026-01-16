@@ -34,7 +34,7 @@ export default function RecipesPage() {
 
   const [recipeName, setRecipeName] = useState('');
   const [servings, setServings] = useState(4);
-  const [recipeThumbnail, setRecipeThumbnail] = useState<string | null>(null);
+  const [recipeImageUrl, setRecipeImageUrl] = useState<string | null>(null);
   const [recipeInstructions, setRecipeInstructions] = useState<string | null>(null);
   const [ingredients, setIngredients] = useState<LocalIngredient[]>([]);
 
@@ -155,7 +155,7 @@ export default function RecipesPage() {
   const importMealDBRecipe = async (meal: MealDBMeal) => {
     setIsImportingMeal(true);
     setRecipeName(meal.strMeal);
-    setRecipeThumbnail(meal.strMealThumb);
+    setRecipeImageUrl(meal.strMealThumb);
     setRecipeInstructions(meal.strInstructions);
     setServings(4);
 
@@ -267,7 +267,7 @@ export default function RecipesPage() {
       if (recipe) {
         setRecipeName(recipe.title);
         setServings(recipe.servings || 4);
-        setRecipeThumbnail(recipe.image);
+        setRecipeImageUrl(recipe.image);
         setRecipeInstructions(recipe.instructions?.replace(/<[^>]*>/g, '') || null);
 
         const nutrition = extractNutrition(recipe);
@@ -369,12 +369,12 @@ export default function RecipesPage() {
     const recipeIngredients: RecipeIngredient[] = ingredients.map(ing => ({
       id: ing.id,
       name: ing.name,
-      quantity: ing.quantity,
+      amount: ing.quantity,
+      unit: "serving",
       calories: Math.round(ing.calories * ing.quantity),
       protein: Math.round(ing.protein * ing.quantity * 10) / 10,
       carbs: Math.round(ing.carbs * ing.quantity * 10) / 10,
       fat: Math.round(ing.fat * ing.quantity * 10) / 10,
-      servingSize: ing.servingSize,
     }));
 
     const recipe: Recipe = {
@@ -383,7 +383,7 @@ export default function RecipesPage() {
       servings,
       ingredients: recipeIngredients,
       createdAt: new Date(),
-      thumbnail: recipeThumbnail || undefined,
+      imageUrl: recipeImageUrl || undefined,
       instructions: recipeInstructions || undefined,
     };
 
@@ -392,7 +392,7 @@ export default function RecipesPage() {
     setRecipeName('');
     setServings(4);
     setIngredients([]);
-    setRecipeThumbnail(null);
+    setRecipeImageUrl(null);
     setRecipeInstructions(null);
   };
 
@@ -495,8 +495,8 @@ export default function RecipesPage() {
                     <div className="flex gap-3">
                       {/* Thumbnail */}
                       <div className="w-16 h-16 rounded-xl bg-gray-800 flex items-center justify-center flex-shrink-0 overflow-hidden">
-                        {recipe.thumbnail ? (
-                          <img src={recipe.thumbnail} alt={recipe.name} className="w-full h-full object-cover" />
+                        {recipe.imageUrl ? (
+                          <img src={recipe.imageUrl} alt={recipe.name} className="w-full h-full object-cover" />
                         ) : (
                           <ChefHat size={24} className="text-gray-600" />
                         )}
@@ -915,8 +915,8 @@ export default function RecipesPage() {
               className="bg-gray-900 rounded-t-3xl w-full max-h-[90vh] overflow-y-auto"
             >
               <div className="relative h-48 bg-gray-800">
-                {viewingRecipe.thumbnail ? (
-                  <img src={viewingRecipe.thumbnail} alt={viewingRecipe.name} className="w-full h-full object-cover" />
+                {viewingRecipe.imageUrl ? (
+                  <img src={viewingRecipe.imageUrl} alt={viewingRecipe.name} className="w-full h-full object-cover" />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center">
                     <ChefHat size={64} className="text-gray-600" />

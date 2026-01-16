@@ -39,7 +39,6 @@ export interface AISettings {
   geminiApiKey: string;
   openaiApiKey: string;
   spoonacularApiKey: string;
-  // Supabase Cloud Sync
   supabaseUrl: string;
   supabaseAnonKey: string;
   supabaseLastSync?: string;
@@ -75,35 +74,32 @@ export interface DailyLog {
   meals: MealEntry[];
 }
 
-// Phase 2: Weight tracking
 export interface WeightEntry {
   id: string;
   date: string;
-  weight: number; // in kg
+  weight: number;
   note?: string;
 }
 
-// Phase 2: User body stats for TDEE
 export interface UserStats {
-  height: number; // cm
-  currentWeight: number; // kg
-  targetWeight: number; // kg
+  height: number;
+  currentWeight: number;
+  targetWeight: number;
   age: number;
   gender: "male" | "female";
   activityLevel: "sedentary" | "light" | "moderate" | "active" | "very_active";
   weightGoal: "lose" | "maintain" | "gain";
 }
 
-// Phase 2: Recipe
 export interface RecipeIngredient {
   id: string;
   name: string;
+  amount: number;
+  unit: string;
   calories: number;
   protein: number;
   carbs: number;
   fat: number;
-  servingSize?: string;
-  quantity: number;
 }
 
 export interface Recipe {
@@ -111,11 +107,85 @@ export interface Recipe {
   name: string;
   ingredients: RecipeIngredient[];
   servings: number;
-  createdAt: Date;
-  thumbnail?: string;
   instructions?: string;
-  imageData?: string;
+  imageUrl?: string;
+  createdAt: Date;
+  source?: "manual" | "imported" | "api";
+  sourceUrl?: string;
 }
+
+// ============ PHASE 3: FITNESS TRACKING ============
+
+export type ExerciseCategory = "cardio" | "strength" | "flexibility" | "sports" | "daily";
+
+export interface ExerciseType {
+  id: string;
+  name: string;
+  category: ExerciseCategory;
+  metValue: number;
+  icon: string;
+}
+
+export interface ExerciseEntry {
+  id: string;
+  exerciseId: string;
+  exerciseName: string;
+  category: ExerciseCategory;
+  duration: number;
+  caloriesBurned: number;
+  intensity: "light" | "moderate" | "vigorous";
+  notes?: string;
+  timestamp: Date;
+  date: string;
+}
+
+export interface DailyFitnessLog {
+  date: string;
+  exercises: ExerciseEntry[];
+  steps: number;
+}
+
+export const EXERCISE_TYPES: ExerciseType[] = [
+  { id: "walking", name: "Walking", category: "cardio", metValue: 3.5, icon: "🚶" },
+  { id: "running", name: "Running", category: "cardio", metValue: 9.8, icon: "🏃" },
+  { id: "cycling", name: "Cycling", category: "cardio", metValue: 7.5, icon: "🚴" },
+  { id: "swimming", name: "Swimming", category: "cardio", metValue: 8.0, icon: "🏊" },
+  { id: "jump_rope", name: "Jump Rope", category: "cardio", metValue: 11.0, icon: "⏫" },
+  { id: "rowing", name: "Rowing", category: "cardio", metValue: 7.0, icon: "🚣" },
+  { id: "elliptical", name: "Elliptical", category: "cardio", metValue: 5.0, icon: "🔄" },
+  { id: "stair_climbing", name: "Stair Climbing", category: "cardio", metValue: 8.8, icon: "🪜" },
+  { id: "weight_lifting", name: "Weight Lifting", category: "strength", metValue: 6.0, icon: "🏋️" },
+  { id: "bodyweight", name: "Bodyweight Exercises", category: "strength", metValue: 5.0, icon: "💪" },
+  { id: "resistance_bands", name: "Resistance Bands", category: "strength", metValue: 4.5, icon: "🎗️" },
+  { id: "crossfit", name: "CrossFit", category: "strength", metValue: 8.0, icon: "🔥" },
+  { id: "yoga", name: "Yoga", category: "flexibility", metValue: 3.0, icon: "🧘" },
+  { id: "pilates", name: "Pilates", category: "flexibility", metValue: 3.5, icon: "🤸" },
+  { id: "stretching", name: "Stretching", category: "flexibility", metValue: 2.5, icon: "🙆" },
+  { id: "basketball", name: "Basketball", category: "sports", metValue: 8.0, icon: "🏀" },
+  { id: "soccer", name: "Soccer/Football", category: "sports", metValue: 10.0, icon: "⚽" },
+  { id: "tennis", name: "Tennis", category: "sports", metValue: 7.3, icon: "🎾" },
+  { id: "badminton", name: "Badminton", category: "sports", metValue: 5.5, icon: "🏸" },
+  { id: "golf", name: "Golf", category: "sports", metValue: 4.8, icon: "⛳" },
+  { id: "hiking", name: "Hiking", category: "sports", metValue: 6.0, icon: "🥾" },
+  { id: "dancing", name: "Dancing", category: "sports", metValue: 6.5, icon: "💃" },
+  { id: "martial_arts", name: "Martial Arts", category: "sports", metValue: 10.0, icon: "🥋" },
+  { id: "housework", name: "Housework", category: "daily", metValue: 3.5, icon: "🧹" },
+  { id: "gardening", name: "Gardening", category: "daily", metValue: 4.0, icon: "🌱" },
+  { id: "playing_kids", name: "Playing with Kids", category: "daily", metValue: 5.0, icon: "👶" },
+];
+
+export const calculateCaloriesBurned = (
+  metValue: number,
+  weightKg: number,
+  durationMinutes: number,
+  intensity: "light" | "moderate" | "vigorous" = "moderate"
+): number => {
+  const intensityMultiplier = { light: 0.8, moderate: 1.0, vigorous: 1.3 };
+  const hours = durationMinutes / 60;
+  return Math.round(metValue * weightKg * hours * intensityMultiplier[intensity]);
+};
+
+// ============ STORE INTERFACE ============
 
 interface AppState {
   currentImage: string | null;
@@ -127,13 +197,11 @@ interface AppState {
   aiSettings: AISettings;
   dailyGoals: DailyGoals;
   dailyLogs: DailyLog[];
-
-  // Phase 2
   weightHistory: WeightEntry[];
   userStats: UserStats;
   recipes: Recipe[];
+  fitnessLogs: DailyFitnessLog[];
 
-  // Actions
   setCurrentImage: (image: string | null) => void;
   setScannedBarcode: (barcode: string | null) => void;
   setIsAnalyzing: (analyzing: boolean) => void;
@@ -149,29 +217,29 @@ interface AppState {
   getDailyLog: (date: string) => DailyLog | undefined;
   getDailyTotals: (date: string) => { calories: number; protein: number; carbs: number; fat: number };
   clearDailyLog: (date: string) => void;
-
-  // Phase 2 actions
   addWeightEntry: (entry: WeightEntry) => void;
   removeWeightEntry: (id: string) => void;
   updateUserStats: (stats: Partial<UserStats>) => void;
   calculateTDEE: () => number;
   addRecipe: (recipe: Recipe) => void;
-  updateRecipe: (id: string, recipe: Partial<Recipe>) => void;
+  updateRecipe: (id: string, updates: Partial<Recipe>) => void;
   removeRecipe: (id: string) => void;
+  // Fitness actions
+  addExerciseEntry: (entry: ExerciseEntry) => void;
+  removeExerciseEntry: (date: string, entryId: string) => void;
+  updateSteps: (date: string, steps: number) => void;
+  getDailyFitnessLog: (date: string) => DailyFitnessLog | undefined;
+  getDailyCaloriesBurned: (date: string) => number;
+  getNetCalories: (date: string) => number;
 }
 
-export const getTodayString = (): string => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-};
+export const getTodayString = () => new Date().toISOString().split("T")[0];
 
-// TDEE Calculator
 const calculateBMR = (stats: UserStats): number => {
-  // Mifflin-St Jeor Equation
   if (stats.gender === "male") {
-    return 10 * stats.currentWeight + 6.25 * stats.height - 5 * stats.age + 5;
+    return 88.362 + 13.397 * stats.currentWeight + 4.799 * stats.height - 5.677 * stats.age;
   }
-  return 10 * stats.currentWeight + 6.25 * stats.height - 5 * stats.age - 161;
+  return 447.593 + 9.247 * stats.currentWeight + 3.098 * stats.height - 4.33 * stats.age;
 };
 
 const activityMultipliers = {
@@ -211,8 +279,6 @@ export const useAppStore = create<AppState>()(
         fat: 65,
       },
       dailyLogs: [],
-
-      // Phase 2 defaults
       weightHistory: [],
       userStats: {
         height: 170,
@@ -224,6 +290,7 @@ export const useAppStore = create<AppState>()(
         weightGoal: "maintain",
       },
       recipes: [],
+      fitnessLogs: [],
 
       setCurrentImage: (image) => set({ currentImage: image }),
       setScannedBarcode: (barcode) => set({ scannedBarcode: barcode }),
@@ -303,13 +370,12 @@ export const useAppStore = create<AppState>()(
           dailyLogs: state.dailyLogs.filter((l) => l.date !== date),
         })),
 
-      // Phase 2: Weight tracking
       addWeightEntry: (entry) =>
         set((state) => {
           const filtered = state.weightHistory.filter((w) => w.date !== entry.date);
           const updated = [...filtered, entry].sort((a, b) => a.date.localeCompare(b.date));
           return {
-            weightHistory: updated.slice(-90), // Keep 90 days
+            weightHistory: updated.slice(-90),
             userStats: { ...state.userStats, currentWeight: entry.weight },
           };
         }),
@@ -328,13 +394,11 @@ export const useAppStore = create<AppState>()(
         const { userStats } = get();
         const bmr = calculateBMR(userStats);
         const tdee = bmr * activityMultipliers[userStats.activityLevel];
-        // Adjust for goal
         if (userStats.weightGoal === "lose") return Math.round(tdee - 500);
         if (userStats.weightGoal === "gain") return Math.round(tdee + 300);
         return Math.round(tdee);
       },
 
-      // Phase 2: Recipes
       addRecipe: (recipe) =>
         set((state) => ({
           recipes: [recipe, ...state.recipes],
@@ -351,6 +415,64 @@ export const useAppStore = create<AppState>()(
         set((state) => ({
           recipes: state.recipes.filter((r) => r.id !== id),
         })),
+
+      // Fitness actions
+      addExerciseEntry: (entry) =>
+        set((state) => {
+          const existingLog = state.fitnessLogs.find((l) => l.date === entry.date);
+          if (existingLog) {
+            return {
+              fitnessLogs: state.fitnessLogs.map((l) =>
+                l.date === entry.date
+                  ? { ...l, exercises: [...l.exercises, entry] }
+                  : l
+              ),
+            };
+          }
+          return {
+            fitnessLogs: [...state.fitnessLogs, { date: entry.date, exercises: [entry], steps: 0 }],
+          };
+        }),
+
+      removeExerciseEntry: (date, entryId) =>
+        set((state) => ({
+          fitnessLogs: state.fitnessLogs.map((l) =>
+            l.date === date
+              ? { ...l, exercises: l.exercises.filter((e) => e.id !== entryId) }
+              : l
+          ),
+        })),
+
+      updateSteps: (date, steps) =>
+        set((state) => {
+          const existingLog = state.fitnessLogs.find((l) => l.date === date);
+          if (existingLog) {
+            return {
+              fitnessLogs: state.fitnessLogs.map((l) =>
+                l.date === date ? { ...l, steps } : l
+              ),
+            };
+          }
+          return {
+            fitnessLogs: [...state.fitnessLogs, { date, exercises: [], steps }],
+          };
+        }),
+
+      getDailyFitnessLog: (date) => get().fitnessLogs.find((l) => l.date === date),
+
+      getDailyCaloriesBurned: (date) => {
+        const log = get().fitnessLogs.find((l) => l.date === date);
+        if (!log) return 0;
+        const exerciseCalories = log.exercises.reduce((sum, e) => sum + e.caloriesBurned, 0);
+        const stepCalories = Math.round(log.steps * 0.04);
+        return exerciseCalories + stepCalories;
+      },
+
+      getNetCalories: (date) => {
+        const consumed = get().getDailyTotals(date).calories;
+        const burned = get().getDailyCaloriesBurned(date);
+        return consumed - burned;
+      },
     }),
     {
       name: "nutriscan-storage",

@@ -104,9 +104,9 @@ export async function performFullSync(userId: string, data: SyncData): Promise<v
       servings: r.servings,
       ingredients: r.ingredients,
       created_at: r.createdAt instanceof Date ? r.createdAt.toISOString() : r.createdAt,
-      thumbnail: r.thumbnail,
+      image_url: r.imageUrl,
       instructions: r.instructions,
-      image_data: r.imageData,
+      
     }));
 
     const { error: recipesError } = await supabase
@@ -193,7 +193,7 @@ export async function fetchUserData(userId: string): Promise<Partial<SyncData>> 
       servings: row.servings,
       ingredients: row.ingredients,
       createdAt: new Date(row.created_at),
-      thumbnail: row.thumbnail,
+      imageUrl: row.thumbnail || row.image_url,
       instructions: row.instructions,
       imageData: row.image_data,
     })),

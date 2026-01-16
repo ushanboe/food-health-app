@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAppStore, MealType, MealEntry, getTodayString } from "@/lib/store";
 import { ProgressRing, MiniProgressRing } from "@/components/ProgressRing";
-import { BottomNav } from "@/components/BottomNav";
+import BottomNav from "@/components/BottomNav";
 import { useRouter } from "next/navigation";
 
 const mealConfig: { type: MealType; label: string; icon: string; timeHint: string }[] = [

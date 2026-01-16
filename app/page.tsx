@@ -3,15 +3,20 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { Camera, Sparkles, Target, ChevronRight, Barcode } from "lucide-react";
-import { useAppStore, getTodayString } from "@/lib/store";
+import { Camera, Sparkles, Target, ChevronRight, Barcode, Flame, Footprints, Dumbbell } from "lucide-react";
+import { useAppStore } from "@/lib/store";
 import { ProgressRing } from "@/components/ProgressRing";
-import { BottomNav } from "@/components/BottomNav";
+import BottomNav from "@/components/BottomNav";
+
+const getTodayString = () => new Date().toISOString().split('T')[0];
 
 export default function HomePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const { analysisHistory, dailyGoals, dailyLogs, setCurrentAnalysis } = useAppStore();
+  const { 
+    analysisHistory, dailyGoals, dailyLogs, setCurrentAnalysis,
+    getDailyCaloriesBurned, getDailyFitnessLog, getNetCalories 
+  } = useAppStore();
 
   useEffect(() => { setMounted(true); }, []);
 
@@ -21,6 +26,13 @@ export default function HomePage() {
     (acc, m) => ({ calories: acc.calories + (m.calories || 0), protein: acc.protein + (m.protein || 0), carbs: acc.carbs + (m.carbs || 0), fat: acc.fat + (m.fat || 0) }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   ) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
+
+  // Fitness data
+  const fitnessLog = getDailyFitnessLog(today);
+  const caloriesBurned = getDailyCaloriesBurned(today);
+  const steps = fitnessLog?.steps || 0;
+  const exerciseCount = fitnessLog?.exercises?.length || 0;
+  const netCalories = getNetCalories(today);
 
   const recentScans = analysisHistory?.slice(0, 3) || [];
 
@@ -38,10 +50,10 @@ export default function HomePage() {
         {/* Daily Progress Card */}
         <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
           onClick={() => router.push("/diary")}
-          className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-5 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+          className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="font-semibold text-gray-800 dark:text-white">Today's Progress</h2>
+              <h2 className="font-semibold text-gray-800 dark:text-white">Today's Nutrition</h2>
               <p className="text-sm text-gray-500">{todayLog?.meals?.length || 0} items logged</p>
             </div>
             <button onClick={(e) => { e.stopPropagation(); router.push("/goals"); }} className="text-green-600 text-sm font-medium flex items-center gap-1">
@@ -56,6 +68,39 @@ export default function HomePage() {
             <div><p className="text-lg font-bold text-amber-500">{Math.round(todayTotals.carbs)}g</p><p className="text-xs text-gray-500">Carbs</p></div>
             <div><p className="text-lg font-bold text-blue-500">{Math.round(todayTotals.fat)}g</p><p className="text-xs text-gray-500">Fat</p></div>
           </div>
+        </motion.div>
+
+        {/* Fitness Summary Card */}
+        <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
+          onClick={() => router.push("/fitness")}
+          className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-4 mb-4 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Dumbbell className="w-5 h-5 text-white" />
+              <h2 className="font-semibold text-white">Today's Fitness</h2>
+            </div>
+            <ChevronRight className="w-5 h-5 text-white/70" />
+          </div>
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white/20 rounded-xl p-3 text-center">
+              <Flame className="w-5 h-5 text-white mx-auto mb-1" />
+              <p className="text-xl font-bold text-white">{caloriesBurned}</p>
+              <p className="text-xs text-white/70">Burned</p>
+            </div>
+            <div className="bg-white/20 rounded-xl p-3 text-center">
+              <Footprints className="w-5 h-5 text-white mx-auto mb-1" />
+              <p className="text-xl font-bold text-white">{steps.toLocaleString()}</p>
+              <p className="text-xs text-white/70">Steps</p>
+            </div>
+            <div className="bg-white/20 rounded-xl p-3 text-center">
+              <Target className="w-5 h-5 text-white mx-auto mb-1" />
+              <p className={`text-xl font-bold ${netCalories > (dailyGoals?.calories || 2000) ? 'text-red-200' : 'text-green-200'}`}>{netCalories}</p>
+              <p className="text-xs text-white/70">Net Cal</p>
+            </div>
+          </div>
+          {exerciseCount > 0 && (
+            <p className="text-xs text-white/70 mt-2 text-center">{exerciseCount} exercise{exerciseCount > 1 ? 's' : ''} logged today</p>
+          )}
         </motion.div>
 
         {/* Scan CTA */}
