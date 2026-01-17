@@ -228,10 +228,14 @@ export default function CloudSyncCard() {
       error: hasError ? errorMessage : undefined,
     };
     
+    console.log("[DEBUG CloudSyncCard] About to save sync record:", record.id, record.status);
     saveSyncRecord(record);
+    console.log("[DEBUG CloudSyncCard] Sync record saved");
     
     // Dispatch event to notify SyncHistoryCard
+    console.log("[DEBUG CloudSyncCard] Dispatching fitfork-sync-complete event");
     window.dispatchEvent(new CustomEvent("fitfork-sync-complete"));
+    console.log("[DEBUG CloudSyncCard] Event dispatched");
     
     // Update UI
     setLastSyncTime(record.timestamp);

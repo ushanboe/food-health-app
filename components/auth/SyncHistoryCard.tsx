@@ -28,27 +28,37 @@ import {
 
 export default function SyncHistoryCard() {
   const [history, setHistory] = useState<SyncRecord[]>([]);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState<string | false>(false);
   const [showAll, setShowAll] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<string>('');
 
   // Function to refresh history
   const refreshHistory = useCallback(() => {
-    setHistory(getSyncHistory());
+    console.log('[DEBUG SyncHistoryCard] refreshHistory called');
+    const data = getSyncHistory();
+    console.log('[DEBUG SyncHistoryCard] Got history, length:', data.length);
+    setHistory(data);
+    setDebugInfo(`Last refresh: ${new Date().toLocaleTimeString()}, Records: ${data.length}`);
   }, []);
 
   useEffect(() => {
+    console.log('[DEBUG SyncHistoryCard] Component mounted');
+    
     // Load initial history
     refreshHistory();
 
     // Listen for storage changes (when sync saves new record)
     const handleStorageChange = (e: StorageEvent) => {
+      console.log('[DEBUG SyncHistoryCard] Storage event:', e.key);
       if (e.key === 'fitfork_sync_history') {
+        console.log('[DEBUG SyncHistoryCard] Sync history changed in storage');
         refreshHistory();
       }
     };
 
     // Listen for custom sync event (for same-tab updates)
     const handleSyncComplete = () => {
+      console.log('[DEBUG SyncHistoryCard] fitfork-sync-complete event received!');
       refreshHistory();
     };
 
@@ -56,9 +66,13 @@ export default function SyncHistoryCard() {
     window.addEventListener('fitfork-sync-complete', handleSyncComplete);
 
     // Also poll every 2 seconds while on this page (backup)
-    const interval = setInterval(refreshHistory, 2000);
+    const interval = setInterval(() => {
+      console.log('[DEBUG SyncHistoryCard] Polling refresh');
+      refreshHistory();
+    }, 2000);
 
     return () => {
+      console.log('[DEBUG SyncHistoryCard] Component unmounting');
       window.removeEventListener('storage', handleStorageChange);
       window.removeEventListener('fitfork-sync-complete', handleSyncComplete);
       clearInterval(interval);
@@ -128,6 +142,9 @@ export default function SyncHistoryCard() {
     }
   };
 
+  // Always show the card - with debug info
+  console.log('[DEBUG SyncHistoryCard] Rendering, history length:', history.length);
+
   // Show empty state
   if (history.length === 0) {
     return (
@@ -150,6 +167,17 @@ export default function SyncHistoryCard() {
           <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
             Click "Sync Now" above to sync your data!
           </p>
+        </div>
+        {/* Debug info */}
+        <div className="mt-4 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-700 dark:text-yellow-400">
+          <strong>🐛 Debug:</strong> {debugInfo || 'Loading...'}
+          <br />
+          <button 
+            onClick={refreshHistory}
+            className="mt-1 underline"
+          >
+            Manual Refresh
+          </button>
         </div>
       </motion.div>
     );
@@ -183,6 +211,11 @@ export default function SyncHistoryCard() {
         >
           <Trash2 className="w-4 h-4" />
         </button>
+      </div>
+
+      {/* Debug info */}
+      <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-700 dark:text-yellow-400">
+        <strong>🐛 Debug:</strong> {debugInfo}
       </div>
 
       {/* Sync Records */}
@@ -261,12 +294,13 @@ export default function SyncHistoryCard() {
                                 {getCategoryIcon(category)}
                                 <span>{getCategoryLabel(category)}</span>
                               </div>
-                              <span className={data.synced ? 'text-green-500' : 'text-gray-400'}>
-                                {data.synced ? '✓ Synced' : '- No changes'}
+                              <span className={(data as {synced: boolean}).synced ? 'text-green-500' : 'text-gray-400'}>
+                                {(data as {synced: boolean}).synced ? '✓ Synced' : '- No changes'}
                               </span>
                             </div>
                           );
                         }
+                        const typedData = data as { uploaded: number; downloaded: number };
                         return (
                           <div key={category} className="flex items-center justify-between text-xs">
                             <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
@@ -275,10 +309,10 @@ export default function SyncHistoryCard() {
                             </div>
                             <div className="flex items-center gap-3">
                               <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
-                                <Upload className="w-3 h-3" /> {data.uploaded}
+                                <Upload className="w-3 h-3" /> {typedData.uploaded}
                               </span>
                               <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
-                                <Download className="w-3 h-3" /> {data.downloaded}
+                                <Download className="w-3 h-3" /> {typedData.downloaded}
                               </span>
                             </div>
                           </div>

@@ -32,23 +32,38 @@ export function getSyncHistory(): SyncRecord[] {
   if (typeof window === 'undefined') return [];
   try {
     const data = localStorage.getItem(SYNC_HISTORY_KEY);
-    return data ? JSON.parse(data) : [];
-  } catch {
+    console.log('[DEBUG getSyncHistory] Raw localStorage data:', data ? data.substring(0, 100) + '...' : 'null');
+    const parsed = data ? JSON.parse(data) : [];
+    console.log('[DEBUG getSyncHistory] Parsed records count:', parsed.length);
+    return parsed;
+  } catch (e) {
+    console.error('[DEBUG getSyncHistory] Error:', e);
     return [];
   }
 }
 
 // Save sync record
 export function saveSyncRecord(record: SyncRecord): void {
-  if (typeof window === 'undefined') return;
+  console.log('[DEBUG saveSyncRecord] Saving record:', record.id, record.status);
+  if (typeof window === 'undefined') {
+    console.log('[DEBUG saveSyncRecord] Window undefined, skipping');
+    return;
+  }
   try {
     const history = getSyncHistory();
+    console.log('[DEBUG saveSyncRecord] Current history length:', history.length);
     history.unshift(record); // Add to beginning
     // Keep only last N records
     const trimmed = history.slice(0, MAX_HISTORY_ITEMS);
-    localStorage.setItem(SYNC_HISTORY_KEY, JSON.stringify(trimmed));
+    const jsonData = JSON.stringify(trimmed);
+    localStorage.setItem(SYNC_HISTORY_KEY, jsonData);
+    console.log('[DEBUG saveSyncRecord] Saved! New history length:', trimmed.length);
+    
+    // Verify it was saved
+    const verify = localStorage.getItem(SYNC_HISTORY_KEY);
+    console.log('[DEBUG saveSyncRecord] Verification - data exists:', !!verify);
   } catch (e) {
-    console.error('Failed to save sync record:', e);
+    console.error('[DEBUG saveSyncRecord] Failed to save sync record:', e);
   }
 }
 
@@ -61,7 +76,7 @@ export function getSyncStatus(): SyncStatus {
   history.forEach(record => {
     if (record.status === 'success' || record.status === 'partial') {
       const d = record.details;
-      totalItemsSynced += 
+      totalItemsSynced +=
         d.foodDiary.uploaded + d.foodDiary.downloaded +
         d.weightEntries.uploaded + d.weightEntries.downloaded +
         d.goals.uploaded + d.goals.downloaded +
@@ -99,6 +114,7 @@ export function formatRelativeTime(timestamp: string): string {
 
 // Clear sync history
 export function clearSyncHistory(): void {
+  console.log('[DEBUG clearSyncHistory] Clearing history');
   if (typeof window === 'undefined') return;
   localStorage.removeItem(SYNC_HISTORY_KEY);
 }
