@@ -1,7 +1,7 @@
 'use client';
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { User, Session } from '@supabase/supabase-js';
+import { User, Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase-client';
 
 interface AuthContextType {
@@ -9,6 +9,7 @@ interface AuthContextType {
   session: Session | null;
   loading: boolean;
   isConfigured: boolean;
+  supabase: SupabaseClient | null;
   signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
@@ -23,6 +24,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
+  const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
 
   useEffect(() => {
     const configured = isSupabaseConfigured();
@@ -33,21 +35,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
-    const supabase = getSupabaseClient();
-    if (!supabase) {
+    const client = getSupabaseClient();
+    setSupabase(client);
+    
+    if (!client) {
       setLoading(false);
       return;
     }
 
     // Get initial session
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    client.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
     });
 
     // Listen for auth changes
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+    const { data: { subscription } } = client.auth.onAuthStateChange(
       async (event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
@@ -59,14 +63,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signUp = useCallback(async (email: string, password: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return { error: new Error('Supabase not configured') };
+    const client = getSupabaseClient();
+    if (!client) return { error: new Error('Supabase not configured') };
     
-    const { error } = await supabase.auth.signUp({
+    const { error } = await client.auth.signUp({
       email,
       password,
       options: {
-        emailRedirectTo: typeof window !== 'undefined' 
+        emailRedirectTo: typeof window !== 'undefined'
           ? `${window.location.origin}/auth/callback`
           : undefined,
       },
@@ -75,10 +79,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signIn = useCallback(async (email: string, password: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return { error: new Error('Supabase not configured') };
+    const client = getSupabaseClient();
+    if (!client) return { error: new Error('Supabase not configured') };
     
-    const { error } = await supabase.auth.signInWithPassword({
+    const { error } = await client.auth.signInWithPassword({
       email,
       password,
     });
@@ -86,10 +90,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signInWithGoogle = useCallback(async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return { error: new Error('Supabase not configured') };
+    const client = getSupabaseClient();
+    if (!client) return { error: new Error('Supabase not configured') };
     
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await client.auth.signInWithOAuth({
       provider: 'google',
       options: {
         redirectTo: typeof window !== 'undefined'
@@ -101,19 +105,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const signOut = useCallback(async () => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return;
+    const client = getSupabaseClient();
+    if (!client) return;
     
-    await supabase.auth.signOut();
+    await client.auth.signOut();
     setUser(null);
     setSession(null);
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
-    const supabase = getSupabaseClient();
-    if (!supabase) return { error: new Error('Supabase not configured') };
+    const client = getSupabaseClient();
+    if (!client) return { error: new Error('Supabase not configured') };
     
-    const { error } = await supabase.auth.resetPasswordForEmail(email, {
+    const { error } = await client.auth.resetPasswordForEmail(email, {
       redirectTo: typeof window !== 'undefined'
         ? `${window.location.origin}/auth/reset-password`
         : undefined,
@@ -126,6 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     session,
     loading,
     isConfigured,
+    supabase,
     signUp,
     signIn,
     signInWithGoogle,

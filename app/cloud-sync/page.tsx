@@ -4,6 +4,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Cloud, Smartphone, Laptop, Tablet, Shield, Zap } from "lucide-react";
 import { useRouter } from "next/navigation";
 import CloudSyncCard from "@/components/auth/CloudSyncCard";
+import SyncHistoryCard from "@/components/auth/SyncHistoryCard";
 import { FloatingNutri } from "@/components/FloatingNutri";
 import BottomNav from "@/components/BottomNav";
 
@@ -39,6 +40,9 @@ export default function CloudSyncPage() {
         <div className="p-4 space-y-4 pb-24">
           {/* Cloud Sync Card */}
           <CloudSyncCard />
+
+          {/* Sync History Card - Shows what was synced */}
+          <SyncHistoryCard />
 
           {/* How It Works */}
           <motion.div

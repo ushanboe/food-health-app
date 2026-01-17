@@ -1,15 +1,25 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { useAuth } from '@/contexts/AuthContext';
-import { Cloud, CloudOff, LogOut, RefreshCw, CheckCircle, User, Shield } from 'lucide-react';
+import { Cloud, CloudOff, LogOut, RefreshCw, CheckCircle, User, Shield, AlertCircle } from 'lucide-react';
 import AuthModal from './AuthModal';
+import { saveSyncRecord, getSyncStatus, formatRelativeTime, SyncRecord } from '@/lib/syncStatus';
 
 export default function CloudSyncCard() {
-  const { user, loading, isConfigured, signOut } = useAuth();
+  const { user, loading, isConfigured, signOut, supabase } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState<string | null>(null);
+  const [lastSyncStatus, setLastSyncStatus] = useState<'success' | 'failed' | 'partial' | 'never'>('never');
+  const [syncMessage, setSyncMessage] = useState<string>('');
+
+  useEffect(() => {
+    const status = getSyncStatus();
+    setLastSyncTime(status.lastSync);
+    setLastSyncStatus(status.lastSyncStatus);
+  }, [syncing]);
 
   const handleSignOut = async () => {
     if (confirm('Sign out? Your local data will be kept, but won\'t sync until you sign in again.')) {
@@ -18,10 +28,216 @@ export default function CloudSyncCard() {
   };
 
   const handleManualSync = async () => {
+    if (!supabase || !user) return;
+    
     setSyncing(true);
-    // TODO: Implement manual sync
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    setSyncing(false);
+    setSyncMessage('Starting sync...');
+    const startTime = Date.now();
+    
+    const syncDetails = {
+      foodDiary: { uploaded: 0, downloaded: 0 },
+      weightEntries: { uploaded: 0, downloaded: 0 },
+      goals: { uploaded: 0, downloaded: 0 },
+      recipes: { uploaded: 0, downloaded: 0 },
+      profile: { synced: false },
+    };
+    
+    let hasError = false;
+    let errorMessage = '';
+
+    try {
+      // Sync Food History
+      setSyncMessage('Syncing food diary...');
+      try {
+        const localFoodHistory = JSON.parse(localStorage.getItem('foodHistory') || '[]');
+        
+        // Upload local data
+        if (localFoodHistory.length > 0) {
+          for (const item of localFoodHistory) {
+            const { error } = await supabase
+              .from('food_history')
+              .upsert({
+                id: item.id,
+                user_id: user.id,
+                timestamp: item.timestamp,
+                food_name: item.foodName || item.name,
+                category: item.category || 'Unknown',
+                health_score: item.healthScore || 0,
+                calories: item.calories || 0,
+                protein: item.protein || 0,
+                carbs: item.carbs || 0,
+                fat: item.fat || 0,
+                fiber: item.fiber || 0,
+                verdict: item.verdict || '',
+                description: item.description || '',
+                alternatives: item.alternatives || [],
+              }, { onConflict: 'id' });
+            
+            if (!error) syncDetails.foodDiary.uploaded++;
+          }
+        }
+
+        // Download cloud data
+        const { data: cloudFood } = await supabase
+          .from('food_history')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (cloudFood && cloudFood.length > 0) {
+          syncDetails.foodDiary.downloaded = cloudFood.length;
+        }
+      } catch (e) {
+        console.error('Food sync error:', e);
+      }
+
+      // Sync Weight Entries
+      setSyncMessage('Syncing weight entries...');
+      try {
+        const localWeight = JSON.parse(localStorage.getItem('weightHistory') || '[]');
+        
+        if (localWeight.length > 0) {
+          for (const item of localWeight) {
+            const { error } = await supabase
+              .from('weight_history')
+              .upsert({
+                id: item.id || `weight-${item.date}`,
+                user_id: user.id,
+                date: item.date,
+                weight: item.weight,
+                note: item.note || '',
+              }, { onConflict: 'id' });
+            
+            if (!error) syncDetails.weightEntries.uploaded++;
+          }
+        }
+
+        const { data: cloudWeight } = await supabase
+          .from('weight_history')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (cloudWeight && cloudWeight.length > 0) {
+          syncDetails.weightEntries.downloaded = cloudWeight.length;
+        }
+      } catch (e) {
+        console.error('Weight sync error:', e);
+      }
+
+      // Sync Goals/Profile
+      setSyncMessage('Syncing profile & goals...');
+      try {
+        const localGoals = localStorage.getItem('userGoals');
+        const localStats = localStorage.getItem('userStats');
+        
+        if (localGoals || localStats) {
+          const { error } = await supabase
+            .from('user_profiles')
+            .upsert({
+              user_id: user.id,
+              daily_goals: localGoals ? JSON.parse(localGoals) : {},
+              user_stats: localStats ? JSON.parse(localStats) : {},
+              updated_at: new Date().toISOString(),
+            }, { onConflict: 'user_id' });
+          
+          if (!error) {
+            syncDetails.profile.synced = true;
+            syncDetails.goals.uploaded = 1;
+          }
+        }
+
+        const { data: cloudProfile } = await supabase
+          .from('user_profiles')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (cloudProfile) {
+          syncDetails.goals.downloaded = 1;
+          syncDetails.profile.synced = true;
+        }
+      } catch (e) {
+        console.error('Profile sync error:', e);
+      }
+
+      // Sync Recipes
+      setSyncMessage('Syncing recipes...');
+      try {
+        const localRecipes = JSON.parse(localStorage.getItem('savedRecipes') || '[]');
+        
+        if (localRecipes.length > 0) {
+          for (const recipe of localRecipes) {
+            const { error } = await supabase
+              .from('recipes')
+              .upsert({
+                id: recipe.id,
+                user_id: user.id,
+                name: recipe.name,
+                servings: recipe.servings || 1,
+                ingredients: recipe.ingredients || [],
+                instructions: recipe.instructions || '',
+              }, { onConflict: 'id' });
+            
+            if (!error) syncDetails.recipes.uploaded++;
+          }
+        }
+
+        const { data: cloudRecipes } = await supabase
+          .from('recipes')
+          .select('*')
+          .eq('user_id', user.id);
+        
+        if (cloudRecipes && cloudRecipes.length > 0) {
+          syncDetails.recipes.downloaded = cloudRecipes.length;
+        }
+      } catch (e) {
+        console.error('Recipe sync error:', e);
+      }
+
+      setSyncMessage('Sync complete!');
+
+    } catch (error: any) {
+      hasError = true;
+      errorMessage = error.message || 'Unknown error';
+      setSyncMessage('Sync failed: ' + errorMessage);
+    }
+
+    const duration = Date.now() - startTime;
+    
+    // Determine status
+    const totalItems = 
+      syncDetails.foodDiary.uploaded + syncDetails.foodDiary.downloaded +
+      syncDetails.weightEntries.uploaded + syncDetails.weightEntries.downloaded +
+      syncDetails.goals.uploaded + syncDetails.goals.downloaded +
+      syncDetails.recipes.uploaded + syncDetails.recipes.downloaded;
+    
+    let status: 'success' | 'failed' | 'partial' = 'success';
+    if (hasError && totalItems === 0) {
+      status = 'failed';
+    } else if (hasError) {
+      status = 'partial';
+    }
+
+    // Save sync record
+    const record: SyncRecord = {
+      id: `sync-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      type: 'full',
+      status,
+      details: syncDetails,
+      duration,
+      error: hasError ? errorMessage : undefined,
+    };
+    
+    saveSyncRecord(record);
+    
+    // Update UI
+    setLastSyncTime(record.timestamp);
+    setLastSyncStatus(status);
+    
+    setTimeout(() => {
+      setSyncing(false);
+      setSyncMessage('');
+    }, 1500);
   };
 
   if (loading) {
@@ -94,8 +310,21 @@ export default function CloudSyncCard() {
               </div>
               <div className="flex items-center justify-between text-sm">
                 <span className="text-gray-600 dark:text-gray-400">Last sync</span>
-                <span className="text-gray-800 dark:text-gray-200">Just now</span>
+                <span className={`font-medium flex items-center gap-1 ${
+                  lastSyncStatus === 'success' ? 'text-green-600 dark:text-green-400' :
+                  lastSyncStatus === 'failed' ? 'text-red-600 dark:text-red-400' :
+                  lastSyncStatus === 'partial' ? 'text-yellow-600 dark:text-yellow-400' :
+                  'text-gray-600 dark:text-gray-400'
+                }`}>
+                  {lastSyncStatus === 'failed' && <AlertCircle className="w-3 h-3" />}
+                  {lastSyncTime ? formatRelativeTime(lastSyncTime) : 'Never'}
+                </span>
               </div>
+              {syncMessage && (
+                <div className="text-xs text-blue-600 dark:text-blue-400 animate-pulse">
+                  {syncMessage}
+                </div>
+              )}
             </div>
 
             {/* Actions */}
