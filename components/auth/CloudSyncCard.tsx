@@ -230,6 +230,9 @@ export default function CloudSyncCard() {
     
     saveSyncRecord(record);
     
+    // Dispatch event to notify SyncHistoryCard
+    window.dispatchEvent(new CustomEvent("fitfork-sync-complete"));
+    
     // Update UI
     setLastSyncTime(record.timestamp);
     setLastSyncStatus(status);
