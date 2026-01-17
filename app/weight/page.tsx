@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Plus, Scale, TrendingDown, TrendingUp, Minus, Target, Trash2 } from "lucide-react";
 import { useAppStore, getTodayString, WeightEntry } from "@/lib/store";
+import BottomNav from "@/components/BottomNav";
 
 export default function WeightPage() {
   const router = useRouter();
@@ -25,7 +26,6 @@ export default function WeightPage() {
   const weightChange = latestWeight - startWeight;
   const toGoal = latestWeight - userStats.targetWeight;
 
-  // Chart data - last 30 days
   const last30 = sortedHistory.slice(0, 30).reverse();
   const minW = Math.min(...last30.map(w => w.weight), userStats.targetWeight) - 2;
   const maxW = Math.max(...last30.map(w => w.weight), userStats.targetWeight) + 2;
@@ -45,124 +45,126 @@ export default function WeightPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white px-5 pt-12 pb-6 safe-top">
-        <div className="flex items-center gap-4 mb-6">
-          <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">Weight Tracker</h1>
+    <div className="flex flex-col h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar" style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
+        {/* Header */}
+        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white px-5 pt-12 pb-6 safe-top">
+          <div className="flex items-center gap-4 mb-6">
+            <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <ArrowLeft className="w-5 h-5" />
+            </button>
+            <h1 className="text-2xl font-bold">Weight Tracker</h1>
+          </div>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-3 gap-3">
+            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
+              <Scale className="w-5 h-5 mx-auto mb-1 opacity-80" />
+              <p className="text-2xl font-bold">{latestWeight}</p>
+              <p className="text-xs opacity-80">Current (kg)</p>
+            </div>
+            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
+              {weightChange <= 0 ? <TrendingDown className="w-5 h-5 mx-auto mb-1 opacity-80" /> : <TrendingUp className="w-5 h-5 mx-auto mb-1 opacity-80" />}
+              <p className="text-2xl font-bold">{weightChange > 0 ? "+" : ""}{weightChange.toFixed(1)}</p>
+              <p className="text-xs opacity-80">Change (kg)</p>
+            </div>
+            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
+              <Target className="w-5 h-5 mx-auto mb-1 opacity-80" />
+              <p className="text-2xl font-bold">{Math.abs(toGoal).toFixed(1)}</p>
+              <p className="text-xs opacity-80">{toGoal > 0 ? "To lose" : toGoal < 0 ? "To gain" : "At goal!"}</p>
+            </div>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-3 gap-3">
-          <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-            <Scale className="w-5 h-5 mx-auto mb-1 opacity-80" />
-            <p className="text-2xl font-bold">{latestWeight}</p>
-            <p className="text-xs opacity-80">Current (kg)</p>
-          </div>
-          <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-            {weightChange <= 0 ? <TrendingDown className="w-5 h-5 mx-auto mb-1 opacity-80" /> : <TrendingUp className="w-5 h-5 mx-auto mb-1 opacity-80" />}
-            <p className="text-2xl font-bold">{weightChange > 0 ? "+" : ""}{weightChange.toFixed(1)}</p>
-            <p className="text-xs opacity-80">Change (kg)</p>
-          </div>
-          <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-            <Target className="w-5 h-5 mx-auto mb-1 opacity-80" />
-            <p className="text-2xl font-bold">{Math.abs(toGoal).toFixed(1)}</p>
-            <p className="text-xs opacity-80">{toGoal > 0 ? "To lose" : toGoal < 0 ? "To gain" : "At goal!"}</p>
-          </div>
-        </div>
-      </div>
-
-      <div className="px-5 py-4 space-y-4">
-        {/* Chart */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Progress Chart</h3>
-          {last30.length > 1 ? (
-            <div className="relative h-40">
-              {/* Y-axis labels */}
-              <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-400">
-                <span>{maxW.toFixed(0)}</span>
-                <span>{((maxW + minW) / 2).toFixed(0)}</span>
-                <span>{minW.toFixed(0)}</span>
-              </div>
-              {/* Chart area */}
-              <div className="ml-10 h-full relative">
-                {/* Target line */}
-                <div 
-                  className="absolute left-0 right-0 border-t-2 border-dashed border-green-400"
-                  style={{ top: `${((maxW - userStats.targetWeight) / range) * 100}%` }}
-                >
-                  <span className="absolute right-0 -top-3 text-xs text-green-500">Goal</span>
+        <div className="px-5 py-4 space-y-4">
+          {/* Chart */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Progress Chart</h3>
+            {last30.length > 1 ? (
+              <div className="relative h-40">
+                <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-400">
+                  <span>{maxW.toFixed(0)}</span>
+                  <span>{((maxW + minW) / 2).toFixed(0)}</span>
+                  <span>{minW.toFixed(0)}</span>
                 </div>
-                {/* Line chart */}
-                <svg className="w-full h-full" preserveAspectRatio="none">
-                  <polyline
-                    fill="none"
-                    stroke="#3b82f6"
-                    strokeWidth="2"
-                    points={last30.map((w, i) => {
+                <div className="ml-10 h-full relative">
+                  <div
+                    className="absolute left-0 right-0 border-t-2 border-dashed border-green-400"
+                    style={{ top: `${((maxW - userStats.targetWeight) / range) * 100}%` }}
+                  >
+                    <span className="absolute right-0 -top-3 text-xs text-green-500">Goal</span>
+                  </div>
+                  <svg className="w-full h-full" preserveAspectRatio="none">
+                    <polyline
+                      fill="none"
+                      stroke="#3b82f6"
+                      strokeWidth="2"
+                      points={last30.map((w, i) => {
+                        const x = (i / (last30.length - 1)) * 100;
+                        const y = ((maxW - w.weight) / range) * 100;
+                        return `${x}%,${y}%`;
+                      }).join(" ")}
+                    />
+                    {last30.map((w, i) => {
                       const x = (i / (last30.length - 1)) * 100;
                       const y = ((maxW - w.weight) / range) * 100;
-                      return `${x}%,${y}%`;
-                    }).join(" ")}
-                  />
-                  {last30.map((w, i) => {
-                    const x = (i / (last30.length - 1)) * 100;
-                    const y = ((maxW - w.weight) / range) * 100;
-                    return <circle key={i} cx={`${x}%`} cy={`${y}%`} r="4" fill="#3b82f6" />;
-                  })}
-                </svg>
+                      return <circle key={i} cx={`${x}%`} cy={`${y}%`} r="4" fill="#3b82f6" />;
+                    })}
+                  </svg>
+                </div>
               </div>
-            </div>
-          ) : (
-            <div className="h-40 flex items-center justify-center text-gray-400">
-              <p>Add more entries to see your progress chart</p>
-            </div>
-          )}
-        </motion.div>
+            ) : (
+              <div className="h-40 flex items-center justify-center text-gray-400">
+                <p>Add more entries to see your progress chart</p>
+              </div>
+            )}
+          </motion.div>
 
-        {/* History */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-          <h3 className="font-semibold text-gray-800 dark:text-white mb-3">History</h3>
-          {sortedHistory.length > 0 ? (
-            <div className="space-y-2 max-h-60 overflow-y-auto">
-              {sortedHistory.map((entry, i) => {
-                const prev = sortedHistory[i + 1];
-                const diff = prev ? entry.weight - prev.weight : 0;
-                return (
-                  <div key={entry.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
-                    <div>
-                      <p className="font-medium text-gray-800 dark:text-white">{entry.weight} kg</p>
-                      <p className="text-xs text-gray-500">{new Date(entry.date).toLocaleDateString()}</p>
-                      {entry.note && <p className="text-xs text-gray-400 mt-1">{entry.note}</p>}
+          {/* History */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
+            <h3 className="font-semibold text-gray-800 dark:text-white mb-3">History</h3>
+            {sortedHistory.length > 0 ? (
+              <div className="space-y-2 max-h-60 overflow-y-auto">
+                {sortedHistory.map((entry, i) => {
+                  const prev = sortedHistory[i + 1];
+                  const diff = prev ? entry.weight - prev.weight : 0;
+                  return (
+                    <div key={entry.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+                      <div>
+                        <p className="font-medium text-gray-800 dark:text-white">{entry.weight} kg</p>
+                        <p className="text-xs text-gray-500">{new Date(entry.date).toLocaleDateString()}</p>
+                        {entry.note && <p className="text-xs text-gray-400 mt-1">{entry.note}</p>}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {diff !== 0 && (
+                          <span className={`text-sm font-medium ${diff < 0 ? "text-green-500" : "text-red-500"}`}>
+                            {diff > 0 ? "+" : ""}{diff.toFixed(1)}
+                          </span>
+                        )}
+                        <button onClick={() => removeWeightEntry(entry.id)} className="p-1 text-gray-400 hover:text-red-500">
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3">
-                      {diff !== 0 && (
-                        <span className={`text-sm font-medium ${diff < 0 ? "text-green-500" : "text-red-500"}`}>
-                          {diff > 0 ? "+" : ""}{diff.toFixed(1)}
-                        </span>
-                      )}
-                      <button onClick={() => removeWeightEntry(entry.id)} className="p-1 text-gray-400 hover:text-red-500">
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-400 text-center py-4">No weight entries yet</p>
-          )}
-        </motion.div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-gray-400 text-center py-4">No weight entries yet</p>
+            )}
+          </motion.div>
+        </div>
       </div>
+
+      {/* Fixed Bottom Nav */}
+      <BottomNav />
 
       {/* Add Button */}
       <motion.button
         whileTap={{ scale: 0.95 }}
         onClick={() => setShowAddModal(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center"
+        className="fixed bottom-24 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center z-40"
       >
         <Plus className="w-6 h-6" />
       </motion.button>

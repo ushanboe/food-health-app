@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { ArrowLeft, Calculator, Target, Flame, Scale, Activity, User, Zap } from "lucide-react";
 import { useAppStore } from "@/lib/store";
+import BottomNav from "@/components/BottomNav";
 
 const activityOptions = [
   { value: "sedentary", label: "Sedentary", desc: "Little or no exercise" },
@@ -35,9 +36,8 @@ export default function GoalsPage() {
   const handleCalculate = () => {
     updateUserStats(localStats);
     const tdee = calculateTDEE();
-    // Calculate macros based on TDEE
-    const protein = Math.round(localStats.currentWeight * 1.6); // 1.6g per kg
-    const fat = Math.round((tdee * 0.25) / 9); // 25% from fat
+    const protein = Math.round(localStats.currentWeight * 1.6);
+    const fat = Math.round((tdee * 0.25) / 9);
     const carbs = Math.round((tdee - protein * 4 - fat * 9) / 4);
     updateDailyGoals({ calories: tdee, protein, carbs, fat });
     setShowCalculator(false);
@@ -55,79 +55,85 @@ export default function GoalsPage() {
   })();
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 pb-8">
-      {/* Header */}
-      <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white px-5 pt-12 pb-6 safe-top">
-        <div className="flex items-center gap-4 mb-4">
-          <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-            <ArrowLeft className="w-5 h-5" />
-          </button>
-          <h1 className="text-2xl font-bold">Daily Goals</h1>
-        </div>
-        <p className="text-green-100">Personalized nutrition targets</p>
-      </div>
-
-      <div className="px-5 py-4 space-y-4 -mt-4">
-        {/* Current Goals Card */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold text-gray-800 dark:text-white">Your Daily Targets</h3>
-            <button onClick={() => setShowCalculator(true)} className="text-green-600 text-sm font-medium flex items-center gap-1">
-              <Calculator className="w-4 h-4" /> Calculate
+    <div className="flex flex-col h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar" style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
+        {/* Header */}
+        <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white px-5 pt-12 pb-6 safe-top">
+          <div className="flex items-center gap-4 mb-4">
+            <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
+              <ArrowLeft className="w-5 h-5" />
             </button>
+            <h1 className="text-2xl font-bold">Daily Goals</h1>
           </div>
+          <p className="text-green-100">Personalized nutrition targets</p>
+        </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 rounded-xl p-4">
-              <Flame className="w-6 h-6 text-orange-500 mb-2" />
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.calories}</p>
-              <p className="text-sm text-gray-500">Calories</p>
+        <div className="px-5 py-4 space-y-4 -mt-4">
+          {/* Current Goals Card */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-5 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="font-semibold text-gray-800 dark:text-white">Your Daily Targets</h3>
+              <button onClick={() => setShowCalculator(true)} className="text-green-600 text-sm font-medium flex items-center gap-1">
+                <Calculator className="w-4 h-4" /> Calculate
+              </button>
             </div>
-            <div className="bg-gradient-to-br from-red-100 to-red-50 dark:from-red-900/30 dark:to-red-800/20 rounded-xl p-4">
-              <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold mb-2">P</div>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.protein}g</p>
-              <p className="text-sm text-gray-500">Protein</p>
-            </div>
-            <div className="bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/30 dark:to-amber-800/20 rounded-xl p-4">
-              <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold mb-2">C</div>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.carbs}g</p>
-              <p className="text-sm text-gray-500">Carbs</p>
-            </div>
-            <div className="bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl p-4">
-              <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold mb-2">F</div>
-              <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.fat}g</p>
-              <p className="text-sm text-gray-500">Fat</p>
-            </div>
-          </div>
-        </motion.div>
 
-        {/* Quick Links */}
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
-          <button onClick={() => router.push("/weight")} className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
-              <Scale className="w-6 h-6 text-blue-500" />
+            <div className="grid grid-cols-2 gap-3">
+              <div className="bg-gradient-to-br from-orange-100 to-orange-50 dark:from-orange-900/30 dark:to-orange-800/20 rounded-xl p-4">
+                <Flame className="w-6 h-6 text-orange-500 mb-2" />
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.calories}</p>
+                <p className="text-sm text-gray-500">Calories</p>
+              </div>
+              <div className="bg-gradient-to-br from-red-100 to-red-50 dark:from-red-900/30 dark:to-red-800/20 rounded-xl p-4">
+                <div className="w-6 h-6 bg-red-500 rounded-full flex items-center justify-center text-white text-xs font-bold mb-2">P</div>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.protein}g</p>
+                <p className="text-sm text-gray-500">Protein</p>
+              </div>
+              <div className="bg-gradient-to-br from-amber-100 to-amber-50 dark:from-amber-900/30 dark:to-amber-800/20 rounded-xl p-4">
+                <div className="w-6 h-6 bg-amber-500 rounded-full flex items-center justify-center text-white text-xs font-bold mb-2">C</div>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.carbs}g</p>
+                <p className="text-sm text-gray-500">Carbs</p>
+              </div>
+              <div className="bg-gradient-to-br from-blue-100 to-blue-50 dark:from-blue-900/30 dark:to-blue-800/20 rounded-xl p-4">
+                <div className="w-6 h-6 bg-blue-500 rounded-full flex items-center justify-center text-white text-xs font-bold mb-2">F</div>
+                <p className="text-2xl font-bold text-gray-800 dark:text-white">{dailyGoals.fat}g</p>
+                <p className="text-sm text-gray-500">Fat</p>
+              </div>
             </div>
-            <div className="flex-1 text-left">
-              <h4 className="font-semibold text-gray-800 dark:text-white">Weight Tracker</h4>
-              <p className="text-sm text-gray-500">Log and track your weight</p>
-            </div>
-            <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
-          </button>
-        </motion.div>
+          </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
-          <button onClick={() => router.push("/recipes")} className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center gap-4">
-            <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
-              <span className="text-2xl">🍳</span>
-            </div>
-            <div className="flex-1 text-left">
-              <h4 className="font-semibold text-gray-800 dark:text-white">Recipe Builder</h4>
-              <p className="text-sm text-gray-500">Create custom meals</p>
-            </div>
-            <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
-          </button>
-        </motion.div>
+          {/* Quick Links */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
+            <button onClick={() => router.push("/weight")} className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 bg-blue-100 dark:bg-blue-900/30 rounded-xl flex items-center justify-center">
+                <Scale className="w-6 h-6 text-blue-500" />
+              </div>
+              <div className="flex-1 text-left">
+                <h4 className="font-semibold text-gray-800 dark:text-white">Weight Tracker</h4>
+                <p className="text-sm text-gray-500">Log and track your weight</p>
+              </div>
+              <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+            </button>
+          </motion.div>
+
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
+            <button onClick={() => router.push("/recipes")} className="w-full bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm flex items-center gap-4">
+              <div className="w-12 h-12 bg-purple-100 dark:bg-purple-900/30 rounded-xl flex items-center justify-center">
+                <span className="text-2xl">🍳</span>
+              </div>
+              <div className="flex-1 text-left">
+                <h4 className="font-semibold text-gray-800 dark:text-white">Recipe Builder</h4>
+                <p className="text-sm text-gray-500">Create custom meals</p>
+              </div>
+              <ArrowLeft className="w-5 h-5 text-gray-400 rotate-180" />
+            </button>
+          </motion.div>
+        </div>
       </div>
+
+      {/* Fixed Bottom Nav */}
+      <BottomNav />
 
       {/* TDEE Calculator Modal */}
       {showCalculator && (

@@ -139,7 +139,9 @@ export default function FitnessPage() {
   const totalActiveMinutes = todayLog?.exercises.reduce((sum, e) => sum + e.duration, 0) || 0;
 
   return (
-    <div className="min-h-screen bg-black text-white pb-24">
+    <div className="flex flex-col h-screen h-[100dvh] bg-black text-white">
+      {/* Scrollable Content Area */}
+      <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar" style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
       {/* Header */}
       <div className="bg-gradient-to-b from-orange-900/50 to-black p-6 pt-12">
         <div className="flex items-center gap-4 mb-6">
@@ -509,6 +511,9 @@ export default function FitnessPage() {
         )}
       </AnimatePresence>
 
+      </div>
+
+      {/* Fixed Bottom Nav */}
       <BottomNav />
     </div>
   );

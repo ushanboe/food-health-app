@@ -7,6 +7,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
+  --bottom-nav-height: 70px;
 }
 
 * {
@@ -14,14 +15,16 @@
   -webkit-touch-callout: none;
 }
 
-html,
-body {
+html {
   height: 100%;
   overflow: hidden;
   overscroll-behavior: none;
 }
 
 body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
   background-color: #f9fafb;
 }
 
@@ -38,13 +41,34 @@ body {
   overflow: hidden;
 }
 
-/* Main content area */
+/* Main content area - THIS IS WHERE SCROLLING HAPPENS */
 .main-content {
   flex: 1;
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding-bottom: calc(80px + var(--safe-bottom));
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom) + 16px);
+}
+
+/* Scrollable container utility class */
+.scrollable-content {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom) + 16px);
+}
+
+/* Full page container for pages with their own scroll */
+.page-container {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+  height: 100dvh;
+  position: relative;
+  overflow: hidden;
 }
 
 /* Safe area utilities */
@@ -357,15 +381,18 @@ body {
 
 /* Custom scrollbar for desktop */
 @media (min-width: 768px) {
-  .main-content::-webkit-scrollbar {
+  .main-content::-webkit-scrollbar,
+  .scrollable-content::-webkit-scrollbar {
     width: 6px;
   }
 
-  .main-content::-webkit-scrollbar-track {
+  .main-content::-webkit-scrollbar-track,
+  .scrollable-content::-webkit-scrollbar-track {
     background: transparent;
   }
 
-  .main-content::-webkit-scrollbar-thumb {
+  .main-content::-webkit-scrollbar-thumb,
+  .scrollable-content::-webkit-scrollbar-thumb {
     background-color: rgba(0, 0, 0, 0.2);
     border-radius: 3px;
   }
@@ -442,6 +469,7 @@ img {
   bottom: 0;
   left: 0;
   right: 0;
+  height: var(--bottom-nav-height);
   background: white;
   border-top: 1px solid #e5e7eb;
   z-index: 50;
@@ -452,5 +480,13 @@ img {
   .bottom-nav {
     background: #1f2937;
     border-top-color: #374151;
+  }
+}
+
+/* Ensure touch scrolling works on iOS */
+@supports (-webkit-touch-callout: none) {
+  .main-content,
+  .scrollable-content {
+    -webkit-overflow-scrolling: touch;
   }
 }
