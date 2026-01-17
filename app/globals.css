@@ -435,3 +435,22 @@ img {
     display: none;
   }
 }
+
+/* Bottom Navigation - Fixed positioning */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: white;
+  border-top: 1px solid #e5e7eb;
+  z-index: 50;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+}
+
+@media (prefers-color-scheme: dark) {
+  .bottom-nav {
+    background: #1f2937;
+    border-top-color: #374151;
+  }
+}
