@@ -5,16 +5,18 @@ import { ArrowLeft, Cloud, Smartphone, Laptop, Tablet, Shield, Zap } from "lucid
 import { useRouter } from "next/navigation";
 import CloudSyncCard from "@/components/auth/CloudSyncCard";
 import { FloatingNutri } from "@/components/FloatingNutri";
+import BottomNav from "@/components/BottomNav";
 
 export default function CloudSyncPage() {
   const router = useRouter();
 
   return (
-    <div className="app-container">
+    <div className="flex flex-col h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900">
       {/* Floating Nutri mascot */}
       <FloatingNutri interval={25} duration={5} position="bottom-left" />
       
-      <div className="main-content hide-scrollbar">
+      {/* Scrollable Content */}
+      <div className="flex-1 overflow-y-auto hide-scrollbar">
         {/* Header */}
         <div className="bg-gradient-to-br from-blue-500 via-indigo-600 to-purple-600 text-white p-6 safe-top">
           <div className="flex items-center gap-4 mb-2">
@@ -167,6 +169,9 @@ export default function CloudSyncPage() {
           </motion.div>
         </div>
       </div>
+      
+      {/* Bottom Navigation */}
+      <BottomNav />
     </div>
   );
 }
