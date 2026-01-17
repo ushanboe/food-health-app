@@ -17,8 +17,10 @@ const nextConfig = {
     ],
     unoptimized: true,
   },
-  // Empty turbopack config to silence the warning
-  turbopack: {},
+  // Configure turbopack root to fix workspace detection
+  turbopack: {
+    root: __dirname,
+  },
   experimental: {
     serverActions: {
       bodySizeLimit: '10mb',
