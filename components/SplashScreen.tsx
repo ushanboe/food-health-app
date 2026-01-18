@@ -171,7 +171,7 @@ export function SplashScreen({ onComplete }: SplashScreenProps) {
                 delay: 1,
               }}
             >
-              <Nutri state="wave" size={120} />
+              <Nutri state="waving" size={120} />
             </motion.div>
 
             {/* Greeting */}

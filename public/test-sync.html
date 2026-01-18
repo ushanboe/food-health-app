@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html>
+<head><title>Test Sync History</title></head>
+<body>
+<h1>Sync History Test</h1>
+<button onclick="addTestRecord()">Add Test Sync Record</button>
+<button onclick="checkStorage()">Check localStorage</button>
+<button onclick="clearStorage()">Clear Sync History</button>
+<pre id="output"></pre>
+<script>
+function addTestRecord() {
+  const testRecord = {
+    id: 'test-' + Date.now(),
+    timestamp: new Date().toISOString(),
+    type: 'full',
+    status: 'success',
+    details: {
+      foodDiary: {uploaded: 5, downloaded: 3},
+      weightEntries: {uploaded: 2, downloaded: 1},
+      goals: {uploaded: 1, downloaded: 1},
+      recipes: {uploaded: 0, downloaded: 0},
+      profile: {synced: true}
+    },
+    duration: 1234
+  };
+  const existing = JSON.parse(localStorage.getItem('fitfork_sync_history') || '[]');
+  existing.unshift(testRecord);
+  localStorage.setItem('fitfork_sync_history', JSON.stringify(existing));
+  window.dispatchEvent(new CustomEvent('fitfork-sync-complete'));
+  document.getElementById('output').textContent = 'Added record: ' + testRecord.id + '\nTotal records: ' + existing.length;
+}
+function checkStorage() {
+  const data = localStorage.getItem('fitfork_sync_history');
+  const parsed = data ? JSON.parse(data) : [];
+  document.getElementById('output').textContent = 'Records: ' + parsed.length + '\n' + JSON.stringify(parsed, null, 2);
+}
+function clearStorage() {
+  localStorage.removeItem('fitfork_sync_history');
+  document.getElementById('output').textContent = 'Cleared!';
+}
+</script>
+</body>
+</html>
