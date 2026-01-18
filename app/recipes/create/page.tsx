@@ -1,763 +1,874 @@
-"use client";
+'use client';
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { useRouter } from "next/navigation";
-import { useAppStore } from "@/lib/store";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  ChefHat,
+  ArrowLeft,
   Plus,
-  Minus,
-  Search,
-  Globe,
-  BookOpen,
   Trash2,
-  Check,
-  X,
-  Loader2,
-  Flame,
+  Search,
+  Shuffle,
+  ChefHat,
   Clock,
   Users,
-  ArrowRight,
+  Flame,
+  Download,
+  ExternalLink,
+  BookOpen,
   Sparkles,
-} from "lucide-react";
+  Globe,
+  UtensilsCrossed,
+  Play,
+  MapPin
+} from 'lucide-react';
+import { useAppStore, Recipe, RecipeIngredient } from '@/lib/store';
 import {
   searchSpoonacularRecipes,
   getSpoonacularRecipe,
   getRandomSpoonacularRecipes,
-  extractNutrition,
-  SpoonacularSearchResult,
   SpoonacularRecipe,
-} from "@/lib/spoonacular-api";
+  SpoonacularSearchResult
+} from '@/lib/spoonacular-api';
+import {
+  searchMeals,
+  getRandomMeal,
+  getCategories,
+  getMealsByCategory,
+  getAreas,
+  getMealsByArea,
+  getMealById,
+  MealDBMeal,
+  MealDBCategory
+} from '@/lib/mealdb-api';
 
-type TabType = "manual" | "browse";
-
-interface Ingredient {
-  id: string;
-  name: string;
-  amount: number;
-  unit: string;
-  calories: number;
-  protein: number;
-  carbs: number;
-  fat: number;
-}
-
-const fadeUp = {
-  initial: { opacity: 0, y: 12 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -12 },
-  transition: { duration: 0.2 },
-};
+type TabType = 'manual' | 'spoonacular' | 'mealdb';
 
 export default function CreateRecipePage() {
   const router = useRouter();
-  const { addRecipe, aiSettings } = useAppStore();
-  const spoonacularApiKey = aiSettings.spoonacularApiKey;
-  
-  const [activeTab, setActiveTab] = useState<TabType>("manual");
+  const { recipes, addRecipe, aiSettings } = useAppStore();
+  const [activeTab, setActiveTab] = useState<TabType>('manual');
   
   // Manual recipe state
-  const [name, setName] = useState("");
-  const [servings, setServings] = useState(2);
-  const [ingredients, setIngredients] = useState<Ingredient[]>([]);
-  const [instructions, setInstructions] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [name, setName] = useState('');
+  const [servings, setServings] = useState(4);
+  const [ingredients, setIngredients] = useState<RecipeIngredient[]>([]);
+  const [instructions, setInstructions] = useState<string[]>(['']);
+  const [imageUrl, setImageUrl] = useState('');
+  const [newIngredient, setNewIngredient] = useState({ name: '', amount: 0, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0 });
   
-  // New ingredient form
-  const [newIngredient, setNewIngredient] = useState({
-    name: "",
-    amount: 1,
-    unit: "piece",
-    calories: 0,
-    protein: 0,
-    carbs: 0,
-    fat: 0,
-  });
-  const [showIngredientForm, setShowIngredientForm] = useState(false);
+  // Spoonacular state
+  const [spoonSearch, setSpoonSearch] = useState('');
+  const [spoonResults, setSpoonResults] = useState<(SpoonacularSearchResult | SpoonacularRecipe)[]>([]);
+  const [spoonLoading, setSpoonLoading] = useState(false);
+  const [selectedSpoonRecipe, setSelectedSpoonRecipe] = useState<SpoonacularRecipe | null>(null);
   
-  // Browse state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SpoonacularSearchResult[]>([]);
-  const [randomRecipes, setRandomRecipes] = useState<SpoonacularRecipe[]>([]);
-  const [selectedRecipe, setSelectedRecipe] = useState<SpoonacularRecipe | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const [isLoadingRecipe, setIsLoadingRecipe] = useState(false);
-  const [isLoadingRandom, setIsLoadingRandom] = useState(false);
-  const [error, setError] = useState("");
+  // MealDB state
+  const [mealSearch, setMealSearch] = useState('');
+  const [mealResults, setMealResults] = useState<MealDBMeal[]>([]);
+  const [mealLoading, setMealLoading] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<MealDBMeal | null>(null);
+  const [mealCategories, setMealCategories] = useState<MealDBCategory[]>([]);
+  const [mealAreas, setMealAreas] = useState<string[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState('');
+  const [selectedArea, setSelectedArea] = useState('');
 
-  const hasApiKey = !!spoonacularApiKey;
+  // Load MealDB categories and areas on mount
+  useEffect(() => {
+    const loadMealDBData = async () => {
+      const [cats, areas] = await Promise.all([getCategories(), getAreas()]);
+      setMealCategories(cats);
+      setMealAreas(areas);
+    };
+    loadMealDBData();
+  }, []);
 
-  // Add ingredient to list
   const addIngredient = () => {
-    if (!newIngredient.name.trim()) return;
-    
-    setIngredients([
-      ...ingredients,
-      {
-        ...newIngredient,
-        id: Date.now().toString(),
-      },
-    ]);
-    setNewIngredient({
-      name: "",
-      amount: 1,
-      unit: "piece",
-      calories: 0,
-      protein: 0,
-      carbs: 0,
-      fat: 0,
-    });
-    setShowIngredientForm(false);
+    if (newIngredient.name) {
+      setIngredients([...ingredients, { ...newIngredient, id: Date.now().toString() }]);
+      setNewIngredient({ name: '', amount: 0, unit: '', calories: 0, protein: 0, carbs: 0, fat: 0 });
+    }
   };
 
-  // Remove ingredient
   const removeIngredient = (id: string) => {
-    setIngredients(ingredients.filter((i) => i.id !== id));
+    setIngredients(ingredients.filter(i => i.id !== id));
   };
 
-  // Calculate total nutrition
-  const totalNutrition = ingredients.reduce(
-    (acc, ing) => ({
-      calories: acc.calories + ing.calories,
-      protein: acc.protein + ing.protein,
-      carbs: acc.carbs + ing.carbs,
-      fat: acc.fat + ing.fat,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  );
+  const addInstruction = () => {
+    setInstructions([...instructions, '']);
+  };
 
-  // Save manual recipe
-  const saveRecipe = () => {
-    if (!name.trim() || ingredients.length === 0) return;
+  const updateInstruction = (index: number, value: string) => {
+    const updated = [...instructions];
+    updated[index] = value;
+    setInstructions(updated);
+  };
+
+  const removeInstruction = (index: number) => {
+    setInstructions(instructions.filter((_, i) => i !== index));
+  };
+
+  const saveManualRecipe = () => {
+    if (!name || ingredients.length === 0) return;
     
-    addRecipe({
+    const newRecipe: Recipe = {
       id: Date.now().toString(),
-      name: name.trim(),
+      name,
       servings,
       ingredients,
-      instructions: instructions.trim() || undefined,
-      imageUrl: imageUrl.trim() || undefined,
-      createdAt: new Date(),
-      source: "manual",
-    });
-    
-    router.push("/recipes");
-  };
-
-  // Search Spoonacular
-  const handleSearch = async () => {
-    if (!searchQuery.trim() || !hasApiKey) return;
-    
-    setIsSearching(true);
-    setError("");
-    
-    try {
-      const results = await searchSpoonacularRecipes(searchQuery, spoonacularApiKey);
-      setSearchResults(results);
-    } catch (err: any) {
-      setError(err.message || "Search failed");
-    } finally {
-      setIsSearching(false);
-    }
-  };
-
-  // Load random recipes
-  const loadRandomRecipes = async () => {
-    if (!hasApiKey) return;
-    
-    setIsLoadingRandom(true);
-    setError("");
-    
-    try {
-      const recipes = await getRandomSpoonacularRecipes(spoonacularApiKey, 6);
-      setRandomRecipes(recipes);
-    } catch (err: any) {
-      setError(err.message || "Failed to load recipes");
-    } finally {
-      setIsLoadingRandom(false);
-    }
-  };
-
-  // Select recipe from search
-  const selectRecipe = async (id: number) => {
-    if (!hasApiKey) return;
-    
-    setIsLoadingRecipe(true);
-    setError("");
-    
-    try {
-      const recipe = await getSpoonacularRecipe(id, spoonacularApiKey);
-      if (recipe) {
-        setSelectedRecipe(recipe);
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to load recipe");
-    } finally {
-      setIsLoadingRecipe(false);
-    }
-  };
-
-  // Import Spoonacular recipe
-  const importRecipe = () => {
-    if (!selectedRecipe) return;
-    
-    const nutrition = extractNutrition(selectedRecipe);
-    const ingredientCount = selectedRecipe.extendedIngredients?.length || 1;
-    const perIngredient = {
-      calories: Math.round(nutrition.calories / ingredientCount),
-      protein: Math.round(nutrition.protein / ingredientCount),
-      carbs: Math.round(nutrition.carbs / ingredientCount),
-      fat: Math.round(nutrition.fat / ingredientCount),
+      instructions: instructions.filter(i => i.trim()).join('\n'),
+      imageUrl: imageUrl || undefined,
+      source: 'manual',
+      createdAt: new Date()
     };
-    
-    const importedIngredients = (selectedRecipe.extendedIngredients || []).map((ing, idx) => ({
-      id: `${Date.now()}-${idx}`,
-      name: ing.name,
-      amount: ing.amount,
-      unit: ing.unit || "piece",
-      ...perIngredient,
-    }));
-    
-    addRecipe({
+
+    addRecipe(newRecipe);
+    router.push('/recipes');
+  };
+
+  // Spoonacular functions
+  const searchSpoonacular = async () => {
+    if (!spoonSearch || !aiSettings.spoonacularApiKey) return;
+    setSpoonLoading(true);
+    try {
+      const results = await searchSpoonacularRecipes(spoonSearch, aiSettings.spoonacularApiKey);
+      setSpoonResults(results);
+    } catch (error) {
+      console.error('Spoonacular search error:', error);
+    }
+    setSpoonLoading(false);
+  };
+
+  const getRandomSpoonacular = async () => {
+    if (!aiSettings.spoonacularApiKey) return;
+    setSpoonLoading(true);
+    try {
+      const results = await getRandomSpoonacularRecipes(aiSettings.spoonacularApiKey, 6);
+      setSpoonResults(results);
+    } catch (error) {
+      console.error('Spoonacular random error:', error);
+    }
+    setSpoonLoading(false);
+  };
+
+  const selectSpoonRecipe = async (recipe: SpoonacularSearchResult | SpoonacularRecipe) => {
+    if (!aiSettings.spoonacularApiKey) return;
+    setSpoonLoading(true);
+    try {
+      const detailed = await getSpoonacularRecipe(recipe.id, aiSettings.spoonacularApiKey);
+      setSelectedSpoonRecipe(detailed);
+    } catch (error) {
+      console.error('Spoonacular detail error:', error);
+    }
+    setSpoonLoading(false);
+  };
+
+  const importSpoonRecipe = () => {
+    if (!selectedSpoonRecipe) return;
+
+    const newRecipe: Recipe = {
       id: Date.now().toString(),
-      name: selectedRecipe.title,
-      servings: selectedRecipe.servings,
-      ingredients: importedIngredients,
-      instructions: selectedRecipe.instructions || undefined,
-      imageUrl: selectedRecipe.image,
-      createdAt: new Date(),
-      source: "api",
-      sourceUrl: `https://spoonacular.com/recipes/${selectedRecipe.id}`,
-    });
-    
-    router.push("/recipes");
+      name: selectedSpoonRecipe.title,
+      servings: selectedSpoonRecipe.servings || 4,
+      ingredients: (selectedSpoonRecipe.extendedIngredients || []).map((ing, idx) => ({
+        id: idx.toString(),
+        name: ing.name || ing.original,
+        amount: ing.amount || 0,
+        unit: ing.unit || '',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0
+      })),
+      instructions: selectedSpoonRecipe.instructions
+        ? selectedSpoonRecipe.instructions.replace(/<[^>]*>/g, '')
+        : '',
+      imageUrl: selectedSpoonRecipe.image,
+      source: 'imported',
+      // sourceUrl not available from Spoonacular
+      createdAt: new Date()
+    };
+
+    addRecipe(newRecipe);
+    router.push('/recipes');
+  };
+
+  // MealDB functions
+  const searchMealDB = async () => {
+    if (!mealSearch) return;
+    setMealLoading(true);
+    try {
+      const results = await searchMeals(mealSearch);
+      setMealResults(results);
+    } catch (error) {
+      console.error('MealDB search error:', error);
+    }
+    setMealLoading(false);
+  };
+
+  const getRandomMealDB = async () => {
+    setMealLoading(true);
+    try {
+      const meals: MealDBMeal[] = [];
+      for (let i = 0; i < 6; i++) {
+        const meal = await getRandomMeal();
+        if (meal) meals.push(meal);
+      }
+      setMealResults(meals);
+    } catch (error) {
+      console.error('MealDB random error:', error);
+    }
+    setMealLoading(false);
+  };
+
+  const browseMealsByCategory = async (category: string) => {
+    setSelectedCategory(category);
+    setSelectedArea('');
+    setMealLoading(true);
+    try {
+      const results = await getMealsByCategory(category);
+      const detailed = await Promise.all(
+        results.slice(0, 12).map(m => getMealById(m.idMeal))
+      );
+      setMealResults(detailed.filter((m): m is MealDBMeal => m !== null));
+    } catch (error) {
+      console.error('MealDB category error:', error);
+    }
+    setMealLoading(false);
+  };
+
+  const browseMealsByArea = async (area: string) => {
+    setSelectedArea(area);
+    setSelectedCategory('');
+    setMealLoading(true);
+    try {
+      const results = await getMealsByArea(area);
+      const detailed = await Promise.all(
+        results.slice(0, 12).map(m => getMealById(m.idMeal))
+      );
+      setMealResults(detailed.filter((m): m is MealDBMeal => m !== null));
+    } catch (error) {
+      console.error('MealDB area error:', error);
+    }
+    setMealLoading(false);
+  };
+
+  const importMealDBRecipe = () => {
+    if (!selectedMeal) return;
+
+    const newRecipe: Recipe = {
+      id: Date.now().toString(),
+      name: selectedMeal.strMeal,
+      servings: 4,
+      ingredients: selectedMeal.ingredients.map((ing, idx) => ({
+        id: idx.toString(),
+        name: ing.name,
+        amount: parseFloat(ing.measure) || 1,
+        unit: ing.measure.replace(/[0-9.]/g, '').trim() || 'unit',
+        calories: 0,
+        protein: 0,
+        carbs: 0,
+        fat: 0
+      })),
+      instructions: selectedMeal.strInstructions,
+      imageUrl: selectedMeal.strMealThumb,
+      source: 'imported',
+      sourceUrl: selectedMeal.strSource,
+      createdAt: new Date()
+    };
+
+    addRecipe(newRecipe);
+    router.push('/recipes');
   };
 
   return (
-    <PageContainer>
-      <Header title="Create Recipe" showBack />
-
-      <PageContent>
-        {/* Tab Switcher */}
-        <div className="flex gap-2 mb-6">
+    <div className="min-h-screen bg-[#0a0a0f] text-white pb-24">
+      {/* Header */}
+      <div className="sticky top-0 z-50 bg-[#0a0a0f]/95 backdrop-blur-xl border-b border-white/5">
+        <div className="flex items-center justify-between p-4">
           <button
-            onClick={() => setActiveTab("manual")}
-            className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-              activeTab === "manual"
-                ? "bg-emerald-500 text-white shadow-lg"
-                : "bg-gray-100 text-gray-600"
-            }`}
+            onClick={() => router.back()}
+            className="p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-colors"
           >
-            <BookOpen size={18} />
-            Manual
+            <ArrowLeft className="w-5 h-5" />
           </button>
-          <button
-            onClick={() => {
-              setActiveTab("browse");
-              if (hasApiKey && randomRecipes.length === 0) {
-                loadRandomRecipes();
-              }
-            }}
-            className={`flex-1 py-3 px-4 rounded-xl font-medium text-sm transition-all flex items-center justify-center gap-2 ${
-              activeTab === "browse"
-                ? "bg-emerald-500 text-white shadow-lg"
-                : "bg-gray-100 text-gray-600"
-            }`}
-          >
-            <Globe size={18} />
-            Browse Online
-          </button>
+          <h1 className="text-lg font-semibold">Create Recipe</h1>
+          <div className="w-9" />
         </div>
 
+        {/* Tabs */}
+        <div className="flex gap-2 px-4 pb-4">
+          {[
+            { id: 'manual' as TabType, label: 'Manual', icon: ChefHat },
+            { id: 'mealdb' as TabType, label: 'MealDB', icon: Globe },
+            { id: 'spoonacular' as TabType, label: 'Spoonacular', icon: Sparkles }
+          ].map(tab => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-sm font-medium transition-all ${
+                activeTab === tab.id
+                  ? 'bg-gradient-to-r from-emerald-500 to-green-500 text-white'
+                  : 'bg-white/5 text-white/60 hover:bg-white/10'
+              }`}
+            >
+              <tab.icon className="w-4 h-4" />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="p-4">
         <AnimatePresence mode="wait">
-          {activeTab === "manual" ? (
-            <motion.div key="manual" {...fadeUp}>
+          {/* Manual Tab */}
+          {activeTab === 'manual' && (
+            <motion.div
+              key="manual"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
               {/* Recipe Name */}
-              <Card className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Recipe Name
-                </label>
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Recipe Name</label>
                 <input
                   type="text"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g., Chicken Stir Fry"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  placeholder="Enter recipe name..."
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500/50"
                 />
-              </Card>
+              </div>
 
               {/* Servings */}
-              <Card className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Servings
-                </label>
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Servings</label>
                 <div className="flex items-center gap-4">
                   <button
                     onClick={() => setServings(Math.max(1, servings - 1))}
-                    className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200"
+                    className="p-2 bg-white/5 rounded-lg hover:bg-white/10"
                   >
-                    <Minus size={18} />
+                    -
                   </button>
-                  <span className="text-2xl font-semibold text-gray-900 w-12 text-center">
-                    {servings}
-                  </span>
+                  <span className="text-xl font-semibold w-12 text-center">{servings}</span>
                   <button
                     onClick={() => setServings(servings + 1)}
-                    className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center text-gray-600 hover:bg-gray-200"
+                    className="p-2 bg-white/5 rounded-lg hover:bg-white/10"
                   >
-                    <Plus size={18} />
+                    +
                   </button>
                 </div>
-              </Card>
-
-              {/* Ingredients */}
-              <Card className="mb-4">
-                <div className="flex items-center justify-between mb-3">
-                  <label className="text-sm font-medium text-gray-700">
-                    Ingredients ({ingredients.length})
-                  </label>
-                  <button
-                    onClick={() => setShowIngredientForm(true)}
-                    className="text-sm text-emerald-600 font-medium flex items-center gap-1"
-                  >
-                    <Plus size={16} /> Add
-                  </button>
-                </div>
-
-                {ingredients.length === 0 ? (
-                  <div className="text-center py-6 text-gray-400">
-                    <ChefHat size={32} className="mx-auto mb-2" />
-                    <p className="text-sm">No ingredients yet</p>
-                  </div>
-                ) : (
-                  <div className="space-y-2">
-                    {ingredients.map((ing) => (
-                      <div
-                        key={ing.id}
-                        className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
-                      >
-                        <div>
-                          <p className="font-medium text-gray-900">{ing.name}</p>
-                          <p className="text-sm text-gray-500">
-                            {ing.amount} {ing.unit} • {ing.calories} cal
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => removeIngredient(ing.id)}
-                          className="p-2 text-gray-400 hover:text-red-500"
-                        >
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Add Ingredient Form */}
-                <AnimatePresence>
-                  {showIngredientForm && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      className="mt-4 p-4 bg-emerald-50 rounded-xl border border-emerald-200"
-                    >
-                      <div className="grid grid-cols-2 gap-3 mb-3">
-                        <input
-                          type="text"
-                          placeholder="Ingredient name"
-                          value={newIngredient.name}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, name: e.target.value })
-                          }
-                          className="col-span-2 px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Amount"
-                          value={newIngredient.amount}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, amount: parseFloat(e.target.value) || 0 })
-                          }
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        />
-                        <select
-                          value={newIngredient.unit}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, unit: e.target.value })
-                          }
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        >
-                          <option value="piece">piece</option>
-                          <option value="g">grams</option>
-                          <option value="oz">oz</option>
-                          <option value="cup">cup</option>
-                          <option value="tbsp">tbsp</option>
-                          <option value="tsp">tsp</option>
-                          <option value="ml">ml</option>
-                        </select>
-                        <input
-                          type="number"
-                          placeholder="Calories"
-                          value={newIngredient.calories}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, calories: parseInt(e.target.value) || 0 })
-                          }
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Protein (g)"
-                          value={newIngredient.protein}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, protein: parseInt(e.target.value) || 0 })
-                          }
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Carbs (g)"
-                          value={newIngredient.carbs}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, carbs: parseInt(e.target.value) || 0 })
-                          }
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        />
-                        <input
-                          type="number"
-                          placeholder="Fat (g)"
-                          value={newIngredient.fat}
-                          onChange={(e) =>
-                            setNewIngredient({ ...newIngredient, fat: parseInt(e.target.value) || 0 })
-                          }
-                          className="px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          variant="secondary"
-                          size="sm"
-                          onClick={() => setShowIngredientForm(false)}
-                          className="flex-1"
-                        >
-                          Cancel
-                        </Button>
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={addIngredient}
-                          className="flex-1"
-                        >
-                          Add
-                        </Button>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Card>
-
-              {/* Instructions */}
-              <Card className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Instructions (optional)
-                </label>
-                <textarea
-                  value={instructions}
-                  onChange={(e) => setInstructions(e.target.value)}
-                  placeholder="Step by step cooking instructions..."
-                  rows={4}
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 resize-none"
-                />
-              </Card>
+              </div>
 
               {/* Image URL */}
-              <Card className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Image URL (optional)
-                </label>
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Image URL (optional)</label>
                 <input
                   type="url"
                   value={imageUrl}
                   onChange={(e) => setImageUrl(e.target.value)}
                   placeholder="https://example.com/image.jpg"
-                  className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-xl focus:outline-none focus:border-emerald-500/50"
                 />
-              </Card>
+              </div>
 
-              {/* Nutrition Summary */}
-              {ingredients.length > 0 && (
-                <Card className="mb-6 bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200">
-                  <h3 className="font-medium text-gray-900 mb-3">Total Nutrition</h3>
-                  <div className="grid grid-cols-4 gap-2 text-center">
-                    <div className="p-2 bg-white/60 rounded-lg">
-                      <p className="text-lg font-bold text-orange-500">{totalNutrition.calories}</p>
-                      <p className="text-xs text-gray-500">Calories</p>
+              {/* Ingredients */}
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Ingredients</label>
+                <div className="space-y-2 mb-4">
+                  {ingredients.map((ing) => (
+                    <div
+                      key={ing.id}
+                      className="flex items-center justify-between p-3 bg-white/5 rounded-xl"
+                    >
+                      <span>
+                        {ing.amount} {ing.unit} {ing.name}
+                        {ing.calories > 0 && (
+                          <span className="text-white/40 ml-2">({ing.calories} cal)</span>
+                        )}
+                      </span>
+                      <button
+                        onClick={() => removeIngredient(ing.id)}
+                        className="p-1 text-red-400 hover:bg-red-500/20 rounded"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
                     </div>
-                    <div className="p-2 bg-white/60 rounded-lg">
-                      <p className="text-lg font-bold text-red-500">{totalNutrition.protein}g</p>
-                      <p className="text-xs text-gray-500">Protein</p>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-4 gap-2">
+                  <input
+                    type="number"
+                    value={newIngredient.amount || ''}
+                    onChange={(e) => setNewIngredient({ ...newIngredient, amount: parseFloat(e.target.value) || 0 })}
+                    placeholder="Amt"
+                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={newIngredient.unit}
+                    onChange={(e) => setNewIngredient({ ...newIngredient, unit: e.target.value })}
+                    placeholder="Unit"
+                    className="px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm"
+                  />
+                  <input
+                    type="text"
+                    value={newIngredient.name}
+                    onChange={(e) => setNewIngredient({ ...newIngredient, name: e.target.value })}
+                    placeholder="Ingredient"
+                    className="col-span-2 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm"
+                  />
+                </div>
+                <div className="flex gap-2 mt-2">
+                  <input
+                    type="number"
+                    value={newIngredient.calories || ''}
+                    onChange={(e) => setNewIngredient({ ...newIngredient, calories: parseInt(e.target.value) || 0 })}
+                    placeholder="Calories (optional)"
+                    className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm"
+                  />
+                  <button
+                    onClick={addIngredient}
+                    className="px-4 py-2 bg-emerald-500 rounded-lg hover:bg-emerald-600 transition-colors"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Instructions */}
+              <div>
+                <label className="block text-sm text-white/60 mb-2">Instructions</label>
+                <div className="space-y-2">
+                  {instructions.map((inst, idx) => (
+                    <div key={idx} className="flex gap-2">
+                      <span className="text-white/40 mt-3">{idx + 1}.</span>
+                      <textarea
+                        value={inst}
+                        onChange={(e) => updateInstruction(idx, e.target.value)}
+                        placeholder={`Step ${idx + 1}...`}
+                        rows={2}
+                        className="flex-1 px-3 py-2 bg-white/5 border border-white/10 rounded-lg text-sm resize-none"
+                      />
+                      {instructions.length > 1 && (
+                        <button
+                          onClick={() => removeInstruction(idx)}
+                          className="p-2 text-red-400 hover:bg-red-500/20 rounded self-start"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
-                    <div className="p-2 bg-white/60 rounded-lg">
-                      <p className="text-lg font-bold text-blue-500">{totalNutrition.carbs}g</p>
-                      <p className="text-xs text-gray-500">Carbs</p>
-                    </div>
-                    <div className="p-2 bg-white/60 rounded-lg">
-                      <p className="text-lg font-bold text-yellow-500">{totalNutrition.fat}g</p>
-                      <p className="text-xs text-gray-500">Fat</p>
-                    </div>
-                  </div>
-                  <p className="text-xs text-gray-500 text-center mt-2">
-                    Per serving: {Math.round(totalNutrition.calories / servings)} cal
-                  </p>
-                </Card>
-              )}
+                  ))}
+                </div>
+                <button
+                  onClick={addInstruction}
+                  className="mt-2 flex items-center gap-2 text-emerald-400 text-sm"
+                >
+                  <Plus className="w-4 h-4" /> Add Step
+                </button>
+              </div>
 
               {/* Save Button */}
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={saveRecipe}
-                disabled={!name.trim() || ingredients.length === 0}
-                className="w-full"
+              <button
+                onClick={saveManualRecipe}
+                disabled={!name || ingredients.length === 0}
+                className="w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Check size={20} className="mr-2" />
                 Save Recipe
-              </Button>
+              </button>
             </motion.div>
-          ) : (
-            <motion.div key="browse" {...fadeUp}>
-              {!hasApiKey ? (
-                <Card className="text-center py-8">
-                  <Globe size={48} className="mx-auto mb-4 text-gray-300" />
-                  <h3 className="font-semibold text-gray-900 mb-2">API Key Required</h3>
-                  <p className="text-sm text-gray-500 mb-4">
-                    Add your Spoonacular API key in Settings → API Settings to browse online recipes.
-                  </p>
-                  <Button
-                    variant="secondary"
-                    onClick={() => router.push("/settings/api")}
-                  >
-                    Go to API Settings
-                  </Button>
-                </Card>
-              ) : selectedRecipe ? (
-                /* Recipe Detail View */
-                <div>
-                  <button
-                    onClick={() => setSelectedRecipe(null)}
-                    className="flex items-center gap-2 text-gray-500 mb-4 hover:text-gray-700"
-                  >
-                    <X size={18} /> Back to search
-                  </button>
-                  
-                  <Card className="mb-4 overflow-hidden">
-                    {selectedRecipe.image && (
-                      <img
-                        src={selectedRecipe.image}
-                        alt={selectedRecipe.title}
-                        className="w-full h-48 object-cover -mx-4 -mt-4 mb-4"
-                        style={{ width: "calc(100% + 2rem)" }}
-                      />
-                    )}
-                    <h2 className="text-xl font-bold text-gray-900 mb-2">
-                      {selectedRecipe.title}
-                    </h2>
-                    <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
-                      <span className="flex items-center gap-1">
-                        <Users size={16} /> {selectedRecipe.servings} servings
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Clock size={16} /> {selectedRecipe.readyInMinutes} min
-                      </span>
-                    </div>
-                    
-                    {/* Nutrition */}
-                    {selectedRecipe.nutrition && (
-                      <div className="grid grid-cols-4 gap-2 text-center mb-4">
-                        {(() => {
-                          const n = extractNutrition(selectedRecipe);
-                          return (
-                            <>
-                              <div className="p-2 bg-orange-50 rounded-lg">
-                                <p className="font-bold text-orange-500">{n.calories}</p>
-                                <p className="text-xs text-gray-500">cal</p>
-                              </div>
-                              <div className="p-2 bg-red-50 rounded-lg">
-                                <p className="font-bold text-red-500">{n.protein}g</p>
-                                <p className="text-xs text-gray-500">protein</p>
-                              </div>
-                              <div className="p-2 bg-blue-50 rounded-lg">
-                                <p className="font-bold text-blue-500">{n.carbs}g</p>
-                                <p className="text-xs text-gray-500">carbs</p>
-                              </div>
-                              <div className="p-2 bg-yellow-50 rounded-lg">
-                                <p className="font-bold text-yellow-500">{n.fat}g</p>
-                                <p className="text-xs text-gray-500">fat</p>
-                              </div>
-                            </>
-                          );
-                        })()}
-                      </div>
-                    )}
-                    
-                    {/* Ingredients */}
-                    <h3 className="font-medium text-gray-900 mb-2">
-                      Ingredients ({selectedRecipe.extendedIngredients?.length || 0})
-                    </h3>
-                    <ul className="space-y-1 mb-4">
-                      {selectedRecipe.extendedIngredients?.map((ing, idx) => (
-                        <li key={idx} className="text-sm text-gray-600">
-                          • {ing.original}
-                        </li>
-                      ))}
-                    </ul>
-                  </Card>
-                  
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    onClick={importRecipe}
-                    className="w-full"
-                  >
-                    <Plus size={20} className="mr-2" />
-                    Import Recipe
-                  </Button>
+          )}
+
+          {/* MealDB Tab */}
+          {activeTab === 'mealdb' && (
+            <motion.div
+              key="mealdb"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              {/* Info Banner */}
+              <div className="p-4 bg-gradient-to-r from-blue-500/20 to-purple-500/20 rounded-xl border border-blue-500/30">
+                <div className="flex items-center gap-3">
+                  <Globe className="w-6 h-6 text-blue-400" />
+                  <div>
+                    <p className="font-medium">TheMealDB - Free Recipe Database</p>
+                    <p className="text-sm text-white/60">No API key required! Browse thousands of recipes.</p>
+                  </div>
                 </div>
-              ) : (
-                /* Search & Browse View */
-                <div>
-                  {/* Search Bar */}
-                  <div className="relative mb-4">
-                    <Search
-                      size={18}
-                      className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-                    />
-                    <input
-                      type="text"
-                      placeholder="Search recipes online..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                      className="w-full pl-11 pr-20 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-                    />
+              </div>
+
+              {!selectedMeal ? (
+                <>
+                  {/* Search */}
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                      <input
+                        type="text"
+                        value={mealSearch}
+                        onChange={(e) => setMealSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && searchMealDB()}
+                        placeholder="Search recipes..."
+                        className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl"
+                      />
+                    </div>
                     <button
-                      onClick={handleSearch}
-                      disabled={isSearching || !searchQuery.trim()}
-                      className="absolute right-2 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-emerald-500 text-white text-sm font-medium rounded-xl disabled:opacity-50"
+                      onClick={searchMealDB}
+                      className="px-4 bg-blue-500 rounded-xl hover:bg-blue-600 transition-colors"
                     >
-                      {isSearching ? <Loader2 size={16} className="animate-spin" /> : "Search"}
+                      <Search className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={getRandomMealDB}
+                      className="px-4 bg-purple-500 rounded-xl hover:bg-purple-600 transition-colors"
+                      title="Random recipes"
+                    >
+                      <Shuffle className="w-5 h-5" />
                     </button>
                   </div>
 
-                  {error && (
-                    <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-red-600 text-sm">
-                      {error}
-                    </div>
-                  )}
-
-                  {/* Search Results */}
-                  {searchResults.length > 0 && (
-                    <div className="mb-6">
-                      <h3 className="font-medium text-gray-900 mb-3">Search Results</h3>
-                      <div className="grid grid-cols-2 gap-3">
-                        {searchResults.map((recipe) => (
-                          <Card
-                            key={recipe.id}
-                            onClick={() => selectRecipe(recipe.id)}
-                            className="cursor-pointer p-0 overflow-hidden"
-                          >
-                            <img
-                              src={recipe.image}
-                              alt={recipe.title}
-                              className="w-full h-24 object-cover"
-                            />
-                            <div className="p-3">
-                              <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                                {recipe.title}
-                              </p>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Random Recipes */}
+                  {/* Browse by Category */}
                   <div>
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="font-medium text-gray-900 flex items-center gap-2">
-                        <Sparkles size={18} className="text-amber-500" />
-                        Discover Recipes
-                      </h3>
-                      <button
-                        onClick={loadRandomRecipes}
-                        disabled={isLoadingRandom}
-                        className="text-sm text-emerald-600 font-medium"
-                      >
-                        {isLoadingRandom ? "Loading..." : "Refresh"}
-                      </button>
+                    <h3 className="text-sm text-white/60 mb-3 flex items-center gap-2">
+                      <UtensilsCrossed className="w-4 h-4" /> Browse by Category
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {mealCategories.slice(0, 10).map(cat => (
+                        <button
+                          key={cat.strCategory}
+                          onClick={() => browseMealsByCategory(cat.strCategory)}
+                          className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                            selectedCategory === cat.strCategory
+                              ? 'bg-blue-500 text-white'
+                              : 'bg-white/5 text-white/70 hover:bg-white/10'
+                          }`}
+                        >
+                          {cat.strCategory}
+                        </button>
+                      ))}
                     </div>
-                    
-                    {isLoadingRandom ? (
-                      <div className="flex items-center justify-center py-12">
-                        <Loader2 size={32} className="animate-spin text-emerald-500" />
-                      </div>
-                    ) : randomRecipes.length > 0 ? (
-                      <div className="grid grid-cols-2 gap-3">
-                        {randomRecipes.map((recipe) => (
-                          <Card
-                            key={recipe.id}
-                            onClick={() => setSelectedRecipe(recipe)}
-                            className="cursor-pointer p-0 overflow-hidden"
-                          >
-                            <img
-                              src={recipe.image}
-                              alt={recipe.title}
-                              className="w-full h-24 object-cover"
-                            />
-                            <div className="p-3">
-                              <p className="text-sm font-medium text-gray-900 line-clamp-2">
-                                {recipe.title}
-                              </p>
-                              <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
-                                <span className="flex items-center gap-1">
-                                  <Clock size={12} /> {recipe.readyInMinutes}m
-                                </span>
-                                <span className="flex items-center gap-1">
-                                  <Users size={12} /> {recipe.servings}
-                                </span>
-                              </div>
-                            </div>
-                          </Card>
-                        ))}
-                      </div>
-                    ) : (
-                      <Card className="text-center py-8 border-dashed">
-                        <Globe size={32} className="mx-auto mb-2 text-gray-300" />
-                        <p className="text-sm text-gray-500">Click Refresh to discover recipes</p>
-                      </Card>
-                    )}
                   </div>
+
+                  {/* Browse by Cuisine */}
+                  <div>
+                    <h3 className="text-sm text-white/60 mb-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4" /> Browse by Cuisine
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      {mealAreas.slice(0, 12).map(area => (
+                        <button
+                          key={area}
+                          onClick={() => browseMealsByArea(area)}
+                          className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                            selectedArea === area
+                              ? 'bg-purple-500 text-white'
+                              : 'bg-white/5 text-white/70 hover:bg-white/10'
+                          }`}
+                        >
+                          {area}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Results */}
+                  {mealLoading ? (
+                    <div className="flex justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : mealResults.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {mealResults.map(meal => (
+                        <motion.button
+                          key={meal.idMeal}
+                          onClick={() => setSelectedMeal(meal)}
+                          className="text-left bg-white/5 rounded-xl overflow-hidden hover:bg-white/10 transition-colors"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          {meal.strMealThumb && (
+                            <img
+                              src={meal.strMealThumb}
+                              alt={meal.strMeal}
+                              className="w-full h-28 object-cover"
+                            />
+                          )}
+                          <div className="p-3">
+                            <h4 className="font-medium text-sm line-clamp-2">{meal.strMeal}</h4>
+                            <div className="flex items-center gap-2 mt-1">
+                              <span className="text-xs text-blue-400">{meal.strCategory}</span>
+                              <span className="text-xs text-purple-400">{meal.strArea}</span>
+                            </div>
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-white/40">
+                      <Globe className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Search or browse categories to find recipes</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Selected Meal Detail */
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setSelectedMeal(null)}
+                    className="flex items-center gap-2 text-white/60 hover:text-white"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to results
+                  </button>
+
+                  {selectedMeal.strMealThumb && (
+                    <img
+                      src={selectedMeal.strMealThumb}
+                      alt={selectedMeal.strMeal}
+                      className="w-full h-48 object-cover rounded-xl"
+                    />
+                  )}
+
+                  <div>
+                    <h2 className="text-xl font-bold">{selectedMeal.strMeal}</h2>
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="px-2 py-1 bg-blue-500/20 text-blue-400 rounded text-sm">
+                        {selectedMeal.strCategory}
+                      </span>
+                      <span className="px-2 py-1 bg-purple-500/20 text-purple-400 rounded text-sm">
+                        {selectedMeal.strArea}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* YouTube Link */}
+                  {selectedMeal.strYoutube && (
+                    <a
+                      href={selectedMeal.strYoutube}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-2 p-3 bg-red-500/20 rounded-xl text-red-400 hover:bg-red-500/30 transition-colors"
+                    >
+                      <Play className="w-5 h-5" />
+                      Watch Video Tutorial
+                      <ExternalLink className="w-4 h-4 ml-auto" />
+                    </a>
+                  )}
+
+                  {/* Ingredients */}
+                  <div>
+                    <h3 className="font-semibold mb-2">Ingredients</h3>
+                    <div className="grid grid-cols-2 gap-2">
+                      {selectedMeal.ingredients.map((ing, idx) => (
+                        <div key={idx} className="p-2 bg-white/5 rounded-lg text-sm">
+                          <span className="text-white/60">{ing.measure}</span> {ing.name}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Instructions */}
+                  <div>
+                    <h3 className="font-semibold mb-2">Instructions</h3>
+                    <div className="p-4 bg-white/5 rounded-xl text-sm text-white/80 whitespace-pre-line">
+                      {selectedMeal.strInstructions}
+                    </div>
+                  </div>
+
+                  {/* Import Button */}
+                  <button
+                    onClick={importMealDBRecipe}
+                    className="w-full py-4 bg-gradient-to-r from-blue-500 to-purple-500 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Import Recipe
+                  </button>
                 </div>
               )}
+            </motion.div>
+          )}
 
-              {isLoadingRecipe && (
-                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-                  <div className="bg-white p-6 rounded-2xl flex items-center gap-3">
-                    <Loader2 size={24} className="animate-spin text-emerald-500" />
-                    <span>Loading recipe...</span>
+          {/* Spoonacular Tab */}
+          {activeTab === 'spoonacular' && (
+            <motion.div
+              key="spoonacular"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              className="space-y-6"
+            >
+              {!aiSettings.spoonacularApiKey ? (
+                <div className="p-6 bg-amber-500/10 border border-amber-500/30 rounded-xl text-center">
+                  <Sparkles className="w-12 h-12 mx-auto mb-3 text-amber-400" />
+                  <h3 className="font-semibold mb-2">API Key Required</h3>
+                  <p className="text-sm text-white/60 mb-4">
+                    Add your Spoonacular API key in Settings → API Settings to browse online recipes.
+                  </p>
+                  <button
+                    onClick={() => router.push('/settings/api')}
+                    className="px-4 py-2 bg-amber-500 rounded-lg text-sm font-medium"
+                  >
+                    Go to API Settings
+                  </button>
+                </div>
+              ) : !selectedSpoonRecipe ? (
+                <>
+                  {/* Search */}
+                  <div className="flex gap-2">
+                    <div className="flex-1 relative">
+                      <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-white/40" />
+                      <input
+                        type="text"
+                        value={spoonSearch}
+                        onChange={(e) => setSpoonSearch(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && searchSpoonacular()}
+                        placeholder="Search recipes..."
+                        className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/10 rounded-xl"
+                      />
+                    </div>
+                    <button
+                      onClick={searchSpoonacular}
+                      className="px-4 bg-emerald-500 rounded-xl hover:bg-emerald-600 transition-colors"
+                    >
+                      <Search className="w-5 h-5" />
+                    </button>
+                    <button
+                      onClick={getRandomSpoonacular}
+                      className="px-4 bg-purple-500 rounded-xl hover:bg-purple-600 transition-colors"
+                      title="Random recipes"
+                    >
+                      <Shuffle className="w-5 h-5" />
+                    </button>
                   </div>
+
+                  {/* Results */}
+                  {spoonLoading ? (
+                    <div className="flex justify-center py-12">
+                      <div className="w-8 h-8 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  ) : spoonResults.length > 0 ? (
+                    <div className="grid grid-cols-2 gap-3">
+                      {spoonResults.map(recipe => (
+                        <motion.button
+                          key={recipe.id}
+                          onClick={() => selectSpoonRecipe(recipe)}
+                          className="text-left bg-white/5 rounded-xl overflow-hidden hover:bg-white/10 transition-colors"
+                          whileHover={{ scale: 1.02 }}
+                          whileTap={{ scale: 0.98 }}
+                        >
+                          {recipe.image && (
+                            <img
+                              src={recipe.image}
+                              alt={recipe.title}
+                              className="w-full h-28 object-cover"
+                            />
+                          )}
+                          <div className="p-3">
+                            <h4 className="font-medium text-sm line-clamp-2">{recipe.title}</h4>
+                            {'readyInMinutes' in recipe && recipe.readyInMinutes && (
+                              <div className="flex items-center gap-1 mt-1 text-xs text-white/50">
+                                <Clock className="w-3 h-3" />
+                                {recipe.readyInMinutes} min
+                              </div>
+                            )}
+                          </div>
+                        </motion.button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-12 text-white/40">
+                      <BookOpen className="w-12 h-12 mx-auto mb-3 opacity-50" />
+                      <p>Search for recipes or discover random ones</p>
+                    </div>
+                  )}
+                </>
+              ) : (
+                /* Selected Recipe Detail */
+                <div className="space-y-4">
+                  <button
+                    onClick={() => setSelectedSpoonRecipe(null)}
+                    className="flex items-center gap-2 text-white/60 hover:text-white"
+                  >
+                    <ArrowLeft className="w-4 h-4" /> Back to results
+                  </button>
+
+                  {selectedSpoonRecipe.image && (
+                    <img
+                      src={selectedSpoonRecipe.image}
+                      alt={selectedSpoonRecipe.title}
+                      className="w-full h-48 object-cover rounded-xl"
+                    />
+                  )}
+
+                  <h2 className="text-xl font-bold">{selectedSpoonRecipe.title}</h2>
+
+                  <div className="flex flex-wrap gap-3">
+                    {selectedSpoonRecipe.readyInMinutes && (
+                      <div className="flex items-center gap-1 text-sm text-white/60">
+                        <Clock className="w-4 h-4" />
+                        {selectedSpoonRecipe.readyInMinutes} min
+                      </div>
+                    )}
+                    {selectedSpoonRecipe.servings && (
+                      <div className="flex items-center gap-1 text-sm text-white/60">
+                        <Users className="w-4 h-4" />
+                        {selectedSpoonRecipe.servings} servings
+                      </div>
+                    )}
+                    {selectedSpoonRecipe.nutrition?.nutrients?.[0] && (
+                      <div className="flex items-center gap-1 text-sm text-white/60">
+                        <Flame className="w-4 h-4" />
+                        {Math.round(selectedSpoonRecipe.nutrition.nutrients[0].amount)} cal
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ingredients */}
+                  {selectedSpoonRecipe.extendedIngredients && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Ingredients</h3>
+                      <div className="space-y-1">
+                        {selectedSpoonRecipe.extendedIngredients.map((ing, idx) => (
+                          <div key={idx} className="p-2 bg-white/5 rounded-lg text-sm">
+                            {ing.original}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Instructions */}
+                  {selectedSpoonRecipe.instructions && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Instructions</h3>
+                      <div
+                        className="p-4 bg-white/5 rounded-xl text-sm text-white/80"
+                        dangerouslySetInnerHTML={{ __html: selectedSpoonRecipe.instructions }}
+                      />
+                    </div>
+                  )}
+
+                  {/* Source info not available from Spoonacular API */}
+
+                  {/* Import Button */}
+                  <button
+                    onClick={importSpoonRecipe}
+                    className="w-full py-4 bg-gradient-to-r from-emerald-500 to-green-500 rounded-xl font-semibold flex items-center justify-center gap-2"
+                  >
+                    <Download className="w-5 h-5" />
+                    Import Recipe
+                  </button>
                 </div>
               )}
             </motion.div>
           )}
         </AnimatePresence>
-      </PageContent>
-    </PageContainer>
+      </div>
+    </div>
   );
 }
