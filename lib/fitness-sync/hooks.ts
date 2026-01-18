@@ -54,6 +54,7 @@ export function useFitnessSync() {
 
   /**
    * Sync data from a single provider
+   * Tokens are stored in httpOnly cookies on the server, so we just call the endpoint
    */
   const syncProvider = useCallback(async (
     provider: FitnessProvider,
@@ -65,21 +66,13 @@ export function useFitnessSync() {
     calories: DailyCalories[];
     heartRate: HeartRateData[];
   } | null> => {
-    const tokens = getStoredTokens();
-    const token = tokens[provider];
-    
-    if (!token?.accessToken) {
-      console.warn(`No token found for ${provider}`);
-      return null;
-    }
-
     try {
-      const response = await fetch('/api/fitness/sync', {
+      // Call the provider-specific sync endpoint
+      // Server handles tokens from httpOnly cookies
+      const response = await fetch(`/api/fitness/sync/${provider}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          provider,
-          accessToken: atob(token.accessToken), // Decode from base64
           startDate,
           endDate,
         }),
@@ -101,12 +94,41 @@ export function useFitnessSync() {
         });
       }
 
-      return result.data;
+      // Transform server response to match expected client format
+      const serverData = result.data || {};
+      
+      // Transform steps: server returns { date, steps } -> client expects { date, value }
+      const steps: DailySteps[] = (serverData.steps || []).map((s: any) => ({
+        date: s.date,
+        value: s.steps || s.value || 0,
+        sources: [provider],
+      }));
+
+      // Transform calories: server returns { date, totalBurned } -> client expects { date, value }
+      const calories: DailyCalories[] = (serverData.calories || []).map((c: any) => ({
+        date: c.date,
+        value: c.totalBurned || c.value || 0,
+        sources: [provider],
+      }));
+
+      // Transform heart rate: server returns { date, averageHr } -> client expects { date, averageHr }
+      const heartRate: HeartRateData[] = (serverData.heartRate || []).map((h: any) => ({
+        date: h.date,
+        averageHr: h.averageHr || h.average || 0,
+        maxHr: h.maxHr,
+        minHr: h.minHr,
+        restingHr: h.restingHr,
+      }));
+
+      // Activities are already in correct format
+      const activities: FitnessActivity[] = serverData.activities || [];
+
+      return { activities, steps, calories, heartRate };
     } catch (error) {
       console.error(`Failed to sync ${provider}:`, error);
       return null;
     }
-  }, [fitnessConnections, getStoredTokens, setFitnessConnection]);
+  }, [fitnessConnections, setFitnessConnection]);
 
   /**
    * Aggregate data from multiple providers
