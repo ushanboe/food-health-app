@@ -1,397 +1,306 @@
 "use client";
 
-import { useState } from "react";
-import { motion } from "framer-motion";
-import { Utensils,
-  Settings,
-  Sparkles,
-  Zap,
-  Eye,
-  Check,
-  ExternalLink,
-  Shield,
-  ChevronRight,
-  ArrowLeft,
-  Cloud
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import FitnessConnections from "@/components/fitness/FitnessConnections";
-import { FloatingNutri } from "@/components/FloatingNutri";
-import { AIProvider } from "@/lib/ai-vision";
+import {
+  PageWrapper,
+  Card3D,
+  Button3D,
+  SectionHeader,
+  BottomNavV2,
+  staggerItem,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+} from "@/components/ui";
 
-const AI_PROVIDERS = [
-  {
-    id: "demo" as AIProvider,
-    name: "Demo Mode",
-    description: "Try the app with sample data",
-    icon: Eye,
-    color: "bg-gradient-to-br from-gray-400 to-gray-600",
-    cost: "Free",
-    accuracy: "N/A",
-    features: ["No API key needed", "Random sample foods", "Test app features"],
-    setupUrl: null,
-  },
-  {
-    id: "gemini" as AIProvider,
-    name: "Google Gemini",
-    description: "Fast & accurate, generous free tier",
-    icon: Sparkles,
-    color: "bg-gradient-to-br from-blue-500 to-indigo-600",
-    cost: "Free",
-    accuracy: "~90%",
-    features: ["15 requests/minute free", "1,500 requests/day", "No credit card needed"],
-    setupUrl: "https://aistudio.google.com/app/apikey",
-    recommended: true,
-  },
-  {
-    id: "openai" as AIProvider,
-    name: "OpenAI GPT-4o",
-    description: "Best accuracy, pay per use",
-    icon: Zap,
-    color: "bg-gradient-to-br from-emerald-500 to-teal-600",
-    cost: "~$0.01/scan",
-    accuracy: "~95%",
-    features: ["Highest accuracy", "Best for complex dishes", "Reads food labels"],
-    setupUrl: "https://platform.openai.com/api-keys",
-  },
+type AIProvider = "demo" | "gemini" | "openai";
+
+const providerOptions: { id: AIProvider; name: string; icon: string; desc: string; color: string }[] = [
+  { id: "demo", name: "Demo Mode", icon: "👁️", desc: "Try without API key", color: "from-gray-500 to-gray-600" },
+  { id: "gemini", name: "Google Gemini", icon: "✨", desc: "Fast & accurate", color: "from-blue-500 to-cyan-500" },
+  { id: "openai", name: "OpenAI GPT-4o", icon: "⚡", desc: "Most capable", color: "from-emerald-500 to-green-500" },
 ];
 
 export default function SettingsPage() {
   const router = useRouter();
-  const { aiSettings, updateAISettings } = useAppStore();
-  const [geminiKey, setGeminiKey] = useState(aiSettings.geminiApiKey);
-  const [openaiKey, setOpenaiKey] = useState(aiSettings.openaiApiKey);
-  const [spoonacularKey, setSpoonacularKey] = useState(aiSettings.spoonacularApiKey);
-  const [saved, setSaved] = useState(false);
+  const [mounted, setMounted] = useState(false);
+  const [showApiKeyModal, setShowApiKeyModal] = useState(false);
+  const [tempApiKey, setTempApiKey] = useState("");
 
-  const handleProviderSelect = (providerId: AIProvider) => {
-    updateAISettings({ provider: providerId });
+  const {
+    aiSettings,
+    updateAISettings,
+    userProfile,
+    updateUserProfile,
+    dailyGoals,
+    updateDailyGoals,
+  } = useAppStore();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <motion.div
+          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+    );
+  }
+
+  const handleProviderSelect = (provider: AIProvider) => {
+    hapticMedium();
+    updateAISettings({ provider });
+    if (provider !== "demo") {
+      const currentKey = provider === "gemini" ? aiSettings.geminiApiKey : aiSettings.openaiApiKey;
+      setTempApiKey(currentKey || "");
+      setShowApiKeyModal(true);
+    }
   };
 
-  const handleSaveKeys = () => {
-    updateAISettings({
-      geminiApiKey: geminiKey,
-      openaiApiKey: openaiKey,
-      spoonacularApiKey: spoonacularKey,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+  const handleSaveApiKey = () => {
+    hapticSuccess();
+    if (aiSettings.provider === "gemini") {
+      updateAISettings({ geminiApiKey: tempApiKey });
+    } else if (aiSettings.provider === "openai") {
+      updateAISettings({ openaiApiKey: tempApiKey });
+    }
+    setShowApiKeyModal(false);
   };
 
-  const selectedProvider = AI_PROVIDERS.find(p => p.id === aiSettings.provider);
+  const currentProvider = providerOptions.find(p => p.id === aiSettings.provider) || providerOptions[0];
+  const hasApiKey = aiSettings.provider === "demo" || 
+    (aiSettings.provider === "gemini" && !!aiSettings.geminiApiKey) ||
+    (aiSettings.provider === "openai" && !!aiSettings.openaiApiKey);
 
   return (
-    <div className="app-container">
-      {/* Floating Nutri mascot */}
-      <FloatingNutri interval={20} duration={6} position="bottom-right" />
-      
-      <div className="main-content hide-scrollbar">
+    <PageWrapper className="pb-24">
+      <div className="px-4 py-6 max-w-md mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-br from-green-500 via-emerald-600 to-teal-600 text-white p-6 safe-top">
-          <div className="flex items-center gap-4 mb-2">
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-              onClick={() => router.back()}
-              className="w-11 h-11 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-2xl hover:bg-white/30 transition-colors"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </motion.button>
-            <div>
-              <h1 className="text-3xl font-bold tracking-tight">API Settings</h1>
-              <p className="text-green-50 text-sm font-medium mt-1">Configure your food recognition & recipes</p>
-            </div>
-          </div>
-        </div>
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
+            ⚙️ Settings
+          </h1>
+          <p className="text-gray-400 mt-1">Customize your experience</p>
+        </motion.div>
 
-        <div className="p-5 space-y-6 pb-24">
-          {/* Current Selection */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-3xl p-5 border-2 border-green-200 shadow-sm"
-          >
-            <div className="flex items-center gap-4">
-              <div className={`w-14 h-14 ${selectedProvider?.color} rounded-2xl flex items-center justify-center shadow-lg`}>
-                {selectedProvider && <selectedProvider.icon className="w-7 h-7 text-white" />}
+        {/* AI Provider Section */}
+        <SectionHeader title="AI Provider" icon="🤖" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D variant="luxury" glowColor="rgba(168, 85, 247, 0.3)">
+            <div className="flex items-center gap-4 mb-4">
+              <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${currentProvider.color} flex items-center justify-center text-2xl shadow-lg`}>
+                {currentProvider.icon}
               </div>
               <div className="flex-1">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Currently Active</p>
-                <p className="font-bold text-gray-900 text-lg">{selectedProvider?.name}</p>
+                <h3 className="font-semibold text-white">{currentProvider.name}</h3>
+                <p className="text-sm text-gray-400">
+                  {hasApiKey ? "✓ Configured" : "⚠️ API key needed"}
+                </p>
               </div>
-              <div className="text-right">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Accuracy</p>
-                <p className="font-bold text-green-600 text-lg">{selectedProvider?.accuracy}</p>
-              </div>
+              {aiSettings.provider !== "demo" && (
+                <Button3D
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setTempApiKey(
+                      aiSettings.provider === "gemini" 
+                        ? aiSettings.geminiApiKey || "" 
+                        : aiSettings.openaiApiKey || ""
+                    );
+                    setShowApiKeyModal(true);
+                  }}
+                >
+                  Edit
+                </Button3D>
+              )}
             </div>
-          </motion.div>
 
-          {/* Provider Selection */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-4 tracking-tight">AI Provider</h2>
-            <div className="space-y-3">
-              {AI_PROVIDERS.map((provider, index) => (
+            {/* Provider Options */}
+            <div className="grid grid-cols-3 gap-2">
+              {providerOptions.map((provider) => (
                 <motion.button
                   key={provider.id}
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: index * 0.1 }}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                  onClick={() => handleProviderSelect(provider.id)}
-                  className={`w-full p-5 rounded-3xl border-2 transition-all text-left shadow-sm ${
+                  className={`p-3 rounded-xl flex flex-col items-center gap-1 transition-all ${
                     aiSettings.provider === provider.id
-                      ? "border-green-500 bg-green-50 shadow-md"
-                      : "border-gray-200 bg-white hover:border-gray-300 hover:shadow-md"
+                      ? `bg-gradient-to-br ${provider.color} shadow-lg`
+                      : 'bg-white/10 hover:bg-white/20'
                   }`}
+                  onClick={() => handleProviderSelect(provider.id)}
+                  whileTap={{ scale: 0.95 }}
                 >
-                  <div className="flex items-start gap-4">
-                    <div className={`w-14 h-14 ${provider.color} rounded-2xl flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                      <provider.icon className="w-7 h-7 text-white" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-gray-900 text-lg">{provider.name}</h3>
-                        {provider.recommended && (
-                          <span className="px-2.5 py-1 bg-blue-100 text-blue-700 text-xs font-bold rounded-full">
-                            ⭐ Recommended
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-sm text-gray-600 font-medium mb-3">{provider.description}</p>
-                      <div className="flex items-center gap-4">
-                        <span className="text-xs font-semibold text-gray-500">Cost: <span className="text-gray-900">{provider.cost}</span></span>
-                        <span className="text-xs font-semibold text-gray-500">Accuracy: <span className="text-gray-900">{provider.accuracy}</span></span>
-                      </div>
-                    </div>
-                    <div className={`w-7 h-7 rounded-full border-2 flex items-center justify-center flex-shrink-0 ${
-                      aiSettings.provider === provider.id
-                        ? "border-green-500 bg-green-500"
-                        : "border-gray-300"
-                    }`}>
-                      {aiSettings.provider === provider.id && (
-                        <Check className="w-5 h-5 text-white" />
-                      )}
-                    </div>
-                  </div>
+                  <span className="text-2xl">{provider.icon}</span>
+                  <span className="text-xs text-white font-medium">{provider.name.split(' ')[0]}</span>
                 </motion.button>
               ))}
             </div>
-          </div>
+          </Card3D>
+        </motion.div>
 
-          {/* API Key Configuration */}
-          {aiSettings.provider !== "demo" && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="space-y-4"
-            >
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">API Key Configuration</h2>
-              
-              {/* Gemini Key */}
-              {aiSettings.provider === "gemini" && (
-                <div className="bg-white rounded-3xl p-5 border-2 border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="font-bold text-gray-900 text-base">Gemini API Key</label>
-                    <a
-                      href="https://aistudio.google.com/app/apikey"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-semibold text-blue-600 flex items-center gap-1.5 hover:text-blue-700"
-                    >
-                      Get free key <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
-                  <input
-                    type="password"
-                    value={geminiKey}
-                    onChange={(e) => setGeminiKey(e.target.value)}
-                    placeholder="AIza..."
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5 font-medium">
-                    <Shield className="w-4 h-4" /> Stored locally on your device only
-                  </p>
-                </div>
-              )}
-
-              {/* OpenAI Key */}
-              {aiSettings.provider === "openai" && (
-                <div className="bg-white rounded-3xl p-5 border-2 border-gray-200 shadow-sm">
-                  <div className="flex items-center justify-between mb-4">
-                    <label className="font-bold text-gray-900 text-base">OpenAI API Key</label>
-                    <a
-                      href="https://platform.openai.com/api-keys"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-sm font-semibold text-blue-600 flex items-center gap-1.5 hover:text-blue-700"
-                    >
-                      Get key <ExternalLink className="w-4 h-4" />
-                    </a>
-                  </div>
-                  <input
-                    type="password"
-                    value={openaiKey}
-                    onChange={(e) => setOpenaiKey(e.target.value)}
-                    placeholder="sk-..."
-                    className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-green-500 focus:border-green-500 font-mono text-sm"
-                  />
-                  <p className="text-xs text-gray-500 mt-3 flex items-center gap-1.5 font-medium">
-                    <Shield className="w-4 h-4" /> Stored locally on your device only
-                  </p>
-                </div>
-              )}
-
-              {/* Save Button */}
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSaveKeys}
-                className="w-full py-4 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg text-base"
-              >
-                {saved ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    Saved Successfully!
-                  </>
-                ) : (
-                  "Save API Key"
-                )}
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* Recipe API Keys */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 shadow-md border-2 border-gray-100"
-          >
-            <div className="flex items-center gap-3 mb-5">
-              <div className="w-12 h-12 bg-gradient-to-br from-teal-400 to-cyan-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Utensils className="w-6 h-6 text-white" />
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 tracking-tight">Recipe API</h2>
-            </div>
-            
-            <div className="space-y-4">
-              {/* Spoonacular Key */}
-              <div className="bg-gray-50 rounded-2xl p-5 border-2 border-gray-200">
-                <div className="flex items-center justify-between mb-4">
-                  <label className="font-bold text-gray-900 text-base">Spoonacular API Key</label>
-                  <a
-                    href="https://spoonacular.com/food-api/console#Dashboard"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm font-semibold text-teal-600 flex items-center gap-1.5 hover:text-teal-700"
-                  >
-                    Get key <ExternalLink className="w-4 h-4" />
-                  </a>
-                </div>
-                <input
-                  type="password"
-                  value={spoonacularKey}
-                  onChange={(e) => setSpoonacularKey(e.target.value)}
-                  placeholder="Enter Spoonacular API key..."
-                  className="w-full px-4 py-3.5 border-2 border-gray-200 rounded-2xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-mono text-sm"
-                />
-                <p className="text-xs text-gray-500 mt-3 font-medium">Optional - enables recipe search (150 free requests/day)</p>
-              </div>
-              
-              <motion.button
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={handleSaveKeys}
-                className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-cyan-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2 shadow-lg"
-              >
-                {saved ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    Saved!
-                  </>
-                ) : (
-                  "Save Recipe API Key"
-                )}
-              </motion.button>
-            </div>
-          </motion.div>
-
-          {/* Features List */}
-          {selectedProvider && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="bg-gradient-to-br from-gray-50 to-slate-50 rounded-3xl p-5 border-2 border-gray-200"
-            >
-              <h3 className="font-bold text-gray-900 mb-4 text-lg">✨ Features</h3>
-              <ul className="space-y-3">
-                {selectedProvider.features.map((feature, i) => (
-                  <li key={i} className="flex items-center gap-3 text-sm text-gray-700 font-medium">
-                    <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Check className="w-4 h-4 text-green-600" />
-                    </div>
-                    {feature}
-                  </li>
-                ))}
-              </ul>
-            </motion.div>
-          )}
-
-          {/* Fitness Connections Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-3xl p-6 shadow-md border-2 border-gray-100"
-          >
+        {/* Fitness Connections */}
+        <SectionHeader title="Fitness Connections" icon="💪" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D variant="glass">
             <FitnessConnections />
-          </motion.div>
+          </Card3D>
+        </motion.div>
 
-          {/* Cloud Sync Section */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.98 }}
-            onClick={() => router.push('/cloud-sync')}
-            className="bg-white rounded-3xl p-6 shadow-md border-2 border-gray-100 cursor-pointer hover:border-blue-300 transition-all"
-          >
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center shadow-lg">
-                <Cloud className="w-7 h-7 text-white" />
+        {/* User Profile */}
+        <SectionHeader title="Profile" icon="👤" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D variant="glass">
+            <div className="space-y-4">
+              <div>
+                <label className="text-gray-400 text-sm mb-1 block">Display Name</label>
+                <input
+                  type="text"
+                  value={userProfile.name || ""}
+                  onChange={(e) => updateUserProfile({ name: e.target.value })}
+                  placeholder="Your name"
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                />
               </div>
-              <div className="flex-1">
-                <h2 className="text-xl font-bold text-gray-900 tracking-tight">Cloud Sync</h2>
-                <p className="text-gray-600 text-sm font-medium mt-0.5">Backup & sync across devices</p>
+              <div>
+                <label className="text-gray-400 text-sm mb-1 block">Health Goals</label>
+                <p className="text-gray-500 text-sm">{userProfile.healthGoals?.join(", ") || "Not set"}</p>
               </div>
-              <ChevronRight className="w-6 h-6 text-gray-400" />
             </div>
-          </motion.div>
+          </Card3D>
+        </motion.div>
 
-          {/* Help Section */}
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-3xl p-5 border-2 border-blue-200">
-            <h3 className="font-bold text-blue-900 mb-3 text-lg">💡 Quick Start Guide</h3>
-            <ol className="text-sm text-blue-800 space-y-2 font-medium">
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-blue-600 flex-shrink-0">1.</span>
-                <span>Select your preferred AI provider above</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-blue-600 flex-shrink-0">2.</span>
-                <span>Click the link to get your free API key</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-blue-600 flex-shrink-0">3.</span>
-                <span>Paste the key and tap Save</span>
-              </li>
-              <li className="flex items-start gap-2">
-                <span className="font-bold text-blue-600 flex-shrink-0">4.</span>
-                <span>Start scanning food!</span>
-              </li>
-            </ol>
+        {/* Daily Goals */}
+        <SectionHeader title="Daily Goals" icon="🎯" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D variant="glass">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="text-gray-400 text-sm mb-1 block">Calories</label>
+                <input
+                  type="number"
+                  value={dailyGoals?.calories || ""}
+                  onChange={(e) => updateDailyGoals({ calories: parseInt(e.target.value) || 2000 })}
+                  placeholder="2000"
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm mb-1 block">Carbs (g)</label>
+                <input
+                  type="number"
+                  value={dailyGoals?.carbs || ""}
+                  onChange={(e) => updateDailyGoals({ carbs: parseInt(e.target.value) || 250 })}
+                  placeholder="250"
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm mb-1 block">Protein (g)</label>
+                <input
+                  type="number"
+                  value={dailyGoals?.protein || ""}
+                  onChange={(e) => updateDailyGoals({ protein: parseInt(e.target.value) || 150 })}
+                  placeholder="150"
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+              <div>
+                <label className="text-gray-400 text-sm mb-1 block">Fat (g)</label>
+                <input
+                  type="number"
+                  value={dailyGoals?.fat || ""}
+                  onChange={(e) => updateDailyGoals({ fat: parseInt(e.target.value) || 65 })}
+                  placeholder="65"
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+            </div>
+          </Card3D>
+        </motion.div>
+
+        {/* App Info */}
+        <SectionHeader title="About" icon="ℹ️" />
+        <Card3D variant="glass">
+          <div className="text-center">
+            <span className="text-4xl mb-2 block">🍴</span>
+            <h3 className="font-bold text-white text-lg">FitFork</h3>
+            <p className="text-gray-400 text-sm">Version 2.0</p>
+            <p className="text-gray-500 text-xs mt-2">AI-powered nutrition tracking</p>
           </div>
-        </div>
+        </Card3D>
       </div>
-    </div>
+
+      {/* API Key Modal */}
+      <AnimatePresence>
+        {showApiKeyModal && (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <motion.div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowApiKeyModal(false)}
+            />
+            <motion.div
+              className="relative w-full max-w-md bg-gray-900 rounded-2xl p-6 border border-white/10"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h2 className="text-xl font-bold text-white mb-4">
+                {aiSettings.provider === "gemini" ? "✨ Gemini API Key" : "⚡ OpenAI API Key"}
+              </h2>
+              
+              <input
+                type="password"
+                value={tempApiKey}
+                onChange={(e) => setTempApiKey(e.target.value)}
+                placeholder="Enter your API key..."
+                className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 mb-4"
+              />
+              
+              <p className="text-gray-400 text-sm mb-4">
+                {aiSettings.provider === "gemini" 
+                  ? "Get your key from Google AI Studio"
+                  : "Get your key from OpenAI Platform"
+                }
+              </p>
+              
+              <div className="flex gap-3">
+                <Button3D
+                  variant="ghost"
+                  fullWidth
+                  onClick={() => setShowApiKeyModal(false)}
+                >
+                  Cancel
+                </Button3D>
+                <Button3D
+                  variant="primary"
+                  fullWidth
+                  onClick={handleSaveApiKey}
+                >
+                  Save Key
+                </Button3D>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <BottomNavV2 />
+    </PageWrapper>
   );
 }

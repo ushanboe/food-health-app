@@ -119,8 +119,11 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
               if (status?.connected) {
                 connected.push(provider as FitnessProvider);
                 setFitnessConnection(provider as FitnessProvider, {
+                  provider: provider as FitnessProvider,
                   isConnected: true,
-                  lastSyncAt: status.lastSync ? new Date(status.lastSync) : undefined,
+                  connectedAt: status.connectedAt || new Date().toISOString(),
+                  lastSyncAt: status.lastSync || null,
+                  syncEnabled: true,
                 });
               }
             });

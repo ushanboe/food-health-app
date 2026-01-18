@@ -1,216 +1,340 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { ArrowLeft, Plus, Scale, TrendingDown, TrendingUp, Minus, Target, Trash2 } from "lucide-react";
-import { useAppStore, getTodayString, WeightEntry } from "@/lib/store";
-import BottomNav from "@/components/BottomNav";
+import { useAppStore, getTodayString } from "@/lib/store";
+import {
+  PageWrapper,
+  Card3D,
+  Button3D,
+  StatCard,
+  SectionHeader,
+  BottomNavV2,
+  staggerItem,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+} from "@/components/ui";
 
 export default function WeightPage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const { weightHistory, userStats, addWeightEntry, removeWeightEntry } = useAppStore();
-  const [showAddModal, setShowAddModal] = useState(false);
-  const [newWeight, setNewWeight] = useState(userStats.currentWeight.toString());
-  const [newNote, setNewNote] = useState("");
+  const [showAddWeight, setShowAddWeight] = useState(false);
+  const [newWeight, setNewWeight] = useState("");
+  const [unit, setUnit] = useState<"kg" | "lbs">("kg");
 
-  useEffect(() => { setMounted(true); }, []);
+  const { weightHistory, addWeightEntry } = useAppStore();
 
-  if (!mounted) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" /></div>;
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
-  const today = getTodayString();
-  const sortedHistory = [...weightHistory].sort((a, b) => b.date.localeCompare(a.date));
-  const latestWeight = sortedHistory[0]?.weight || userStats.currentWeight;
-  const startWeight = sortedHistory[sortedHistory.length - 1]?.weight || latestWeight;
-  const weightChange = latestWeight - startWeight;
-  const toGoal = latestWeight - userStats.targetWeight;
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <motion.div
+          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+    );
+  }
 
-  const last30 = sortedHistory.slice(0, 30).reverse();
-  const minW = Math.min(...last30.map(w => w.weight), userStats.targetWeight) - 2;
-  const maxW = Math.max(...last30.map(w => w.weight), userStats.targetWeight) + 2;
-  const range = maxW - minW || 1;
+  const sortedEntries = [...weightHistory].sort(
+    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
+  );
+
+  const latestWeight = sortedEntries[0]?.weight || 0;
+  const previousWeight = sortedEntries[1]?.weight || latestWeight;
+  const weightChange = latestWeight - previousWeight;
+  const startWeight = sortedEntries[sortedEntries.length - 1]?.weight || latestWeight;
+  const totalChange = latestWeight - startWeight;
 
   const handleAddWeight = () => {
-    const weight = parseFloat(newWeight);
-    if (isNaN(weight) || weight < 20 || weight > 300) return;
+    if (!newWeight) return;
+    
+    hapticSuccess();
+    const weightValue = parseFloat(newWeight);
+    const weightInKg = unit === "lbs" ? weightValue * 0.453592 : weightValue;
+    
     addWeightEntry({
-      id: `weight-${Date.now()}`,
-      date: today,
-      weight,
-      note: newNote || undefined,
+      id: Date.now().toString(),
+      date: getTodayString(),
+      weight: weightInKg,
     });
-    setShowAddModal(false);
-    setNewNote("");
+    
+    setShowAddWeight(false);
+    setNewWeight("");
   };
 
+  const formatWeight = (weight: number) => {
+    if (unit === "lbs") {
+      return `${(weight * 2.20462).toFixed(1)} lbs`;
+    }
+    return `${weight.toFixed(1)} kg`;
+  };
+
+  const getChangeColor = (change: number) => {
+    if (change < 0) return "text-green-400";
+    if (change > 0) return "text-red-400";
+    return "text-gray-400";
+  };
+
+  const getChangeIcon = (change: number) => {
+    if (change < 0) return "↓";
+    if (change > 0) return "↑";
+    return "→";
+  };
+
+  // Generate chart data (last 7 entries)
+  const chartData = sortedEntries.slice(0, 7).reverse();
+  const maxWeight = Math.max(...chartData.map(e => e.weight), 1);
+  const minWeight = Math.min(...chartData.map(e => e.weight), 0);
+  const range = maxWeight - minWeight || 1;
+
   return (
-    <div className="flex flex-col h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900">
-      {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar" style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
+    <PageWrapper className="pb-24">
+      <div className="px-4 py-6 max-w-md mx-auto">
         {/* Header */}
-        <div className="bg-gradient-to-br from-blue-500 to-indigo-600 text-white px-5 pt-12 pb-6 safe-top">
-          <div className="flex items-center gap-4 mb-6">
-            <button onClick={() => router.back()} className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center">
-              <ArrowLeft className="w-5 h-5" />
-            </button>
-            <h1 className="text-2xl font-bold">Weight Tracker</h1>
-          </div>
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
+            ⚖️ Weight Tracker
+          </h1>
+          <p className="text-gray-400 mt-1">Monitor your progress</p>
+        </motion.div>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-3">
-            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-              <Scale className="w-5 h-5 mx-auto mb-1 opacity-80" />
-              <p className="text-2xl font-bold">{latestWeight}</p>
-              <p className="text-xs opacity-80">Current (kg)</p>
+        {/* Current Weight Card */}
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D variant="luxury" glowColor="rgba(168, 85, 247, 0.3)">
+            <div className="text-center">
+              <p className="text-gray-400 text-sm mb-2">Current Weight</p>
+              <motion.p
+                className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
+                initial={{ scale: 0.5 }}
+                animate={{ scale: 1 }}
+                transition={{ type: "spring", damping: 10 }}
+              >
+                {latestWeight > 0 ? formatWeight(latestWeight) : "--"}
+              </motion.p>
+              
+              {weightChange !== 0 && (
+                <motion.div
+                  className={`inline-flex items-center gap-1 mt-3 px-3 py-1 rounded-full ${weightChange < 0 ? 'bg-green-500/20' : 'bg-red-500/20'}`}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                >
+                  <span className={getChangeColor(weightChange)}>
+                    {getChangeIcon(weightChange)} {Math.abs(weightChange).toFixed(1)} kg
+                  </span>
+                  <span className="text-gray-500 text-sm">from last</span>
+                </motion.div>
+              )}
+
+              {/* Unit Toggle */}
+              <div className="flex justify-center gap-2 mt-4">
+                <motion.button
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    unit === "kg" ? 'bg-purple-600 text-white' : 'bg-white/10 text-gray-400'
+                  }`}
+                  onClick={() => { hapticLight(); setUnit("kg"); }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  kg
+                </motion.button>
+                <motion.button
+                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                    unit === "lbs" ? 'bg-purple-600 text-white' : 'bg-white/10 text-gray-400'
+                  }`}
+                  onClick={() => { hapticLight(); setUnit("lbs"); }}
+                  whileTap={{ scale: 0.95 }}
+                >
+                  lbs
+                </motion.button>
+              </div>
             </div>
-            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-              {weightChange <= 0 ? <TrendingDown className="w-5 h-5 mx-auto mb-1 opacity-80" /> : <TrendingUp className="w-5 h-5 mx-auto mb-1 opacity-80" />}
-              <p className="text-2xl font-bold">{weightChange > 0 ? "+" : ""}{weightChange.toFixed(1)}</p>
-              <p className="text-xs opacity-80">Change (kg)</p>
-            </div>
-            <div className="bg-white/20 backdrop-blur rounded-xl p-3 text-center">
-              <Target className="w-5 h-5 mx-auto mb-1 opacity-80" />
-              <p className="text-2xl font-bold">{Math.abs(toGoal).toFixed(1)}</p>
-              <p className="text-xs opacity-80">{toGoal > 0 ? "To lose" : toGoal < 0 ? "To gain" : "At goal!"}</p>
-            </div>
-          </div>
+          </Card3D>
+        </motion.div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <StatCard
+            icon="📊"
+            label="Total Change"
+            value={`${totalChange >= 0 ? '+' : ''}${totalChange.toFixed(1)}`}
+            subValue="kg"
+            color={totalChange <= 0 ? "green" : "orange"}
+          />
+          <StatCard
+            icon="📈"
+            label="Entries"
+            value={weightHistory.length}
+            color="purple"
+          />
         </div>
 
-        <div className="px-5 py-4 space-y-4">
-          {/* Chart */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-            <h3 className="font-semibold text-gray-800 dark:text-white mb-4">Progress Chart</h3>
-            {last30.length > 1 ? (
-              <div className="relative h-40">
-                <div className="absolute left-0 top-0 bottom-0 w-8 flex flex-col justify-between text-xs text-gray-400">
-                  <span>{maxW.toFixed(0)}</span>
-                  <span>{((maxW + minW) / 2).toFixed(0)}</span>
-                  <span>{minW.toFixed(0)}</span>
+        {/* Mini Chart */}
+        {chartData.length > 1 && (
+          <>
+            <SectionHeader title="Trend" icon="📉" />
+            <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+              <Card3D variant="glass">
+                <div className="h-32 flex items-end justify-between gap-1">
+                  {chartData.map((entry, index) => {
+                    const height = ((entry.weight - minWeight) / range) * 100;
+                    return (
+                      <motion.div
+                        key={entry.id}
+                        className="flex-1 flex flex-col items-center gap-1"
+                        initial={{ height: 0 }}
+                        animate={{ height: "auto" }}
+                        transition={{ delay: index * 0.1 }}
+                      >
+                        <motion.div
+                          className="w-full bg-gradient-to-t from-purple-600 to-pink-500 rounded-t-lg"
+                          style={{ height: `${Math.max(height, 10)}%` }}
+                          initial={{ scaleY: 0 }}
+                          animate={{ scaleY: 1 }}
+                          transition={{ delay: index * 0.1, type: "spring" }}
+                        />
+                        <span className="text-[10px] text-gray-500">
+                          {new Date(entry.date).toLocaleDateString('en-US', { day: 'numeric' })}
+                        </span>
+                      </motion.div>
+                    );
+                  })}
                 </div>
-                <div className="ml-10 h-full relative">
-                  <div
-                    className="absolute left-0 right-0 border-t-2 border-dashed border-green-400"
-                    style={{ top: `${((maxW - userStats.targetWeight) / range) * 100}%` }}
-                  >
-                    <span className="absolute right-0 -top-3 text-xs text-green-500">Goal</span>
-                  </div>
-                  <svg className="w-full h-full" preserveAspectRatio="none">
-                    <polyline
-                      fill="none"
-                      stroke="#3b82f6"
-                      strokeWidth="2"
-                      points={last30.map((w, i) => {
-                        const x = (i / (last30.length - 1)) * 100;
-                        const y = ((maxW - w.weight) / range) * 100;
-                        return `${x}%,${y}%`;
-                      }).join(" ")}
-                    />
-                    {last30.map((w, i) => {
-                      const x = (i / (last30.length - 1)) * 100;
-                      const y = ((maxW - w.weight) / range) * 100;
-                      return <circle key={i} cx={`${x}%`} cy={`${y}%`} r="4" fill="#3b82f6" />;
-                    })}
-                  </svg>
-                </div>
-              </div>
-            ) : (
-              <div className="h-40 flex items-center justify-center text-gray-400">
-                <p>Add more entries to see your progress chart</p>
-              </div>
-            )}
-          </motion.div>
+              </Card3D>
+            </motion.div>
+          </>
+        )}
 
-          {/* History */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bg-white dark:bg-gray-800 rounded-2xl p-4 shadow-sm">
-            <h3 className="font-semibold text-gray-800 dark:text-white mb-3">History</h3>
-            {sortedHistory.length > 0 ? (
-              <div className="space-y-2 max-h-60 overflow-y-auto">
-                {sortedHistory.map((entry, i) => {
-                  const prev = sortedHistory[i + 1];
-                  const diff = prev ? entry.weight - prev.weight : 0;
-                  return (
-                    <div key={entry.id} className="flex items-center justify-between py-2 border-b border-gray-100 dark:border-gray-700 last:border-0">
+        {/* Recent Entries */}
+        <SectionHeader
+          title="History"
+          icon="📜"
+          action={
+            <Button3D
+              variant="primary"
+              size="sm"
+              icon="+"
+              onClick={() => { hapticMedium(); setShowAddWeight(true); }}
+            >
+              Log
+            </Button3D>
+          }
+        />
+
+        {sortedEntries.length === 0 ? (
+          <Card3D variant="glass">
+            <div className="text-center py-8">
+              <span className="text-5xl mb-4 block">⚖️</span>
+              <p className="text-gray-400">No weight entries yet</p>
+              <p className="text-gray-500 text-sm mt-1">Tap + to log your first weight</p>
+            </div>
+          </Card3D>
+        ) : (
+          <div className="space-y-2">
+            {sortedEntries.slice(0, 10).map((entry, index) => {
+              const prevEntry = sortedEntries[index + 1];
+              const change = prevEntry ? entry.weight - prevEntry.weight : 0;
+              
+              return (
+                <motion.div
+                  key={entry.id}
+                  variants={staggerItem}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card3D variant="glass" intensity="subtle">
+                    <div className="flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-800 dark:text-white">{entry.weight} kg</p>
-                        <p className="text-xs text-gray-500">{new Date(entry.date).toLocaleDateString()}</p>
-                        {entry.note && <p className="text-xs text-gray-400 mt-1">{entry.note}</p>}
+                        <p className="font-semibold text-white">{formatWeight(entry.weight)}</p>
+                        <p className="text-gray-500 text-sm">
+                          {new Date(entry.date).toLocaleDateString('en-US', {
+                            weekday: 'short',
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
                       </div>
-                      <div className="flex items-center gap-3">
-                        {diff !== 0 && (
-                          <span className={`text-sm font-medium ${diff < 0 ? "text-green-500" : "text-red-500"}`}>
-                            {diff > 0 ? "+" : ""}{diff.toFixed(1)}
-                          </span>
-                        )}
-                        <button onClick={() => removeWeightEntry(entry.id)} className="p-1 text-gray-400 hover:text-red-500">
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </div>
+                      {change !== 0 && (
+                        <span className={`text-sm ${getChangeColor(change)}`}>
+                          {getChangeIcon(change)} {Math.abs(change).toFixed(1)} kg
+                        </span>
+                      )}
                     </div>
-                  );
-                })}
-              </div>
-            ) : (
-              <p className="text-gray-400 text-center py-4">No weight entries yet</p>
-            )}
-          </motion.div>
-        </div>
+                  </Card3D>
+                </motion.div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
-      {/* Fixed Bottom Nav */}
-      <BottomNav />
-
-      {/* Add Button */}
-      <motion.button
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setShowAddModal(true)}
-        className="fixed bottom-24 right-6 w-14 h-14 bg-blue-500 text-white rounded-full shadow-lg flex items-center justify-center z-40"
-      >
-        <Plus className="w-6 h-6" />
-      </motion.button>
-
-      {/* Add Modal */}
-      {showAddModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      {/* Add Weight Modal */}
+      <AnimatePresence>
+        {showAddWeight && (
           <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-6 w-full max-w-sm"
+            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
           >
-            <h3 className="text-xl font-bold text-gray-800 dark:text-white mb-4">Log Weight</h3>
-            <div className="space-y-4">
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Weight (kg)</label>
+            <motion.div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => setShowAddWeight(false)}
+            />
+            <motion.div
+              className="relative w-full max-w-sm bg-gray-900 rounded-2xl p-6 border border-white/10"
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.9, opacity: 0 }}
+            >
+              <h2 className="text-xl font-bold text-white mb-4 text-center">⚖️ Log Weight</h2>
+              
+              <div className="mb-4">
                 <input
                   type="number"
                   step="0.1"
                   value={newWeight}
                   onChange={(e) => setNewWeight(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl text-2xl font-bold text-center"
+                  placeholder={unit === "kg" ? "70.5" : "155.0"}
+                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-4 text-white text-center text-2xl placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                  autoFocus
                 />
+                <p className="text-center text-gray-500 mt-2">{unit}</p>
               </div>
-              <div>
-                <label className="text-sm text-gray-500 mb-1 block">Note (optional)</label>
-                <input
-                  type="text"
-                  value={newNote}
-                  onChange={(e) => setNewNote(e.target.value)}
-                  placeholder="e.g., After workout"
-                  className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-700 rounded-xl"
-                />
-              </div>
-              <div className="flex gap-3 pt-2">
-                <button onClick={() => setShowAddModal(false)} className="flex-1 py-3 bg-gray-200 dark:bg-gray-700 rounded-xl font-medium">
+              
+              <div className="flex gap-3">
+                <Button3D
+                  variant="ghost"
+                  fullWidth
+                  onClick={() => setShowAddWeight(false)}
+                >
                   Cancel
-                </button>
-                <button onClick={handleAddWeight} className="flex-1 py-3 bg-blue-500 text-white rounded-xl font-medium">
+                </Button3D>
+                <Button3D
+                  variant="primary"
+                  fullWidth
+                  disabled={!newWeight}
+                  onClick={handleAddWeight}
+                >
                   Save
-                </button>
+                </Button3D>
               </div>
-            </div>
+            </motion.div>
           </motion.div>
-        </div>
-      )}
-    </div>
+        )}
+      </AnimatePresence>
+
+      <BottomNavV2 />
+    </PageWrapper>
   );
 }

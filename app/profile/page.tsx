@@ -1,241 +1,282 @@
 "use client";
 
 import { motion } from "framer-motion";
-import {
-  User,
-  Settings,
-  TrendingUp,
-  Calendar,
-  Award,
-  ChevronRight,
-  Sparkles,
-  Zap,
-  Eye,
-  Trash2,
-  Cloud
-} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
-import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
 import { useAuth } from "@/contexts/AuthContext";
+import {
+  PageWrapper,
+  Card3D,
+  Button3D,
+  StatCard,
+  SectionHeader,
+  BottomNavV2,
+  staggerItem,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+} from "@/components/ui";
 
 export default function ProfilePage() {
   const router = useRouter();
-  const { analysisHistory, userProfile, aiSettings, clearHistory } = useAppStore();
-    const { user, isConfigured } = useAuth();
+  const [mounted, setMounted] = useState(false);
+  const { analysisHistory, userProfile, aiSettings, clearHistory, dailyLogs } = useAppStore();
+  const { user, isConfigured } = useAuth();
   const cloudConnected = !!(user && isConfigured);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const totalScans = analysisHistory.length;
   const avgScore = totalScans > 0
     ? Math.round(analysisHistory.reduce((sum, a) => sum + a.healthScore, 0) / totalScans)
     : 0;
   const healthyCount = analysisHistory.filter(a => a.verdict === "healthy").length;
+  const totalMeals = dailyLogs.reduce((sum, log) => sum + (log.meals?.length || 0), 0);
 
   const getProviderInfo = () => {
     switch (aiSettings.provider) {
       case "gemini":
-        return { name: "Google Gemini", icon: Sparkles, color: "text-blue-500", hasKey: !!aiSettings.geminiApiKey };
+        return { name: "Google Gemini", icon: "✨", color: "blue", hasKey: !!aiSettings.geminiApiKey };
       case "openai":
-        return { name: "OpenAI GPT-4o", icon: Zap, color: "text-emerald-500", hasKey: !!aiSettings.openaiApiKey };
+        return { name: "OpenAI GPT-4o", icon: "⚡", color: "green", hasKey: !!aiSettings.openaiApiKey };
       default:
-        return { name: "Demo Mode", icon: Eye, color: "text-gray-500", hasKey: true };
+        return { name: "Demo Mode", icon: "👁️", color: "purple", hasKey: true };
     }
   };
 
   const providerInfo = getProviderInfo();
 
-  return (
-    <div className="app-container">
-      <div className="main-content hide-scrollbar">
-        {/* Header */}
-        <div className="bg-gradient-to-br from-green-500 to-emerald-600 text-white p-6 safe-top">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 bg-white/20 rounded-full flex items-center justify-center">
-              <User className="w-10 h-10" />
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold">
-                {userProfile.name || "Food Explorer"}
-              </h1>
-              <p className="text-green-100">Health-conscious eater</p>
-            </div>
-          </div>
-        </div>
+  // Calculate streak
+  const calculateStreak = () => {
+    let streak = 0;
+    const today = new Date();
+    for (let i = 0; i < 365; i++) {
+      const date = new Date(today);
+      date.setDate(date.getDate() - i);
+      const dateStr = date.toISOString().split('T')[0];
+      const hasLog = dailyLogs.some(log => log.date === dateStr && log.meals && log.meals.length > 0);
+      if (hasLog) streak++;
+      else if (i > 0) break;
+    }
+    return streak;
+  };
 
-        {/* Stats */}
-        <div className="p-4 -mt-6">
+  const streak = calculateStreak();
+
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <motion.div
+          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+    );
+  }
+
+  return (
+    <PageWrapper className="pb-24">
+      <div className="px-4 py-6 max-w-md mx-auto">
+        {/* Profile Header */}
+        <motion.div
+          className="text-center mb-8"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          {/* Avatar */}
           <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="bg-white rounded-2xl shadow-lg p-4"
+            className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-500 via-pink-500 to-orange-500 p-1"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
           >
-            <div className="grid grid-cols-3 gap-4">
-              <div className="text-center">
-                <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <TrendingUp className="w-6 h-6 text-green-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-800">{totalScans}</p>
-                <p className="text-xs text-gray-500">Total Scans</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Award className="w-6 h-6 text-blue-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-800">{avgScore}</p>
-                <p className="text-xs text-gray-500">Avg Score</p>
-              </div>
-              <div className="text-center">
-                <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mx-auto mb-2">
-                  <Calendar className="w-6 h-6 text-emerald-600" />
-                </div>
-                <p className="text-2xl font-bold text-gray-800">{healthyCount}</p>
-                <p className="text-xs text-gray-500">Healthy</p>
-              </div>
+            <div className="w-full h-full rounded-full bg-gray-900 flex items-center justify-center text-4xl">
+              {userProfile.name ? userProfile.name.charAt(0).toUpperCase() : "👤"}
             </div>
           </motion.div>
+          
+          <motion.h1
+            className="text-2xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.2 }}
+          >
+            {userProfile.name || "Food Explorer"}
+          </motion.h1>
+          <motion.p
+            className="text-gray-400 mt-1"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.3 }}
+          >
+            Health-conscious eater
+          </motion.p>
+
+          {/* Streak Badge */}
+          {streak > 0 && (
+            <motion.div
+              className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 border border-amber-500/30"
+              initial={{ opacity: 0, scale: 0.8 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ delay: 0.4 }}
+            >
+              <span className="text-xl">🔥</span>
+              <span className="text-amber-400 font-semibold">{streak} day streak!</span>
+            </motion.div>
+          )}
+        </motion.div>
+
+        {/* Stats Grid */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <StatCard
+            icon="📊"
+            label="Total Scans"
+            value={totalScans}
+            color="purple"
+            onClick={() => { hapticLight(); router.push('/history'); }}
+          />
+          <StatCard
+            icon="💚"
+            label="Avg Score"
+            value={avgScore}
+            subValue="/ 100"
+            color="green"
+          />
+          <StatCard
+            icon="🥗"
+            label="Healthy Picks"
+            value={healthyCount}
+            color="blue"
+          />
+          <StatCard
+            icon="🍽️"
+            label="Meals Logged"
+            value={totalMeals}
+            color="orange"
+            onClick={() => { hapticLight(); router.push('/diary'); }}
+          />
         </div>
 
-        {/* API Settings Card */}
-        <div className="px-4 pb-4">
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            onClick={() => router.push("/settings")}
-            className="w-full bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-4 border border-blue-100 text-left"
+        {/* AI Provider Card */}
+        <SectionHeader title="AI Provider" icon="🤖" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D
+            variant="glass"
+            onClick={() => { hapticLight(); router.push('/settings'); }}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm`}>
-                  <providerInfo.icon className={`w-6 h-6 ${providerInfo.color}`} />
+                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center text-2xl">
+                  {providerInfo.icon}
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">AI Provider</p>
-                  <p className="font-semibold text-gray-800">{providerInfo.name}</p>
-                  {!providerInfo.hasKey && aiSettings.provider !== "demo" && (
-                    <p className="text-xs text-orange-500">⚠️ API key not set</p>
-                  )}
+                  <p className="font-semibold text-white">{providerInfo.name}</p>
+                  <p className="text-sm text-gray-400">
+                    {providerInfo.hasKey ? "✓ Configured" : "⚠️ API key needed"}
+                  </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+              <span className="text-gray-500">→</span>
             </div>
-          </motion.button>
-        </div>
+          </Card3D>
+        </motion.div>
 
         {/* Cloud Sync Card */}
-        <div className="px-4 pb-4">
-          <motion.button
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.15 }}
-            onClick={() => router.push("/cloud-sync")}
-            className={`w-full rounded-2xl p-4 border text-left ${
-              cloudConnected 
-                ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100' 
-                : 'bg-gradient-to-r from-gray-50 to-slate-50 border-gray-200'
-            }`}
+        <SectionHeader title="Cloud Sync" icon="☁️" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D
+            variant={cloudConnected ? "luxury" : "glass"}
+            glowColor={cloudConnected ? "rgba(16, 185, 129, 0.3)" : "rgba(168, 85, 247, 0.2)"}
+            onClick={() => { hapticLight(); router.push('/cloud-sync'); }}
           >
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <div className={`w-12 h-12 bg-white rounded-xl flex items-center justify-center shadow-sm`}>
-                  <Cloud className={`w-6 h-6 ${cloudConnected ? 'text-green-500' : 'text-gray-400'}`} />
+                <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${
+                  cloudConnected 
+                    ? 'bg-gradient-to-br from-emerald-600 to-green-600' 
+                    : 'bg-gradient-to-br from-gray-700 to-gray-800'
+                }`}>
+                  {cloudConnected ? "✅" : "☁️"}
                 </div>
                 <div>
-                  <p className="text-sm text-gray-500">Cloud Backup</p>
-                  <p className="font-semibold text-gray-800">
-                    {cloudConnected ? 'Connected' : 'Not Connected'}
+                  <p className="font-semibold text-white">
+                    {cloudConnected ? "Connected" : "Not Connected"}
                   </p>
-                  {!cloudConnected && (
-                    <p className="text-xs text-blue-500">Tap to set up sync</p>
-                  )}
+                  <p className="text-sm text-gray-400">
+                    {cloudConnected ? "Data synced to cloud" : "Tap to set up backup"}
+                  </p>
                 </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-gray-400" />
+              <span className="text-gray-500">→</span>
             </div>
-          </motion.button>
+          </Card3D>
+        </motion.div>
+
+        {/* Quick Links */}
+        <SectionHeader title="Quick Links" icon="⚡" />
+        <div className="space-y-3 mb-6">
+          {[
+            { icon: "⚙️", label: "Settings", desc: "App preferences", path: "/settings" },
+            { icon: "🎯", label: "Goals", desc: "Nutrition targets", path: "/goals" },
+            { icon: "⚖️", label: "Weight", desc: "Track progress", path: "/weight" },
+            { icon: "📖", label: "Recipes", desc: "Meal ideas", path: "/recipes" },
+            { icon: "📜", label: "History", desc: "Past scans", path: "/history" },
+          ].map((item, index) => (
+            <motion.div
+              key={item.path}
+              variants={staggerItem}
+              initial="initial"
+              animate="animate"
+              transition={{ delay: index * 0.05 }}
+            >
+              <Card3D
+                variant="glass"
+                intensity="subtle"
+                onClick={() => { hapticLight(); router.push(item.path); }}
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{item.icon}</span>
+                    <div>
+                      <p className="font-medium text-white">{item.label}</p>
+                      <p className="text-xs text-gray-400">{item.desc}</p>
+                    </div>
+                  </div>
+                  <span className="text-gray-500">→</span>
+                </div>
+              </Card3D>
+            </motion.div>
+          ))}
         </div>
 
-        {/* Menu Items */}
-        <div className="px-4 space-y-3">
-          <h2 className="text-lg font-semibold text-gray-800 mb-3">Settings</h2>
-
-          <motion.button
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.2 }}
-            onClick={() => router.push("/settings")}
-            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-purple-100 rounded-full flex items-center justify-center">
-                <Settings className="w-5 h-5 text-purple-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-gray-800">API Settings</p>
-                <p className="text-sm text-gray-500">Choose AI provider & API keys</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          </motion.button>
-
-          <motion.button
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.25 }}
-            onClick={() => router.push("/cloud-sync")}
-            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                <Cloud className="w-5 h-5 text-blue-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-gray-800">Cloud Sync</p>
-                <p className="text-sm text-gray-500">Backup & sync your data</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          </motion.button>
-
-          <motion.button
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ delay: 0.3 }}
-            onClick={() => {
-              if (confirm("Are you sure you want to clear all scan history?")) {
-                clearHistory();
-              }
-            }}
-            className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center">
-                <Trash2 className="w-5 h-5 text-red-600" />
-              </div>
-              <div className="text-left">
-                <p className="font-medium text-gray-800">Clear History</p>
-                <p className="text-sm text-gray-500">Delete all scan records</p>
-              </div>
-            </div>
-            <ChevronRight className="w-5 h-5 text-gray-400" />
-          </motion.button>
-        </div>
-
-        {/* App Info */}
-        <div className="p-4 mt-6">
-          <div className="bg-gray-50 rounded-2xl p-4 text-center">
-            <p className="text-2xl mb-1">🥗</p>
-            <p className="font-semibold text-gray-800">FitFork</p>
-            <p className="text-sm text-gray-500">Version 1.1.0</p>
-            <p className="text-xs text-gray-400 mt-2">
-              AI-powered food health analysis
+        {/* Danger Zone */}
+        <SectionHeader title="Data Management" icon="⚠️" />
+        <Card3D variant="glass" className="border-red-500/20">
+          <div className="space-y-4">
+            <p className="text-gray-400 text-sm">
+              Clear all your scan history and start fresh. This action cannot be undone.
             </p>
+            <Button3D
+              variant="danger"
+              fullWidth
+              icon="🗑️"
+              onClick={() => {
+                if (confirm("Are you sure you want to clear all history? This cannot be undone.")) {
+                  hapticSuccess();
+                  clearHistory();
+                }
+              }}
+            >
+              Clear All History
+            </Button3D>
           </div>
-        </div>
+        </Card3D>
       </div>
 
-      <BottomNav />
-    </div>
+      <BottomNavV2 />
+    </PageWrapper>
   );
 }

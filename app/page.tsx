@@ -1,175 +1,383 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
-import { Camera, Sparkles, Target, ChevronRight, Barcode, Flame, Footprints, Dumbbell } from "lucide-react";
 import { useAppStore } from "@/lib/store";
-import { useFitnessSync, useFitnessDataForDate } from "@/lib/fitness-sync/hooks";
-import { ProgressRing } from "@/components/ProgressRing";
-import BottomNav from "@/components/BottomNav";
-import { RunningNutri } from "@/components/RunningNutri";
-
-const getTodayString = () => new Date().toISOString().split('T')[0];
+import {
+  PageWrapper,
+  Card3D,
+  Button3D,
+  StatCard,
+  SectionHeader,
+  ProgressRing3D,
+  BottomNavV2,
+  staggerItem,
+  hapticLight,
+  hapticMedium,
+  hapticSuccess,
+} from "@/components/ui";
 
 export default function HomePage() {
   const router = useRouter();
   const [mounted, setMounted] = useState(false);
-  const {
-    analysisHistory, dailyGoals, dailyLogs, setCurrentAnalysis,
-    getDailyCaloriesBurned, getDailyFitnessLog, getNetCalories
-  } = useAppStore();
+  const [cameraActive, setCameraActive] = useState(false);
+  const [analyzing, setAnalyzing] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const streamRef = useRef<MediaStream | null>(null);
 
-  useEffect(() => { setMounted(true); }, []);
+  const { dailyGoals, dailyLogs, userProfile } = useAppStore();
+  const today = new Date().toISOString().split('T')[0];
+  const todayLog = dailyLogs.find(log => log.date === today);
 
-  const today = getTodayString();
-  const todayLog = dailyLogs?.find(l => l.date === today);
+  useEffect(() => {
+    setMounted(true);
+    return () => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, []);
 
-  // Synced fitness data from external providers
-  const { connectedProviders, syncAllProviders, isLoading: isSyncingFitness } = useFitnessSync();
-  const syncedFitnessData = useFitnessDataForDate(today);
-  const hasSyncedData = connectedProviders.length > 0;
+  if (!mounted) {
+    return (
+      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
+        <motion.div
+          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
+          animate={{ rotate: 360 }}
+          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+        />
+      </div>
+    );
+  }
+
+  // Calculate today's totals
   const todayTotals = todayLog?.meals?.reduce(
-    (acc, m) => ({ calories: acc.calories + (m.calories || 0), protein: acc.protein + (m.protein || 0), carbs: acc.carbs + (m.carbs || 0), fat: acc.fat + (m.fat || 0) }),
+    (acc, meal) => ({
+      calories: acc.calories + (meal.calories || 0),
+      protein: acc.protein + (meal.protein || 0),
+      carbs: acc.carbs + (meal.carbs || 0),
+      fat: acc.fat + (meal.fat || 0),
+    }),
     { calories: 0, protein: 0, carbs: 0, fat: 0 }
   ) || { calories: 0, protein: 0, carbs: 0, fat: 0 };
 
-  // Fitness data (manual + synced)
-  const fitnessLog = getDailyFitnessLog(today);
-  const manualCaloriesBurned = getDailyCaloriesBurned(today);
-  const manualSteps = fitnessLog?.steps || 0;
-  const exerciseCount = fitnessLog?.exercises?.length || 0;
+  const calorieProgress = dailyGoals?.calories ? (todayTotals.calories / dailyGoals.calories) * 100 : 0;
+  const remaining = (dailyGoals?.calories || 2000) - todayTotals.calories;
 
-  // Combine manual and synced data (prefer synced if available)
-  const syncedSteps = syncedFitnessData.steps?.value || 0;
-  const syncedCalories = syncedFitnessData.calories?.value || 0;
-  const steps = Math.max(manualSteps, syncedSteps);
-  const caloriesBurned = Math.max(manualCaloriesBurned, syncedCalories);
-  const netCalories = getNetCalories(today);
+  const startCamera = async () => {
+    hapticMedium();
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: "environment" }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraActive(true);
+    } catch (err) {
+      console.error("Camera error:", err);
+    }
+  };
 
-  const recentScans = analysisHistory?.slice(0, 3) || [];
+  const capturePhoto = () => {
+    hapticSuccess();
+    setAnalyzing(true);
+    
+    // Simulate analysis then navigate
+    setTimeout(() => {
+      if (streamRef.current) {
+        streamRef.current.getTracks().forEach(track => track.stop());
+      }
+      router.push("/analysis");
+    }, 1500);
+  };
 
-  if (!mounted) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500" /></div>;
+  const closeCamera = () => {
+    hapticLight();
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+    }
+    setCameraActive(false);
+  };
+
+  const greeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return "Good Morning";
+    if (hour < 17) return "Good Afternoon";
+    return "Good Evening";
+  };
 
   return (
-    <div className="flex flex-col h-screen h-[100dvh] bg-gray-50 dark:bg-gray-900">
-      {/* Scrollable Content Area */}
-      <div className="flex-1 overflow-y-auto overflow-x-hidden hide-scrollbar" style={{ paddingBottom: "calc(80px + env(safe-area-inset-bottom, 0px))" }}>
-        <div className="px-5 py-6 safe-top">
-          {/* Header */}
-          <motion.div initial={{ opacity: 0, y: -20 }} animate={{ opacity: 1, y: 0 }} className="mb-6">
-            <h1 className="text-3xl font-bold text-gray-800 dark:text-white">Fit<span className="text-green-500">Fork</span></h1>
-            <p className="text-gray-500 mt-1">Your personal food health analyzer</p>
-          </motion.div>
+    <PageWrapper className="pb-24">
+      <div className="px-4 py-6 max-w-md mx-auto">
+        {/* Header */}
+        <motion.div
+          className="mb-6"
+          initial={{ opacity: 0, y: -20 }}
+          animate={{ opacity: 1, y: 0 }}
+        >
+          <p className="text-gray-400">{greeting()}</p>
+          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
+            {userProfile?.name || "Welcome"} 👋
+          </h1>
+        </motion.div>
 
-          {/* Daily Progress Card */}
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.1 }}
-            onClick={() => router.push("/diary")}
-            className="bg-white dark:bg-gray-800 rounded-2xl p-5 mb-4 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
-            <div className="flex items-center justify-between mb-4">
-              <div>
-                <h2 className="font-semibold text-gray-800 dark:text-white">Today's Nutrition</h2>
-                <p className="text-sm text-gray-500">{todayLog?.meals?.length || 0} items logged</p>
-              </div>
-              <button onClick={(e) => { e.stopPropagation(); router.push("/goals"); }} className="text-green-600 text-sm font-medium flex items-center gap-1">
-                <Target className="w-4 h-4" /> Goals
-              </button>
+        {/* Main Scanner Card */}
+        <motion.div
+          variants={staggerItem}
+          initial="initial"
+          animate="animate"
+          className="mb-6"
+        >
+          <Card3D variant="luxury" glowColor="rgba(168, 85, 247, 0.4)">
+            <div className="text-center">
+              <motion.div
+                className="w-24 h-24 mx-auto mb-4 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/30"
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
+              >
+                <span className="text-5xl">📸</span>
+              </motion.div>
+              <h2 className="text-xl font-bold text-white mb-2">AI Food Scanner</h2>
+              <p className="text-gray-400 text-sm mb-4">
+                Point your camera at any food to instantly analyze nutrition
+              </p>
+              <Button3D
+                variant="primary"
+                size="lg"
+                icon="📷"
+                onClick={startCamera}
+                fullWidth
+              >
+                Scan Food
+              </Button3D>
             </div>
-            <div className="flex items-center justify-center">
-              <ProgressRing current={todayTotals.calories} goal={dailyGoals?.calories || 2000} size={120} strokeWidth={10} />
-            </div>
-            <div className="flex justify-around mt-4 text-center">
-              <div><p className="text-lg font-bold text-red-500">{Math.round(todayTotals.protein)}g</p><p className="text-xs text-gray-500">Protein</p></div>
-              <div><p className="text-lg font-bold text-amber-500">{Math.round(todayTotals.carbs)}g</p><p className="text-xs text-gray-500">Carbs</p></div>
-              <div><p className="text-lg font-bold text-blue-500">{Math.round(todayTotals.fat)}g</p><p className="text-xs text-gray-500">Fat</p></div>
-            </div>
-          </motion.div>
+          </Card3D>
+        </motion.div>
 
-          {/* Fitness Summary Card */}
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.15 }}
-            onClick={() => router.push("/fitness")}
-            className="bg-gradient-to-br from-orange-500 to-red-500 rounded-2xl p-4 mb-4 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Dumbbell className="w-5 h-5 text-white" />
-                <h2 className="font-semibold text-white">Today's Fitness</h2>
+        {/* Today's Progress */}
+        <SectionHeader title="Today's Progress" icon="📊" />
+        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
+          <Card3D variant="glass">
+            <div className="flex items-center gap-6">
+              <ProgressRing3D
+                progress={Math.min(calorieProgress, 100)}
+                size={100}
+                strokeWidth={10}
+                color="purple"
+                value={`${todayTotals.calories}`}
+                label="kcal"
+              />
+              <div className="flex-1">
+                <div className="mb-3">
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-400">Remaining</span>
+                    <span className={remaining >= 0 ? "text-green-400" : "text-red-400"}>
+                      {remaining >= 0 ? remaining : 0} kcal
+                    </span>
+                  </div>
+                  <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-purple-500 to-pink-500 rounded-full"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${Math.min(calorieProgress, 100)}%` }}
+                      transition={{ duration: 1, ease: "easeOut" }}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-2 text-center">
+                  <div>
+                    <p className="text-blue-400 font-semibold">{Math.round(todayTotals.protein)}g</p>
+                    <p className="text-gray-500 text-xs">Protein</p>
+                  </div>
+                  <div>
+                    <p className="text-amber-400 font-semibold">{Math.round(todayTotals.carbs)}g</p>
+                    <p className="text-gray-500 text-xs">Carbs</p>
+                  </div>
+                  <div>
+                    <p className="text-pink-400 font-semibold">{Math.round(todayTotals.fat)}g</p>
+                    <p className="text-gray-500 text-xs">Fat</p>
+                  </div>
+                </div>
               </div>
-              <ChevronRight className="w-5 h-5 text-white/70" />
             </div>
-            <div className="grid grid-cols-3 gap-3">
-              <div className="bg-white/20 rounded-xl p-3 text-center">
-                <Flame className="w-5 h-5 text-white mx-auto mb-1" />
-                <p className="text-xl font-bold text-white">{caloriesBurned}</p>
-                <p className="text-xs text-white/70">Burned</p>
-              </div>
-              <div className="bg-white/20 rounded-xl p-3 text-center">
-                <Footprints className="w-5 h-5 text-white mx-auto mb-1" />
-                <p className="text-xl font-bold text-white">{steps.toLocaleString()}</p>
-                <p className="text-xs text-white/70">Steps</p>
-              </div>
-              <div className="bg-white/20 rounded-xl p-3 text-center">
-                <Target className="w-5 h-5 text-white mx-auto mb-1" />
-                <p className={`text-xl font-bold ${netCalories > (dailyGoals?.calories || 2000) ? 'text-red-200' : 'text-green-200'}`}>{netCalories}</p>
-                <p className="text-xs text-white/70">Net Cal</p>
-              </div>
+          </Card3D>
+        </motion.div>
+
+        {/* Quick Actions */}
+        <SectionHeader title="Quick Actions" icon="⚡" />
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          {[
+            { icon: "📖", label: "Food Diary", path: "/diary", color: "from-blue-600 to-cyan-600" },
+            { icon: "🍳", label: "Recipes", path: "/recipes", color: "from-orange-600 to-amber-600" },
+            { icon: "⚖️", label: "Weight", path: "/weight", color: "from-green-600 to-emerald-600" },
+            { icon: "💪", label: "Fitness", path: "/fitness", color: "from-purple-600 to-pink-600" },
+          ].map((action, index) => (
+            <motion.div
+              key={action.path}
+              variants={staggerItem}
+              initial="initial"
+              animate="animate"
+              transition={{ delay: index * 0.1 }}
+            >
+              <Card3D
+                variant="glass"
+                onClick={() => { hapticLight(); router.push(action.path); }}
+              >
+                <div className="text-center py-2">
+                  <motion.div
+                    className={`w-12 h-12 mx-auto mb-2 rounded-xl bg-gradient-to-br ${action.color} flex items-center justify-center`}
+                    whileHover={{ scale: 1.1, rotate: 5 }}
+                    whileTap={{ scale: 0.9 }}
+                  >
+                    <span className="text-2xl">{action.icon}</span>
+                  </motion.div>
+                  <p className="text-white font-medium text-sm">{action.label}</p>
+                </div>
+              </Card3D>
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Recent Meals */}
+        {todayLog?.meals && todayLog.meals.length > 0 && (
+          <>
+            <SectionHeader
+              title="Recent Meals"
+              icon="🍽️"
+              action={
+                <Button3D
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => router.push("/diary")}
+                >
+                  See All
+                </Button3D>
+              }
+            />
+            <div className="space-y-2">
+              {todayLog.meals.slice(-3).reverse().map((meal, index) => (
+                <motion.div
+                  key={meal.id}
+                  variants={staggerItem}
+                  initial="initial"
+                  animate="animate"
+                  transition={{ delay: index * 0.05 }}
+                >
+                  <Card3D variant="glass" intensity="subtle">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <span className="text-2xl">
+                          {meal.mealType === "breakfast" ? "🌅" :
+                           meal.mealType === "lunch" ? "☀️" :
+                           meal.mealType === "dinner" ? "🌙" : "🍎"}
+                        </span>
+                        <div>
+                          <p className="font-medium text-white">{meal.foodName}</p>
+                          <p className="text-gray-500 text-sm capitalize">{meal.mealType}</p>
+                        </div>
+                      </div>
+                      <span className="text-purple-400 font-semibold">{meal.calories} kcal</span>
+                    </div>
+                  </Card3D>
+                </motion.div>
+              ))}
             </div>
-            {exerciseCount > 0 && (
-              <p className="text-xs text-white/70 mt-2 text-center">{exerciseCount} exercise{exerciseCount > 1 ? 's' : ''} logged today</p>
+          </>
+        )}
+      </div>
+
+      {/* Camera Modal */}
+      <AnimatePresence>
+        {cameraActive && (
+          <motion.div
+            className="fixed inset-0 z-50 bg-black"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <video
+              ref={videoRef}
+              autoPlay
+              playsInline
+              className="w-full h-full object-cover"
+            />
+            
+            {/* Scanning overlay */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <motion.div
+                className="w-64 h-64 border-2 border-purple-500 rounded-3xl"
+                animate={{
+                  boxShadow: [
+                    "0 0 20px rgba(168, 85, 247, 0.3)",
+                    "0 0 40px rgba(168, 85, 247, 0.6)",
+                    "0 0 20px rgba(168, 85, 247, 0.3)",
+                  ],
+                }}
+                transition={{ duration: 2, repeat: Infinity }}
+              >
+                {/* Corner markers */}
+                <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-purple-500 rounded-tl-xl" />
+                <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-purple-500 rounded-tr-xl" />
+                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-purple-500 rounded-bl-xl" />
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-purple-500 rounded-br-xl" />
+                
+                {/* Scanning line */}
+                <motion.div
+                  className="absolute left-2 right-2 h-0.5 bg-gradient-to-r from-transparent via-purple-500 to-transparent"
+                  animate={{ top: ["10%", "90%", "10%"] }}
+                  transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                />
+              </motion.div>
+            </div>
+
+            {/* Analyzing overlay */}
+            {analyzing && (
+              <motion.div
+                className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+              >
+                <motion.div
+                  className="w-20 h-20 rounded-full border-4 border-purple-500 border-t-transparent"
+                  animate={{ rotate: 360 }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                />
+                <p className="text-white mt-4 text-lg">Analyzing food...</p>
+              </motion.div>
             )}
-          </motion.div>
 
-          {/* Scan CTA */}
-          <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.2 }}
-            className="relative overflow-hidden bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl p-5 mb-5 shadow-lg">
-            <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/2" />
-            <div className="relative z-10">
-              <div className="flex items-center gap-2 mb-2">
-                <Sparkles className="w-4 h-4 text-yellow-300" />
-                <span className="text-green-100 text-xs font-medium">AI-Powered</span>
-              </div>
-              <h2 className="text-xl font-bold text-white mb-3">Scan Your Food</h2>
-              <motion.button whileTap={{ scale: 0.98 }} onClick={() => router.push("/camera")}
-                className="w-full flex items-center justify-center gap-2 bg-white text-green-600 font-semibold py-3 px-4 rounded-xl shadow">
-                <Camera className="w-5 h-5" /> Start Scanning
+            {/* Controls */}
+            <div className="absolute bottom-8 left-0 right-0 flex justify-center gap-6">
+              <motion.button
+                className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"
+                onClick={closeCamera}
+                whileTap={{ scale: 0.9 }}
+              >
+                <span className="text-2xl">✕</span>
+              </motion.button>
+              <motion.button
+                className="w-20 h-20 rounded-full bg-gradient-to-br from-purple-600 to-pink-600 flex items-center justify-center shadow-lg shadow-purple-500/50"
+                onClick={capturePhoto}
+                whileTap={{ scale: 0.9 }}
+                disabled={analyzing}
+              >
+                <div className="w-16 h-16 rounded-full border-4 border-white" />
+              </motion.button>
+              <motion.button
+                className="w-14 h-14 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center"
+                whileTap={{ scale: 0.9 }}
+              >
+                <span className="text-2xl">⚡</span>
               </motion.button>
             </div>
           </motion.div>
+        )}
+      </AnimatePresence>
 
-          {/* Recent Scans */}
-          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold text-gray-800 dark:text-white">Recent Scans</h3>
-              {recentScans.length > 0 && <button onClick={() => router.push("/history")} className="text-green-600 text-sm font-medium flex items-center gap-1">See all<ChevronRight className="w-4 h-4" /></button>}
-            </div>
-            {recentScans.length > 0 ? (
-              <div className="space-y-2">
-                {recentScans.map((scan, i) => (
-                  <motion.div key={scan.id} initial={{ opacity: 0, x: -20 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.4 + i * 0.1 }}
-                    onClick={() => { setCurrentAnalysis(scan); router.push("/details"); }}
-                    className="flex items-center gap-3 bg-white dark:bg-gray-800 rounded-xl p-3 shadow-sm cursor-pointer active:scale-[0.98] transition-transform">
-                    <div className="w-11 h-11 rounded-lg bg-gray-100 dark:bg-gray-700 overflow-hidden flex-shrink-0 flex items-center justify-center">
-                      {scan.imageData ? <img src={scan.imageData} alt={scan.foodName} className="w-full h-full object-cover" /> : <Barcode className="w-5 h-5 text-gray-400" />}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <h4 className="font-medium text-gray-800 dark:text-white truncate">{scan.foodName}</h4>
-                      <p className="text-xs text-gray-500">{scan.calories} kcal</p>
-                    </div>
-                    <span className={`px-2 py-1 rounded-full text-xs font-medium ${scan.healthScore >= 60 ? "bg-green-100 text-green-700" : scan.healthScore >= 40 ? "bg-yellow-100 text-yellow-700" : "bg-red-100 text-red-700"}`}>{scan.healthScore}</span>
-                  </motion.div>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-white dark:bg-gray-800 rounded-xl p-6 text-center">
-                <p className="text-gray-500 text-sm">No scans yet. Start by scanning your first food!</p>
-              </div>
-            )}
-          </motion.div>
-        </div>
-      </div>
-
-      {/* Fixed Bottom Nav */}
-      <BottomNav />
-      <RunningNutri />
-    </div>
+      <BottomNavV2 />
+    </PageWrapper>
   );
 }
