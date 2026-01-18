@@ -1,430 +1,281 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useAppStore, getTodayString, ExerciseEntry } from "@/lib/store";
-import { useFitnessSync, useFitnessDataForDate } from "@/lib/fitness-sync/hooks";
+import { useAppStore, EXERCISE_TYPES, ExerciseCategory } from "@/lib/store";
+import { BottomNav } from "@/components/ui/BottomNav";
+import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { ProgressRing } from "@/components/ui/ProgressRing";
 import SyncedActivities from "@/components/fitness/SyncedActivities";
 import {
-  PageWrapper,
-  Card3D,
-  Button3D,
-  StatCard,
-  SectionHeader,
-  ProgressRing3D,
-  BottomNavV2,
-  staggerItem,
-  hapticLight,
-  hapticMedium,
-  hapticSuccess,
-} from "@/components/ui";
+  Activity,
+  Flame,
+  Footprints,
+  Timer,
+  Plus,
+  X,
+} from "lucide-react";
 
-const exerciseTypes = [
-  { type: "walking", icon: "🚶", label: "Walking", color: "from-green-500 to-emerald-500" },
-  { type: "running", icon: "🏃", label: "Running", color: "from-orange-500 to-red-500" },
-  { type: "cycling", icon: "🚴", label: "Cycling", color: "from-blue-500 to-cyan-500" },
-  { type: "swimming", icon: "🏊", label: "Swimming", color: "from-cyan-500 to-blue-500" },
-  { type: "gym", icon: "🏋️", label: "Gym", color: "from-purple-500 to-pink-500" },
-  { type: "yoga", icon: "🧘", label: "Yoga", color: "from-pink-500 to-rose-500" },
-  { type: "sports", icon: "⚽", label: "Sports", color: "from-amber-500 to-orange-500" },
-  { type: "other", icon: "💪", label: "Other", color: "from-gray-500 to-gray-600" },
-];
+const stagger = {
+  animate: { transition: { staggerChildren: 0.06 } },
+};
+
+const fadeUp = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3 },
+};
 
 export default function FitnessPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [showAddExercise, setShowAddExercise] = useState(false);
-  const [selectedType, setSelectedType] = useState<string | null>(null);
-  const [duration, setDuration] = useState("");
-  const [calories, setCalories] = useState("");
-
   const {
     getDailyFitnessLog,
     getDailyCaloriesBurned,
     addExerciseEntry,
-    updateSteps,
-    dailyGoals,
+    removeExerciseEntry,
+    userStats,
   } = useAppStore();
 
-  const today = getTodayString();
-  const fitnessLog = getDailyFitnessLog(today);
-  const { connectedProviders, syncAllProviders, isLoading: isSyncing } = useFitnessSync();
-  const syncedData = useFitnessDataForDate(today);
+  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
+  const [duration, setDuration] = useState("");
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <motion.div
-          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
-    );
-  }
-
-  const manualSteps = fitnessLog?.steps || 0;
-  const syncedSteps = syncedData.steps?.value || 0;
-  const steps = Math.max(manualSteps, syncedSteps);
-  const stepsGoal = 10000;
-  const stepsProgress = Math.min((steps / stepsGoal) * 100, 100);
-
-  const manualCalories = getDailyCaloriesBurned(today);
-  const syncedCalories = syncedData.calories?.value || 0;
-  const caloriesBurned = Math.max(manualCalories, syncedCalories);
-
+  const todayStr = new Date().toISOString().split("T")[0];
+  const fitnessLog = getDailyFitnessLog(todayStr);
+  const caloriesBurned = getDailyCaloriesBurned(todayStr);
   const exercises = fitnessLog?.exercises || [];
-  const activeMinutes = exercises.reduce((sum, e) => sum + (e.duration || 0), 0);
+  const steps = fitnessLog?.steps || 0;
+
+  const stepsGoal = 10000;
+  const caloriesGoal = 500;
+  const activeMinutesGoal = 30;
+  const activeMinutes = exercises.reduce((sum, ex) => sum + (ex.duration || 0), 0);
 
   const handleAddExercise = () => {
-    if (!selectedType || !duration) return;
-    
-    hapticSuccess();
-    const exerciseType = exerciseTypes.find(e => e.type === selectedType);
-    addExerciseEntry({
-      id: Date.now().toString(),
-      exerciseId: selectedType,
-      exerciseName: exerciseType?.label || selectedType,
-      category: "cardio",
-      duration: parseInt(duration),
-      caloriesBurned: parseInt(calories) || Math.round(parseInt(duration) * 5),
-      intensity: "moderate",
-      timestamp: new Date(),
-      date: today,
-    });
-    addExerciseEntry({
-      id: Date.now().toString(),
-      exerciseId: selectedType,
-      exerciseName: exerciseType?.label || selectedType,
-      category: "cardio",
-      duration: parseInt(duration),
-      caloriesBurned: parseInt(calories) || Math.round(parseInt(duration) * 5),
-      intensity: "moderate",
-      timestamp: new Date(),
-      date: today,
-    });
-    addExerciseEntry({
-      id: Date.now().toString(),
-      exerciseId: selectedType,
-      exerciseName: exerciseType?.label || selectedType,
-      category: "cardio",
-      duration: parseInt(duration),
-      caloriesBurned: parseInt(calories) || Math.round(parseInt(duration) * 5),
-      intensity: "moderate",
-      timestamp: new Date(),
-      date: today,
-    });
-    addExerciseEntry({
-      id: Date.now().toString(),
-      exerciseId: selectedType,
-      exerciseName: exerciseType?.label || selectedType,
-      category: "cardio",
-      duration: parseInt(duration),
-      caloriesBurned: parseInt(calories) || Math.round(parseInt(duration) * 5),
-      intensity: "moderate",
-      timestamp: new Date(),
-      date: today,
-    });
-    addExerciseEntry({
-      id: Date.now().toString(),
-      exerciseId: selectedType,
-      exerciseName: exerciseType?.label || selectedType,
-      category: "cardio",
-      duration: parseInt(duration),
-      caloriesBurned: parseInt(calories) || Math.round(parseInt(duration) * 5),
-      intensity: "moderate",
-      timestamp: new Date(),
-      date: today,
-    });
-    addExerciseEntry({
-      id: Date.now().toString(),
-      exerciseId: selectedType,
-      exerciseName: exerciseType?.label || selectedType,
-      category: "cardio",
-      duration: parseInt(duration),
-      caloriesBurned: parseInt(calories) || Math.round(parseInt(duration) * 5),
-      intensity: "moderate",
-      timestamp: new Date(),
-      date: today,
-    });
-    
-    setShowAddExercise(false);
-    setSelectedType(null);
-    setDuration("");
-    setCalories("");
+    if (selectedExercise && duration) {
+      const exerciseType = EXERCISE_TYPES.find((e) => e.id === selectedExercise);
+      const durationMins = parseInt(duration);
+      const weight = userStats.currentWeight || 70;
+      const calories = Math.round((exerciseType?.metValue || 4) * weight * (durationMins / 60));
+
+      addExerciseEntry({
+        id: Date.now().toString(),
+        date: todayStr,
+        exerciseId: selectedExercise,
+        exerciseName: exerciseType?.name || "Exercise",
+        category: (exerciseType?.category || "cardio") as ExerciseCategory,
+        duration: durationMins,
+        caloriesBurned: calories,
+        intensity: "moderate",
+        timestamp: new Date(),
+      });
+
+      setSelectedExercise(null);
+      setDuration("");
+      setShowAddSheet(false);
+    }
   };
 
+  const stats = [
+    {
+      label: "Steps",
+      value: steps.toLocaleString(),
+      target: stepsGoal,
+      current: steps,
+      icon: Footprints,
+      color: "#3B82F6",
+    },
+    {
+      label: "Calories",
+      value: Math.round(caloriesBurned).toString(),
+      target: caloriesGoal,
+      current: caloriesBurned,
+      icon: Flame,
+      color: "#EF4444",
+    },
+    {
+      label: "Active",
+      value: `${activeMinutes}m`,
+      target: activeMinutesGoal,
+      current: activeMinutes,
+      icon: Timer,
+      color: "#10B981",
+    },
+  ];
+
   return (
-    <PageWrapper className="pb-24">
-      <div className="px-4 py-6 max-w-md mx-auto">
-        {/* Header */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
-            💪 Fitness
-          </h1>
-          <p className="text-gray-400 mt-1">Track your daily activity</p>
-        </motion.div>
+    <PageContainer>
+      <Header title="Fitness" />
 
-        {/* Steps Ring Card */}
-        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
-          <Card3D variant="luxury" glowColor="rgba(16, 185, 129, 0.3)">
-            <div className="text-center">
-              <div className="flex justify-center mb-4">
-                <ProgressRing3D
-                  progress={stepsProgress}
-                  size={160}
-                  strokeWidth={14}
-                  color="green"
-                  value={steps.toLocaleString()}
-                  label={`of ${stepsGoal.toLocaleString()} steps`}
-                />
-              </div>
-              
-              {/* Quick Stats */}
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-white">🔥 {caloriesBurned}</p>
-                  <p className="text-xs text-gray-400">Calories Burned</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-white">⏱️ {activeMinutes}</p>
-                  <p className="text-xs text-gray-400">Active Minutes</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl font-bold text-white">🏃 {exercises.length}</p>
-                  <p className="text-xs text-gray-400">Workouts</p>
-                </div>
-              </div>
-            </div>
-          </Card3D>
-        </motion.div>
-
-        {/* Today's Activities */}
-        <SectionHeader
-          title="Today's Activities"
-          icon="🎯"
-          action={
-            <Button3D
-              variant="secondary"
-              size="sm"
-              icon="+"
-              onClick={() => { hapticMedium(); setShowAddExercise(true); }}
-            >
-              Add
-            </Button3D>
-          }
-        />
-
-        {exercises.length === 0 ? (
-          <Card3D variant="glass" className="mb-6">
-            <div className="text-center py-6">
-              <span className="text-4xl mb-3 block">🏃‍♂️</span>
-              <p className="text-gray-400">No activities logged today</p>
-              <p className="text-gray-500 text-sm mt-1">Tap + to add your first workout</p>
-            </div>
-          </Card3D>
-        ) : (
-          <div className="space-y-3 mb-6">
-            {exercises.map((exercise, index) => {
-              const typeInfo = exerciseTypes.find(e => e.type === exercise.exerciseId) || exerciseTypes[7];
+      <PageContent>
+        <motion.div variants={stagger} initial="initial" animate="animate">
+          {/* Stats Cards */}
+          <motion.div variants={fadeUp} className="grid grid-cols-3 gap-3 mb-6">
+            {stats.map((stat) => {
+              const Icon = stat.icon;
+              const progress = stat.target > 0 ? (stat.current / stat.target) * 100 : 0;
               return (
-                <motion.div
-                  key={exercise.id || index}
-                  variants={staggerItem}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: index * 0.1 }}
-                >
-                  <Card3D variant="glass" intensity="subtle">
-                    <div className="flex items-center gap-4">
-                      <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${typeInfo.color} flex items-center justify-center text-2xl shadow-lg`}>
-                        {typeInfo.icon}
-                      </div>
-                      <div className="flex-1">
-                        <h3 className="font-semibold text-white">{exercise.exerciseName}</h3>
-                        <p className="text-gray-400 text-sm">
-                          {exercise.duration} min • {exercise.caloriesBurned} kcal
-                        </p>
-                      </div>
-                    </div>
-                  </Card3D>
-                </motion.div>
+                <Card key={stat.label} className="text-center py-4">
+                  <ProgressRing
+                    progress={progress}
+                    size={48}
+                    strokeWidth={4}
+                    color={stat.color}
+                  >
+                    <Icon size={18} style={{ color: stat.color }} />
+                  </ProgressRing>
+                  <p className="text-lg font-bold text-gray-900 mt-2">{stat.value}</p>
+                  <p className="text-xs text-gray-500">{stat.label}</p>
+                </Card>
               );
             })}
-          </div>
-        )}
+          </motion.div>
 
-        {/* Synced Activities */}
-        <SyncedActivities date={today} />
+          {/* Today's Activities */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-sm text-gray-500 font-medium">Today's Activities</p>
+              <button
+                onClick={() => setShowAddSheet(true)}
+                className="text-sm text-emerald-600 font-medium"
+              >
+                + Add
+              </button>
+            </div>
 
-        {/* Quick Add Steps */}
-        <SectionHeader title="Quick Add Steps" icon="👟" />
-        <Card3D variant="glass" className="mb-6">
-          <div className="flex items-center gap-3">
-            <input
-              type="number"
-              placeholder="Enter steps..."
-              className="flex-1 bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') {
-                  const value = parseInt((e.target as HTMLInputElement).value);
-                  if (value > 0) {
-                    hapticSuccess();
-                    updateSteps(today, value);
-                    (e.target as HTMLInputElement).value = '';
-                  }
-                }
-              }}
-            />
-            <Button3D
-              variant="success"
-              icon="✓"
-              onClick={() => {
-                const input = document.querySelector('input[type="number"]') as HTMLInputElement;
-                const value = parseInt(input?.value);
-                if (value > 0) {
-                  hapticSuccess();
-                  updateSteps(today, value);
-                  input.value = '';
-                }
-              }}
-            >
-              Add
-            </Button3D>
-          </div>
-        </Card3D>
-
-        {/* Connect Fitness Apps */}
-        <SectionHeader title="Connected Apps" icon="📱" />
-        <Card3D
-          variant="glass"
-          onClick={() => { hapticLight(); router.push('/settings'); }}
-        >
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-500 flex items-center justify-center text-2xl">
-                🔗
+            {exercises.length === 0 ? (
+              <Card
+                padding="sm"
+                className="border-2 border-dashed border-gray-200 bg-gray-50/50"
+                onClick={() => setShowAddSheet(true)}
+              >
+                <div className="flex items-center justify-center gap-2 py-6 text-gray-400">
+                  <Plus size={18} />
+                  <span className="text-sm">Log your first activity</span>
+                </div>
+              </Card>
+            ) : (
+              <div className="space-y-2">
+                {exercises.map((exercise) => {
+                  const exerciseType = EXERCISE_TYPES.find((e) => e.id === exercise.exerciseId);
+                  return (
+                    <Card key={exercise.id} padding="sm">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-xl">
+                          {exerciseType?.icon || "⚡"}
+                        </div>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">{exercise.exerciseName}</p>
+                          <p className="text-sm text-gray-500">
+                            {exercise.duration} min • {exercise.caloriesBurned} cal
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => removeExerciseEntry(todayStr, exercise.id)}
+                          className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500"
+                        >
+                          <X size={18} />
+                        </button>
+                      </div>
+                    </Card>
+                  );
+                })}
               </div>
-              <div>
-                <p className="font-semibold text-white">
-                  {connectedProviders.length > 0 
-                    ? `${connectedProviders.length} app${connectedProviders.length > 1 ? 's' : ''} connected`
-                    : "Connect fitness apps"
-                  }
-                </p>
-                <p className="text-sm text-gray-400">
-                  {connectedProviders.length > 0 
-                    ? connectedProviders.join(", ")
-                    : "Strava, Google Fit & more"
-                  }
-                </p>
+            )}
+          </motion.div>
+
+          {/* Synced Activities */}
+          <motion.div variants={fadeUp}>
+            <SyncedActivities date={todayStr} />
+          </motion.div>
+        </motion.div>
+      </PageContent>
+
+      {/* Add Exercise Sheet */}
+      {showAddSheet && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 bg-black/50 z-50 flex items-end"
+          onClick={() => setShowAddSheet(false)}
+        >
+          <motion.div
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            className="bg-white rounded-t-3xl w-full max-h-[80vh] overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-6">
+              <div className="w-12 h-1 bg-gray-300 rounded-full mx-auto mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Log Activity</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <p className="text-sm text-gray-500 font-medium mb-3">Activity Type</p>
+                  <div className="grid grid-cols-4 gap-2">
+                    {EXERCISE_TYPES.slice(0, 8).map((exercise) => (
+                      <button
+                        key={exercise.id}
+                        onClick={() => setSelectedExercise(exercise.id)}
+                        className={`p-3 rounded-xl text-center transition-all ${
+                          selectedExercise === exercise.id
+                            ? "bg-emerald-100 ring-2 ring-emerald-500"
+                            : "bg-gray-50 hover:bg-gray-100"
+                        }`}
+                      >
+                        <span className="text-2xl block mb-1">{exercise.icon}</span>
+                        <span className="text-xs text-gray-600">{exercise.name}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {selectedExercise && (
+                  <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                  >
+                    <p className="text-sm text-gray-500 font-medium mb-2">Duration (minutes)</p>
+                    <input
+                      type="number"
+                      value={duration}
+                      onChange={(e) => setDuration(e.target.value)}
+                      placeholder="30"
+                      className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                    />
+                  </motion.div>
+                )}
+
+                <Button
+                  fullWidth
+                  onClick={handleAddExercise}
+                  disabled={!selectedExercise || !duration}
+                >
+                  Log Activity
+                </Button>
               </div>
             </div>
-            <span className="text-gray-500">→</span>
-          </div>
-        </Card3D>
-      </div>
-
-      {/* Add Exercise Modal */}
-      <AnimatePresence>
-        {showAddExercise && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-end justify-center"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
-            <motion.div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowAddExercise(false)}
-            />
-            <motion.div
-              className="relative w-full max-w-md bg-gray-900 rounded-t-3xl p-6 border-t border-white/10"
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              transition={{ type: "spring", damping: 25 }}
-            >
-              <div className="w-12 h-1 bg-gray-700 rounded-full mx-auto mb-6" />
-              
-              <h2 className="text-xl font-bold text-white mb-4">Add Exercise</h2>
-              
-              {/* Exercise Type Grid */}
-              <div className="grid grid-cols-4 gap-2 mb-6">
-                {exerciseTypes.map((type) => (
-                  <motion.button
-                    key={type.type}
-                    className={`p-3 rounded-xl flex flex-col items-center gap-1 transition-all ${
-                      selectedType === type.type
-                        ? `bg-gradient-to-br ${type.color} shadow-lg`
-                        : 'bg-white/10 hover:bg-white/20'
-                    }`}
-                    onClick={() => { hapticLight(); setSelectedType(type.type); }}
-                    whileTap={{ scale: 0.95 }}
-                  >
-                    <span className="text-2xl">{type.icon}</span>
-                    <span className="text-xs text-white">{type.label}</span>
-                  </motion.button>
-                ))}
-              </div>
-              
-              {/* Duration & Calories */}
-              <div className="grid grid-cols-2 gap-3 mb-6">
-                <div>
-                  <label className="text-gray-400 text-sm mb-1 block">Duration (min)</label>
-                  <input
-                    type="number"
-                    value={duration}
-                    onChange={(e) => setDuration(e.target.value)}
-                    placeholder="30"
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-                <div>
-                  <label className="text-gray-400 text-sm mb-1 block">Calories (optional)</label>
-                  <input
-                    type="number"
-                    value={calories}
-                    onChange={(e) => setCalories(e.target.value)}
-                    placeholder="Auto"
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-              
-              {/* Actions */}
-              <div className="flex gap-3">
-                <Button3D
-                  variant="ghost"
-                  fullWidth
-                  onClick={() => setShowAddExercise(false)}
-                >
-                  Cancel
-                </Button3D>
-                <Button3D
-                  variant="primary"
-                  fullWidth
-                  disabled={!selectedType || !duration}
-                  onClick={handleAddExercise}
-                >
-                  Add Exercise
-                </Button3D>
-              </div>
-            </motion.div>
           </motion.div>
-        )}
-      </AnimatePresence>
+        </motion.div>
+      )}
 
-      <BottomNavV2 />
-    </PageWrapper>
+      {/* Floating Add Button */}
+      <motion.button
+        className="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 rounded-2xl shadow-lg flex items-center justify-center text-white"
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowAddSheet(true)}
+      >
+        <Plus size={28} />
+      </motion.button>
+
+      <BottomNav />
+    </PageContainer>
   );
 }

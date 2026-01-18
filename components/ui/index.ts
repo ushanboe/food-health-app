@@ -1,13 +1,14 @@
-// FitFork v2.0 UI Components
-// Export all design system components
+// FitFork v2.1 UI Components
+// Minimalistic, Clean, Gallery-like Experience
 
-export * from './design-system';
-export * from './haptics';
-export { Card3D } from './Card3D';
-export { Button3D } from './Button3D';
-export { PageWrapper } from './PageWrapper';
-export { StatCard } from './StatCard';
-export { SectionHeader } from './SectionHeader';
-export { Header } from './Header';
-export { BottomNavV2 } from './BottomNav';
-export { ProgressRing3D } from './ProgressRing3D';
+export * from "./Card";
+export * from "./Button";
+export * from "./ProgressRing";
+export * from "./Input";
+export * from "./BottomNav";
+export * from "./Header";
+export * from "./ListItem";
+export * from "./Badge";
+export * from "./EmptyState";
+export * from "./Modal";
+export * from "./design-system";

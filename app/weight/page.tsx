@@ -1,340 +1,233 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { useAppStore, getTodayString } from "@/lib/store";
+import { useAppStore } from "@/lib/store";
+import { BottomNav } from "@/components/ui/BottomNav";
+import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Input } from "@/components/ui/Input";
+import { BottomSheet } from "@/components/ui/Modal";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/ui/Badge";
 import {
-  PageWrapper,
-  Card3D,
-  Button3D,
-  StatCard,
-  SectionHeader,
-  BottomNavV2,
-  staggerItem,
-  hapticLight,
-  hapticMedium,
-  hapticSuccess,
-} from "@/components/ui";
+  Scale,
+  Plus,
+  TrendingUp,
+  TrendingDown,
+  Minus,
+  Target,
+  Calendar,
+} from "lucide-react";
+
+const stagger = {
+  animate: { transition: { staggerChildren: 0.06 } },
+};
+
+const fadeUp = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3 },
+};
 
 export default function WeightPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const [showAddWeight, setShowAddWeight] = useState(false);
+  const { weightHistory, addWeightEntry, userStats } = useAppStore();
+  const [showAddSheet, setShowAddSheet] = useState(false);
   const [newWeight, setNewWeight] = useState("");
-  const [unit, setUnit] = useState<"kg" | "lbs">("kg");
-
-  const { weightHistory, addWeightEntry } = useAppStore();
-
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <motion.div
-          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
-    );
-  }
 
   const sortedEntries = [...weightHistory].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
-  const latestWeight = sortedEntries[0]?.weight || 0;
-  const previousWeight = sortedEntries[1]?.weight || latestWeight;
-  const weightChange = latestWeight - previousWeight;
-  const startWeight = sortedEntries[sortedEntries.length - 1]?.weight || latestWeight;
-  const totalChange = latestWeight - startWeight;
+  const currentWeight = sortedEntries[0]?.weight || 0;
+  const previousWeight = sortedEntries[1]?.weight || currentWeight;
+  const weightChange = currentWeight - previousWeight;
+  const targetWeight = userStats.targetWeight || 70;
+  const toGoal = currentWeight - targetWeight;
 
   const handleAddWeight = () => {
-    if (!newWeight) return;
-    
-    hapticSuccess();
-    const weightValue = parseFloat(newWeight);
-    const weightInKg = unit === "lbs" ? weightValue * 0.453592 : weightValue;
-    
-    addWeightEntry({
-      id: Date.now().toString(),
-      date: getTodayString(),
-      weight: weightInKg,
-    });
-    
-    setShowAddWeight(false);
-    setNewWeight("");
-  };
-
-  const formatWeight = (weight: number) => {
-    if (unit === "lbs") {
-      return `${(weight * 2.20462).toFixed(1)} lbs`;
+    if (newWeight) {
+      addWeightEntry({
+        id: Date.now().toString(),
+        date: new Date().toISOString(),
+        weight: parseFloat(newWeight),
+      });
+      setNewWeight("");
+      setShowAddSheet(false);
     }
-    return `${weight.toFixed(1)} kg`;
   };
 
-  const getChangeColor = (change: number) => {
-    if (change < 0) return "text-green-400";
-    if (change > 0) return "text-red-400";
-    return "text-gray-400";
-  };
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
 
-  const getChangeIcon = (change: number) => {
-    if (change < 0) return "↓";
-    if (change > 0) return "↑";
-    return "→";
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
+    return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
   };
-
-  // Generate chart data (last 7 entries)
-  const chartData = sortedEntries.slice(0, 7).reverse();
-  const maxWeight = Math.max(...chartData.map(e => e.weight), 1);
-  const minWeight = Math.min(...chartData.map(e => e.weight), 0);
-  const range = maxWeight - minWeight || 1;
 
   return (
-    <PageWrapper className="pb-24">
-      <div className="px-4 py-6 max-w-md mx-auto">
-        {/* Header */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
-            ⚖️ Weight Tracker
-          </h1>
-          <p className="text-gray-400 mt-1">Monitor your progress</p>
-        </motion.div>
-
-        {/* Current Weight Card */}
-        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
-          <Card3D variant="luxury" glowColor="rgba(168, 85, 247, 0.3)">
-            <div className="text-center">
-              <p className="text-gray-400 text-sm mb-2">Current Weight</p>
-              <motion.p
-                className="text-5xl font-bold bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent"
-                initial={{ scale: 0.5 }}
-                animate={{ scale: 1 }}
-                transition={{ type: "spring", damping: 10 }}
-              >
-                {latestWeight > 0 ? formatWeight(latestWeight) : "--"}
-              </motion.p>
-              
-              {weightChange !== 0 && (
-                <motion.div
-                  className={`inline-flex items-center gap-1 mt-3 px-3 py-1 rounded-full ${weightChange < 0 ? 'bg-green-500/20' : 'bg-red-500/20'}`}
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                >
-                  <span className={getChangeColor(weightChange)}>
-                    {getChangeIcon(weightChange)} {Math.abs(weightChange).toFixed(1)} kg
-                  </span>
-                  <span className="text-gray-500 text-sm">from last</span>
-                </motion.div>
-              )}
-
-              {/* Unit Toggle */}
-              <div className="flex justify-center gap-2 mt-4">
-                <motion.button
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    unit === "kg" ? 'bg-purple-600 text-white' : 'bg-white/10 text-gray-400'
-                  }`}
-                  onClick={() => { hapticLight(); setUnit("kg"); }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  kg
-                </motion.button>
-                <motion.button
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    unit === "lbs" ? 'bg-purple-600 text-white' : 'bg-white/10 text-gray-400'
-                  }`}
-                  onClick={() => { hapticLight(); setUnit("lbs"); }}
-                  whileTap={{ scale: 0.95 }}
-                >
-                  lbs
-                </motion.button>
-              </div>
-            </div>
-          </Card3D>
-        </motion.div>
-
-        {/* Stats Grid */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
-          <StatCard
-            icon="📊"
-            label="Total Change"
-            value={`${totalChange >= 0 ? '+' : ''}${totalChange.toFixed(1)}`}
-            subValue="kg"
-            color={totalChange <= 0 ? "green" : "orange"}
-          />
-          <StatCard
-            icon="📈"
-            label="Entries"
-            value={weightHistory.length}
-            color="purple"
-          />
-        </div>
-
-        {/* Mini Chart */}
-        {chartData.length > 1 && (
-          <>
-            <SectionHeader title="Trend" icon="📉" />
-            <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
-              <Card3D variant="glass">
-                <div className="h-32 flex items-end justify-between gap-1">
-                  {chartData.map((entry, index) => {
-                    const height = ((entry.weight - minWeight) / range) * 100;
-                    return (
-                      <motion.div
-                        key={entry.id}
-                        className="flex-1 flex flex-col items-center gap-1"
-                        initial={{ height: 0 }}
-                        animate={{ height: "auto" }}
-                        transition={{ delay: index * 0.1 }}
-                      >
-                        <motion.div
-                          className="w-full bg-gradient-to-t from-purple-600 to-pink-500 rounded-t-lg"
-                          style={{ height: `${Math.max(height, 10)}%` }}
-                          initial={{ scaleY: 0 }}
-                          animate={{ scaleY: 1 }}
-                          transition={{ delay: index * 0.1, type: "spring" }}
-                        />
-                        <span className="text-[10px] text-gray-500">
-                          {new Date(entry.date).toLocaleDateString('en-US', { day: 'numeric' })}
-                        </span>
-                      </motion.div>
-                    );
-                  })}
-                </div>
-              </Card3D>
-            </motion.div>
-          </>
-        )}
-
-        {/* Recent Entries */}
-        <SectionHeader
-          title="History"
-          icon="📜"
-          action={
-            <Button3D
-              variant="primary"
-              size="sm"
-              icon="+"
-              onClick={() => { hapticMedium(); setShowAddWeight(true); }}
-            >
-              Log
-            </Button3D>
-          }
-        />
-
-        {sortedEntries.length === 0 ? (
-          <Card3D variant="glass">
-            <div className="text-center py-8">
-              <span className="text-5xl mb-4 block">⚖️</span>
-              <p className="text-gray-400">No weight entries yet</p>
-              <p className="text-gray-500 text-sm mt-1">Tap + to log your first weight</p>
-            </div>
-          </Card3D>
-        ) : (
-          <div className="space-y-2">
-            {sortedEntries.slice(0, 10).map((entry, index) => {
-              const prevEntry = sortedEntries[index + 1];
-              const change = prevEntry ? entry.weight - prevEntry.weight : 0;
-              
-              return (
-                <motion.div
-                  key={entry.id}
-                  variants={staggerItem}
-                  initial="initial"
-                  animate="animate"
-                  transition={{ delay: index * 0.05 }}
-                >
-                  <Card3D variant="glass" intensity="subtle">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="font-semibold text-white">{formatWeight(entry.weight)}</p>
-                        <p className="text-gray-500 text-sm">
-                          {new Date(entry.date).toLocaleDateString('en-US', {
-                            weekday: 'short',
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                      {change !== 0 && (
-                        <span className={`text-sm ${getChangeColor(change)}`}>
-                          {getChangeIcon(change)} {Math.abs(change).toFixed(1)} kg
-                        </span>
-                      )}
-                    </div>
-                  </Card3D>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {/* Add Weight Modal */}
-      <AnimatePresence>
-        {showAddWeight && (
-          <motion.div
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
+    <PageContainer>
+      <Header
+        title="Weight Tracking"
+        showBack
+        rightAction={
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowAddSheet(true)}
           >
-            <motion.div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              onClick={() => setShowAddWeight(false)}
-            />
-            <motion.div
-              className="relative w-full max-w-sm bg-gray-900 rounded-2xl p-6 border border-white/10"
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-            >
-              <h2 className="text-xl font-bold text-white mb-4 text-center">⚖️ Log Weight</h2>
-              
-              <div className="mb-4">
-                <input
-                  type="number"
-                  step="0.1"
-                  value={newWeight}
-                  onChange={(e) => setNewWeight(e.target.value)}
-                  placeholder={unit === "kg" ? "70.5" : "155.0"}
-                  className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-4 text-white text-center text-2xl placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                  autoFocus
-                />
-                <p className="text-center text-gray-500 mt-2">{unit}</p>
-              </div>
-              
-              <div className="flex gap-3">
-                <Button3D
-                  variant="ghost"
-                  fullWidth
-                  onClick={() => setShowAddWeight(false)}
-                >
-                  Cancel
-                </Button3D>
-                <Button3D
-                  variant="primary"
-                  fullWidth
-                  disabled={!newWeight}
-                  onClick={handleAddWeight}
-                >
-                  Save
-                </Button3D>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            <Plus size={20} className="text-emerald-600" />
+          </Button>
+        }
+      />
 
-      <BottomNavV2 />
-    </PageWrapper>
+      <PageContent>
+        <motion.div variants={stagger} initial="initial" animate="animate">
+          {/* Current Weight Card */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <Card>
+              <div className="text-center py-4">
+                <div className="w-16 h-16 rounded-2xl bg-emerald-100 flex items-center justify-center mx-auto mb-4">
+                  <Scale size={32} className="text-emerald-600" />
+                </div>
+                <p className="text-sm text-gray-500 mb-1">Current Weight</p>
+                <p className="text-4xl font-bold text-gray-900">
+                  {currentWeight > 0 ? currentWeight.toFixed(1) : "--"}
+                  <span className="text-lg font-normal text-gray-400 ml-1">kg</span>
+                </p>
+                {weightChange !== 0 && (
+                  <div className="flex items-center justify-center gap-1 mt-2">
+                    {weightChange < 0 ? (
+                      <TrendingDown size={16} className="text-emerald-500" />
+                    ) : (
+                      <TrendingUp size={16} className="text-red-500" />
+                    )}
+                    <span className={weightChange < 0 ? "text-emerald-600" : "text-red-600"}>
+                      {Math.abs(weightChange).toFixed(1)} kg
+                    </span>
+                    <span className="text-gray-400">from last entry</span>
+                  </div>
+                )}
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Stats Row */}
+          <motion.div variants={fadeUp} className="grid grid-cols-2 gap-3 mb-6">
+            <Card className="text-center py-4">
+              <Target size={20} className="mx-auto mb-2 text-blue-500" />
+              <p className="text-lg font-bold text-gray-900">{targetWeight} kg</p>
+              <p className="text-xs text-gray-500">Target</p>
+            </Card>
+            <Card className="text-center py-4">
+              {toGoal > 0 ? (
+                <TrendingDown size={20} className="mx-auto mb-2 text-emerald-500" />
+              ) : toGoal < 0 ? (
+                <TrendingUp size={20} className="mx-auto mb-2 text-amber-500" />
+              ) : (
+                <Minus size={20} className="mx-auto mb-2 text-gray-400" />
+              )}
+              <p className="text-lg font-bold text-gray-900">
+                {Math.abs(toGoal).toFixed(1)} kg
+              </p>
+              <p className="text-xs text-gray-500">
+                {toGoal > 0 ? "To lose" : toGoal < 0 ? "To gain" : "At goal!"}
+              </p>
+            </Card>
+          </motion.div>
+
+          {/* Weight History */}
+          <motion.div variants={fadeUp}>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-sm text-gray-500 font-medium">History</p>
+              <span className="text-xs text-gray-400">{sortedEntries.length} entries</span>
+            </div>
+
+            {sortedEntries.length === 0 ? (
+              <EmptyState
+                icon={<Scale size={32} />}
+                title="No weight entries"
+                description="Start tracking your weight to see your progress"
+                action={{
+                  label: "Add Weight",
+                  onClick: () => setShowAddSheet(true),
+                }}
+              />
+            ) : (
+              <div className="space-y-2">
+                {sortedEntries.slice(0, 10).map((entry, index) => {
+                  const prevEntry = sortedEntries[index + 1];
+                  const change = prevEntry ? entry.weight - prevEntry.weight : 0;
+
+                  return (
+                    <Card key={entry.id || entry.date} padding="sm">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                            <Calendar size={18} className="text-gray-500" />
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900">
+                              {entry.weight.toFixed(1)} kg
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {formatDate(entry.date)}
+                            </p>
+                          </div>
+                        </div>
+                        {change !== 0 && (
+                          <Badge variant={change < 0 ? "success" : "error"}>
+                            {change > 0 ? "+" : ""}{change.toFixed(1)}
+                          </Badge>
+                        )}
+                      </div>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        </motion.div>
+      </PageContent>
+
+      {/* Add Weight Sheet */}
+      <BottomSheet
+        isOpen={showAddSheet}
+        onClose={() => setShowAddSheet(false)}
+        title="Log Weight"
+      >
+        <div className="space-y-4">
+          <Input
+            label="Weight (kg)"
+            type="number"
+            step="0.1"
+            placeholder="Enter your weight"
+            value={newWeight}
+            onChange={(e) => setNewWeight(e.target.value)}
+            icon={<Scale size={20} />}
+          />
+          <Button fullWidth onClick={handleAddWeight} disabled={!newWeight}>
+            Save Weight
+          </Button>
+        </div>
+      </BottomSheet>
+
+      {/* Floating Add Button */}
+      <motion.button
+        className="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 rounded-2xl shadow-lg flex items-center justify-center text-white"
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowAddSheet(true)}
+      >
+        <Plus size={28} />
+      </motion.button>
+
+      <BottomNav />
+    </PageContainer>
   );
 }

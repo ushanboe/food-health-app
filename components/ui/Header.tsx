@@ -1,87 +1,85 @@
-'use client';
+"use client";
 
-import React from 'react';
-import { motion } from 'framer-motion';
-import { useRouter } from 'next/navigation';
-import { hapticLight } from './haptics';
+import { motion } from "framer-motion";
+import { useRouter } from "next/navigation";
+import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { ReactNode } from "react";
 
 interface HeaderProps {
   title: string;
   subtitle?: string;
   showBack?: boolean;
-  rightAction?: React.ReactNode;
+  rightAction?: ReactNode;
   transparent?: boolean;
 }
 
-export const Header: React.FC<HeaderProps> = ({
+export function Header({
   title,
   subtitle,
   showBack = false,
   rightAction,
-  transparent = true,
-}) => {
+  transparent = false,
+}: HeaderProps) {
   const router = useRouter();
-  
-  const handleBack = () => {
-    hapticLight();
-    router.back();
-  };
-  
+
   return (
     <motion.header
-      className={`sticky top-0 z-40 px-4 py-4 ${
-        transparent
-          ? 'bg-transparent'
-          : 'bg-gray-950/80 backdrop-blur-xl border-b border-white/5'
-      }`}
-      initial={{ opacity: 0, y: -20 }}
+      initial={{ opacity: 0, y: -10 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
+      className={`sticky top-0 z-40 ${
+        transparent
+          ? "bg-transparent"
+          : "bg-white/90 backdrop-blur-lg border-b border-gray-100"
+      }`}
     >
-      <div className="flex items-center justify-between max-w-md mx-auto">
-        {/* Left side - Back button or spacer */}
-        <div className="w-10">
-          {showBack && (
-            <motion.button
-              onClick={handleBack}
-              className="w-10 h-10 rounded-xl bg-white/10 backdrop-blur-lg border border-white/10 flex items-center justify-center text-white"
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
-            >
-              ←
-            </motion.button>
-          )}
-        </div>
-        
-        {/* Center - Title */}
-        <div className="text-center flex-1">
-          <motion.h1
-            className="text-xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent"
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay: 0.1 }}
-          >
-            {title}
-          </motion.h1>
-          {subtitle && (
-            <motion.p
-              className="text-xs text-gray-400 mt-0.5"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.2 }}
-            >
-              {subtitle}
-            </motion.p>
-          )}
-        </div>
-        
-        {/* Right side - Action or spacer */}
-        <div className="w-10 flex justify-end">
-          {rightAction}
+      <div className="max-w-lg mx-auto px-4 py-3">
+        <div className="flex items-center justify-between">
+          {/* Left side */}
+          <div className="flex items-center gap-3">
+            {showBack && (
+              <motion.button
+                whileTap={{ scale: 0.95 }}
+                onClick={() => router.back()}
+                className="p-2 -ml-2 rounded-xl hover:bg-gray-100 transition-colors"
+              >
+                <ChevronLeft size={24} className="text-gray-700" />
+              </motion.button>
+            )}
+            <div>
+              <h1 className="text-lg font-semibold text-gray-900">{title}</h1>
+              {subtitle && (
+                <p className="text-sm text-gray-500">{subtitle}</p>
+              )}
+            </div>
+          </div>
+
+          {/* Right side */}
+          {rightAction && <div>{rightAction}</div>}
         </div>
       </div>
     </motion.header>
   );
-};
+}
 
-export default Header;
+interface PageContainerProps {
+  children: ReactNode;
+  className?: string;
+}
+
+export function PageContainer({ children, className = "" }: PageContainerProps) {
+  return (
+    <main className={`min-h-screen bg-gray-50 pb-24 ${className}`}>
+      <div className="max-w-lg mx-auto">
+        {children}
+      </div>
+    </main>
+  );
+}
+
+export function PageContent({ children, className = "" }: PageContainerProps) {
+  return (
+    <div className={`px-4 py-4 ${className}`}>
+      {children}
+    </div>
+  );
+}

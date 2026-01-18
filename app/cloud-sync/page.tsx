@@ -1,366 +1,310 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { motion, AnimatePresence } from "framer-motion";
+import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { getSyncHistory, SyncRecord } from "@/lib/syncStatus";
+import { BottomNav } from "@/components/ui/BottomNav";
+import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Badge } from "@/components/ui/Badge";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { BottomSheet } from "@/components/ui/Modal";
 import {
-  PageWrapper,
-  Card3D,
-  Button3D,
-  StatCard,
-  SectionHeader,
-  BottomNavV2,
-  staggerItem,
-  hapticLight,
-  hapticMedium,
-  hapticSuccess,
-} from "@/components/ui";
+  Cloud,
+  CloudOff,
+  RefreshCw,
+  Check,
+  AlertCircle,
+  Clock,
+  Smartphone,
+  Shield,
+  ChevronDown,
+  ChevronUp,
+  LogIn,
+} from "lucide-react";
+
+const stagger = {
+  animate: { transition: { staggerChildren: 0.06 } },
+};
+
+const fadeUp = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3 },
+};
 
 export default function CloudSyncPage() {
   const router = useRouter();
-  const [mounted, setMounted] = useState(false);
-  const { user, isConfigured, signIn, signUp, signOut, supabase } = useAuth();
-  const [syncing, setSyncing] = useState(false);
+  const { user, isConfigured, signIn, signOut, loading } = useAuth();
+  const [isSyncing, setIsSyncing] = useState(false);
   const [syncHistory, setSyncHistory] = useState<SyncRecord[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isSignUp, setIsSignUp] = useState(false);
-  const [error, setError] = useState("");
+  const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
+
+  const isConnected = user && isConfigured;
 
   useEffect(() => {
-    setMounted(true);
-    setSyncHistory(getSyncHistory());
+    const history = getSyncHistory();
+    setSyncHistory(history);
   }, []);
 
-  if (!mounted) {
+  const handleSync = async () => {
+    if (!isConnected) {
+      setShowLoginModal(true);
+      return;
+    }
+
+    setIsSyncing(true);
+    // Simulate sync
+    await new Promise((resolve) => setTimeout(resolve, 2000));
+    setIsSyncing(false);
+    
+    // Refresh history
+    const history = getSyncHistory();
+    setSyncHistory(history);
+  };
+
+  const handleLogin = async () => {
+    const result = await signIn(email, password);
+    if (!result.error) {
+      setShowLoginModal(false);
+      setEmail("");
+      setPassword("");
+    }
+  };
+
+  const formatTime = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const now = new Date();
+    const diffMs = now.getTime() - date.getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+    const diffHours = Math.floor(diffMs / 3600000);
+    const diffDays = Math.floor(diffMs / 86400000);
+
+    if (diffMins < 1) return "Just now";
+    if (diffMins < 60) return `${diffMins}m ago`;
+    if (diffHours < 24) return `${diffHours}h ago`;
+    return `${diffDays}d ago`;
+  };
+
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <motion.div
-          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
+      <PageContainer>
+        <Header title="Cloud Sync" showBack />
+        <PageContent>
+          <div className="flex items-center justify-center h-64">
+            <RefreshCw size={32} className="animate-spin text-emerald-500" />
+          </div>
+        </PageContent>
+        <BottomNav />
+      </PageContainer>
     );
   }
 
-  const handleSync = async () => {
-    if (!user || !supabase) return;
-    setSyncing(true);
-    hapticMedium();
-    try {
-      // Simple sync - just record the sync attempt
-      const syncRecord: SyncRecord = {
-        id: Date.now().toString(),
-        timestamp: new Date().toISOString(),
-        type: "full",
-        status: "success",
-        duration: Math.floor(Math.random() * 500) + 200,
-        details: {
-          foodDiary: { uploaded: 0, downloaded: 0 },
-          weightEntries: { uploaded: 0, downloaded: 0 },
-          goals: { uploaded: 0, downloaded: 0 },
-          recipes: { uploaded: 0, downloaded: 0 },
-          profile: { synced: true },
-        },
-      };
-      const history = getSyncHistory();
-      history.unshift(syncRecord);
-      localStorage.setItem("sync-history", JSON.stringify(history.slice(0, 20)));
-      hapticSuccess();
-      setSyncHistory(getSyncHistory());
-    } catch (err) {
-      console.error("Sync failed:", err);
-    } finally {
-      setSyncing(false);
-    }
-  };
-
-  const handleAuth = async () => {
-    setError("");
-    hapticMedium();
-    try {
-      const result = isSignUp ? await signUp(email, password) : await signIn(email, password);
-      if (result.error) {
-        setError(result.error.message || "Authentication failed");
-      } else {
-        hapticSuccess();
-        setEmail("");
-        setPassword("");
-      }
-    } catch (err: any) {
-      setError(err.message || "Authentication failed");
-    }
-  };
-
-  const lastSync = syncHistory[0];
-  const successfulSyncs = syncHistory.filter(s => s.status === "success").length;
-
-  const formatTimeAgo = (timestamp: string) => {
-    const diff = Date.now() - new Date(timestamp).getTime();
-    const minutes = Math.floor(diff / 60000);
-    if (minutes < 1) return "Just now";
-    if (minutes < 60) return `${minutes}m ago`;
-    const hours = Math.floor(minutes / 60);
-    if (hours < 24) return `${hours}h ago`;
-    const days = Math.floor(hours / 24);
-    return `${days}d ago`;
-  };
-
   return (
-    <PageWrapper className="pb-24">
-      <div className="px-4 py-6 max-w-md mx-auto">
-        {/* Header */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent">
-            ☁️ Cloud Sync
-          </h1>
-          <p className="text-gray-400 mt-1">Backup & sync across devices</p>
-        </motion.div>
+    <PageContainer>
+      <Header title="Cloud Sync" showBack />
 
-        {/* Connection Status Card */}
-        <motion.div variants={staggerItem} initial="initial" animate="animate" className="mb-6">
-          <Card3D 
-            variant="luxury" 
-            glowColor={user ? "rgba(34, 197, 94, 0.3)" : "rgba(168, 85, 247, 0.3)"}
-          >
-            <div className="text-center">
-              <motion.div
-                className={`w-20 h-20 mx-auto rounded-full flex items-center justify-center mb-4 ${
-                  user 
-                    ? "bg-gradient-to-br from-green-500 to-emerald-600" 
-                    : "bg-gradient-to-br from-gray-700 to-gray-800"
-                }`}
-                animate={user ? { scale: [1, 1.05, 1] } : {}}
-                transition={{ duration: 2, repeat: Infinity }}
-              >
-                <span className="text-4xl">{user ? "✓" : "☁️"}</span>
-              </motion.div>
-              
-              <h2 className="text-xl font-bold text-white mb-1">
-                {user ? "Connected" : "Not Connected"}
-              </h2>
-              <p className="text-gray-400 text-sm">
-                {user ? user.email : "Sign in to enable cloud backup"}
-              </p>
-
-              {user && lastSync && (
-                <motion.div
-                  className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white/10"
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                >
-                  <span className="text-green-400">●</span>
-                  <span className="text-gray-300 text-sm">Last sync: {formatTimeAgo(lastSync.timestamp)}</span>
-                </motion.div>
-              )}
-            </div>
-          </Card3D>
-        </motion.div>
-
-        {/* Stats Grid */}
-        {user && (
-          <div className="grid grid-cols-2 gap-3 mb-6">
-            <StatCard
-              icon="🔄"
-              label="Total Syncs"
-              value={syncHistory.length}
-              color="purple"
-            />
-            <StatCard
-              icon="✅"
-              label="Successful"
-              value={successfulSyncs}
-              color="green"
-            />
-          </div>
-        )}
-
-        {/* Auth or Sync Section */}
-        {!user ? (
-          <>
-            <SectionHeader title={isSignUp ? "Create Account" : "Sign In"} icon="🔐" />
-            <Card3D variant="glass">
-              <div className="space-y-4">
-                {error && (
-                  <motion.div
-                    className="bg-red-500/20 border border-red-500/30 rounded-xl px-4 py-3 text-red-400 text-sm"
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                  >
-                    {error}
-                  </motion.div>
-                )}
-                
-                <div>
-                  <label className="text-gray-400 text-sm mb-1 block">Email</label>
-                  <input
-                    type="email"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    placeholder="your@email.com"
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                  />
+      <PageContent>
+        <motion.div variants={stagger} initial="initial" animate="animate">
+          {/* Connection Status */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <Card>
+              <div className="flex items-center gap-4">
+                <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${
+                  isConnected ? "bg-emerald-100" : "bg-gray-100"
+                }`}>
+                  {isConnected ? (
+                    <Cloud size={28} className="text-emerald-600" />
+                  ) : (
+                    <CloudOff size={28} className="text-gray-400" />
+                  )}
                 </div>
-                
-                <div>
-                  <label className="text-gray-400 text-sm mb-1 block">Password</label>
-                  <input
-                    type="password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full bg-white/10 border border-white/20 rounded-xl px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
-                  />
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">
+                    {isConnected ? "Connected" : "Not Connected"}
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    {isConnected
+                      ? user?.email
+                      : "Sign in to sync your data"}
+                  </p>
                 </div>
-
-                <Button3D
-                  variant="primary"
-                  fullWidth
-                  onClick={handleAuth}
-                  disabled={!email || !password}
-                >
-                  {isSignUp ? "Create Account" : "Sign In"}
-                </Button3D>
-
-                <button
-                  className="w-full text-center text-purple-400 text-sm hover:text-purple-300 transition-colors"
-                  onClick={() => { hapticLight(); setIsSignUp(!isSignUp); setError(""); }}
-                >
-                  {isSignUp ? "Already have an account? Sign in" : "Need an account? Sign up"}
-                </button>
+                <Badge variant={isConnected ? "success" : "default"}>
+                  {isConnected ? "Active" : "Offline"}
+                </Badge>
               </div>
-            </Card3D>
-          </>
-        ) : (
-          <>
-            {/* Sync Button */}
-            <motion.div className="mb-6" variants={staggerItem} initial="initial" animate="animate">
-              <Button3D
-                variant="primary"
-                fullWidth
-                size="lg"
-                icon={syncing ? undefined : "🔄"}
-                onClick={handleSync}
-                disabled={syncing}
-              >
-                {syncing ? (
-                  <span className="flex items-center gap-2">
-                    <motion.span
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                    >
-                      🔄
-                    </motion.span>
-                    Syncing...
-                  </span>
-                ) : (
-                  "Sync Now"
-                )}
-              </Button3D>
-            </motion.div>
 
-            {/* Sync History */}
-            <SectionHeader
-              title="Sync History"
-              icon="📜"
-              action={
-                syncHistory.length > 3 && (
-                  <Button3D
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => { hapticLight(); setShowHistory(!showHistory); }}
-                  >
-                    {showHistory ? "Less" : "More"}
-                  </Button3D>
-                )
-              }
-            />
+              <div className="mt-4 pt-4 border-t border-gray-100">
+                {isConnected ? (
+                  <div className="flex gap-3">
+                    <Button
+                      fullWidth
+                      onClick={handleSync}
+                      disabled={isSyncing}
+                    >
+                      {isSyncing ? (
+                        <>
+                          <RefreshCw size={18} className="animate-spin mr-2" />
+                          Syncing...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw size={18} className="mr-2" />
+                          Sync Now
+                        </>
+                      )}
+                    </Button>
+                    <Button variant="outline" onClick={signOut}>
+                      Sign Out
+                    </Button>
+                  </div>
+                ) : (
+                  <Button fullWidth onClick={() => setShowLoginModal(true)}>
+                    <LogIn size={18} className="mr-2" />
+                    Sign In
+                  </Button>
+                )}
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Features */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Features</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Card className="text-center py-4">
+                <Smartphone size={24} className="mx-auto mb-2 text-blue-500" />
+                <p className="text-sm font-medium text-gray-900">Multi-Device</p>
+                <p className="text-xs text-gray-500">Sync across devices</p>
+              </Card>
+              <Card className="text-center py-4">
+                <Shield size={24} className="mx-auto mb-2 text-emerald-500" />
+                <p className="text-sm font-medium text-gray-900">Secure</p>
+                <p className="text-xs text-gray-500">End-to-end encrypted</p>
+              </Card>
+            </div>
+          </motion.div>
+
+          {/* Sync History */}
+          <motion.div variants={fadeUp}>
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-sm text-gray-500 font-medium">Sync History</p>
+              <span className="text-xs text-gray-400">{syncHistory.length} syncs</span>
+            </div>
 
             {syncHistory.length === 0 ? (
-              <Card3D variant="glass">
-                <div className="text-center py-6">
-                  <span className="text-4xl mb-3 block">📭</span>
-                  <p className="text-gray-400">No sync history yet</p>
-                  <p className="text-gray-500 text-sm mt-1">Tap "Sync Now" to backup your data</p>
-                </div>
-              </Card3D>
+              <EmptyState
+                icon={<Clock size={32} />}
+                title="No sync history"
+                description={isConnected ? "Tap Sync Now to start" : "Sign in to sync your data"}
+              />
             ) : (
               <div className="space-y-2">
-                {(showHistory ? syncHistory : syncHistory.slice(0, 3)).map((record, index) => (
-                  <motion.div
-                    key={record.id}
-                    variants={staggerItem}
-                    initial="initial"
-                    animate="animate"
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <Card3D variant="glass" intensity="subtle">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                            record.status === "success" 
-                              ? "bg-green-500/20 text-green-400" 
-                              : "bg-red-500/20 text-red-400"
-                          }`}>
-                            {record.status === "success" ? "✓" : "✗"}
-                          </span>
-                          <div>
-                            <p className="font-medium text-white">
-                              {record.status === "success" ? "Sync Complete" : "Sync Failed"}
-                            </p>
-                            <p className="text-gray-500 text-sm">
-                              {formatTimeAgo(record.timestamp)}
-                            </p>
-                          </div>
-                        </div>
-                        {record.duration && (
-                          <span className="text-gray-500 text-sm">{record.duration}ms</span>
+                {syncHistory.slice(0, 5).map((record) => (
+                  <Card key={record.id} padding="sm">
+                    <div
+                      className="flex items-center gap-3 cursor-pointer"
+                      onClick={() => setExpandedRecord(
+                        expandedRecord === record.id ? null : record.id
+                      )}
+                    >
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
+                        record.status === "success" ? "bg-emerald-100" : "bg-red-100"
+                      }`}>
+                        {record.status === "success" ? (
+                          <Check size={18} className="text-emerald-600" />
+                        ) : (
+                          <AlertCircle size={18} className="text-red-600" />
                         )}
                       </div>
-                    </Card3D>
-                  </motion.div>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">
+                          {record.status === "success" ? "Sync Complete" : "Sync Failed"}
+                        </p>
+                        <p className="text-sm text-gray-500">
+                          {formatTime(record.timestamp)}
+                        </p>
+                      </div>
+                      {expandedRecord === record.id ? (
+                        <ChevronUp size={18} className="text-gray-400" />
+                      ) : (
+                        <ChevronDown size={18} className="text-gray-400" />
+                      )}
+                    </div>
+
+                    {expandedRecord === record.id && record.details && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        className="mt-3 pt-3 border-t border-gray-100"
+                      >
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          {Object.entries(record.details || {}).map(([key, value]) => (
+                            <div key={key} className="flex justify-between">
+                              <span className="text-gray-500 capitalize">{key}</span>
+                              <span className="text-gray-900">{String(value)}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {record.duration && (
+                          <p className="text-xs text-gray-400 mt-2">
+                            Duration: {record.duration}ms
+                          </p>
+                        )}
+                      </motion.div>
+                    )}
+                  </Card>
                 ))}
               </div>
             )}
-
-            {/* Sign Out */}
-            <motion.div className="mt-6" variants={staggerItem} initial="initial" animate="animate">
-              <Button3D
-                variant="ghost"
-                fullWidth
-                onClick={() => { hapticMedium(); signOut(); }}
-              >
-                Sign Out
-              </Button3D>
-            </motion.div>
-          </>
-        )}
-
-        {/* Info Card */}
-        <motion.div className="mt-6" variants={staggerItem} initial="initial" animate="animate">
-          <Card3D variant="glass" intensity="subtle">
-            <div className="flex items-start gap-3">
-              <span className="text-2xl">🔒</span>
-              <div>
-                <h3 className="font-medium text-white mb-1">Your Data is Secure</h3>
-                <p className="text-gray-500 text-sm">
-                  All data is encrypted and stored securely. Only you can access your information.
-                </p>
-              </div>
-            </div>
-          </Card3D>
+          </motion.div>
         </motion.div>
-      </div>
+      </PageContent>
 
-      <BottomNavV2 />
-    </PageWrapper>
+      {/* Login Modal */}
+      <BottomSheet
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        title="Sign In"
+      >
+        <div className="space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="your@email.com"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              placeholder="••••••••"
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+            />
+          </div>
+          <Button fullWidth onClick={handleLogin}>
+            Sign In
+          </Button>
+          <p className="text-center text-sm text-gray-500">
+            Don't have an account?{" "}
+            <button className="text-emerald-600 font-medium">Sign Up</button>
+          </p>
+        </div>
+      </BottomSheet>
+
+      <BottomNav />
+    </PageContainer>
   );
 }

@@ -1,341 +1,302 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAppStore, MealType, MealEntry, getTodayString } from "@/lib/store";
 import { useRouter } from "next/navigation";
+import { useAppStore } from "@/lib/store";
+import { BottomNav } from "@/components/ui/BottomNav";
+import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { Card } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { BottomSheet } from "@/components/ui/Modal";
+import { EmptyState } from "@/components/ui/EmptyState";
+import { Badge } from "@/components/ui/Badge";
+import { NutritionRing } from "@/components/ui/ProgressRing";
 import {
-  PageWrapper,
-  Card3D,
-  Button3D,
-  SectionHeader,
-  ProgressRing3D,
-  BottomNavV2,
-  Header,
-  staggerItem,
-  hapticLight,
-  hapticMedium,
-  hapticSuccess,
-  hapticWarning,
-} from "@/components/ui";
+  Plus,
+  Camera,
+  Search,
+  Coffee,
+  Sun,
+  Sunset,
+  Moon,
+  Utensils,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+  Sparkles,
+} from "lucide-react";
 
-const mealConfig: { type: MealType; label: string; icon: string; timeHint: string; color: string }[] = [
-  { type: "breakfast", label: "Breakfast", icon: "🌅", timeHint: "6am - 10am", color: "from-amber-500 to-orange-500" },
-  { type: "lunch", label: "Lunch", icon: "☀️", timeHint: "11am - 2pm", color: "from-yellow-500 to-amber-500" },
-  { type: "dinner", label: "Dinner", icon: "🌙", timeHint: "5pm - 9pm", color: "from-indigo-500 to-purple-500" },
-  { type: "snacks", label: "Snacks", icon: "🍿", timeHint: "Anytime", color: "from-pink-500 to-rose-500" },
+const mealTypes = [
+  { id: "breakfast", label: "Breakfast", icon: Coffee, time: "6am - 10am" },
+  { id: "lunch", label: "Lunch", icon: Sun, time: "11am - 2pm" },
+  { id: "dinner", label: "Dinner", icon: Sunset, time: "5pm - 9pm" },
+  { id: "snack", label: "Snacks", icon: Moon, time: "Anytime" },
 ];
+
+const stagger = {
+  animate: { transition: { staggerChildren: 0.06 } },
+};
+
+const fadeUp = {
+  initial: { opacity: 0, y: 12 },
+  animate: { opacity: 1, y: 0 },
+  transition: { duration: 0.3 },
+};
 
 export default function DiaryPage() {
   const router = useRouter();
-  const [selectedDate, setSelectedDate] = useState(getTodayString());
-  const [mounted, setMounted] = useState(false);
-  const [expandedMeal, setExpandedMeal] = useState<MealType | null>(null);
+  const { dailyGoals, getDailyLog, getDailyTotals, removeMealEntry } = useAppStore();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [showAddSheet, setShowAddSheet] = useState(false);
+  const [selectedMeal, setSelectedMeal] = useState<string | null>(null);
 
-  const { dailyGoals, dailyLogs, removeMealEntry } = useAppStore();
+  const dateStr = selectedDate.toISOString().split('T')[0];
+  const dailyLog = getDailyLog(dateStr);
+  const dailyTotals = getDailyTotals(dateStr);
+  const todayEntries = dailyLog?.meals || [];
 
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  if (!mounted) {
-    return (
-      <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <motion.div
-          className="w-16 h-16 rounded-full border-4 border-purple-500 border-t-transparent"
-          animate={{ rotate: 360 }}
-          transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-        />
-      </div>
-    );
-  }
-
-  const currentLog = dailyLogs.find((log) => log.date === selectedDate);
-  const meals = currentLog?.meals || [];
-
-  const totals = meals.reduce(
-    (acc, meal) => ({
-      calories: acc.calories + (meal.calories || 0),
-      protein: acc.protein + (meal.protein || 0),
-      carbs: acc.carbs + (meal.carbs || 0),
-      fat: acc.fat + (meal.fat || 0),
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  );
-
-  const getMealsByType = (type: MealType) => meals.filter((m) => m.mealType === type);
-
-  const changeDate = (days: number) => {
-    hapticLight();
-    const date = new Date(selectedDate);
-    date.setDate(date.getDate() + days);
-    setSelectedDate(date.toISOString().split("T")[0]);
-  };
-
-  const isToday = selectedDate === getTodayString();
-
-  const formatDate = (dateStr: string) => {
-    const date = new Date(dateStr);
-    const today = new Date(getTodayString());
+  const formatDate = (date: Date) => {
+    const today = new Date();
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
 
-    if (dateStr === getTodayString()) return "Today";
-    if (dateStr === yesterday.toISOString().split("T")[0]) return "Yesterday";
+    if (date.toDateString() === today.toDateString()) return "Today";
+    if (date.toDateString() === yesterday.toDateString()) return "Yesterday";
     return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   };
 
-  const calorieGoal = dailyGoals?.calories || 2000;
-  const proteinGoal = dailyGoals?.protein || 150;
-  const carbsGoal = dailyGoals?.carbs || 250;
-  const fatGoal = dailyGoals?.fat || 65;
-  const calorieProgress = Math.min((totals.calories / calorieGoal) * 100, 100);
-
-  const handleDeleteMeal = (mealId: string) => {
-    hapticWarning();
-    removeMealEntry(selectedDate, mealId);
+  const changeDate = (days: number) => {
+    const newDate = new Date(selectedDate);
+    newDate.setDate(newDate.getDate() + days);
+    setSelectedDate(newDate);
   };
 
-  const toggleMealExpand = (type: MealType) => {
-    hapticLight();
-    setExpandedMeal(expandedMeal === type ? null : type);
+  const getMealEntries = (mealType: string) => {
+    return todayEntries.filter(
+      (entry) => entry.mealType?.toLowerCase() === mealType.toLowerCase()
+    );
+  };
+
+  const getMealCalories = (mealType: string) => {
+    return getMealEntries(mealType).reduce((sum, entry) => sum + (entry.calories || 0), 0);
   };
 
   return (
-    <PageWrapper className="pb-24">
-      <div className="px-4 py-6 max-w-md mx-auto">
-        {/* Header with Date Selector */}
-        <motion.div
-          className="mb-6"
-          initial={{ opacity: 0, y: -20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-white via-purple-200 to-white bg-clip-text text-transparent mb-4">
-            📔 Food Diary
-          </h1>
-          
-          {/* Date Selector */}
-          <Card3D variant="glass" noPadding>
-            <div className="flex items-center justify-between p-3">
-              <motion.button
-                onClick={() => changeDate(-1)}
-                className="w-10 h-10 rounded-xl bg-white/10 flex items-center justify-center text-white"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-              >
-                ←
-              </motion.button>
-              <div className="text-center">
-                <span className="font-semibold text-lg text-white">{formatDate(selectedDate)}</span>
-                <p className="text-xs text-gray-400">{meals.length} items logged</p>
-              </div>
-              <motion.button
-                onClick={() => changeDate(1)}
-                disabled={isToday}
-                className={`w-10 h-10 rounded-xl flex items-center justify-center text-white ${isToday ? 'opacity-30 bg-white/5' : 'bg-white/10'}`}
-                whileHover={!isToday ? { scale: 1.1 } : {}}
-                whileTap={!isToday ? { scale: 0.9 } : {}}
-              >
-                →
-              </motion.button>
-            </div>
-          </Card3D>
-        </motion.div>
-
-        {/* Daily Summary Card */}
-        <motion.div
-          variants={staggerItem}
-          initial="initial"
-          animate="animate"
-          className="mb-6"
-        >
-          <Card3D variant="luxury" glowColor="rgba(168, 85, 247, 0.3)">
+    <PageContainer>
+      {/* Header with Date Navigation */}
+      <div className="bg-white sticky top-0 z-40">
+        <div className="max-w-lg mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => changeDate(-1)}
+              className="p-2 rounded-xl hover:bg-gray-100"
+            >
+              <ChevronLeft size={24} className="text-gray-600" />
+            </motion.button>
             <div className="text-center">
-              <div className="flex justify-center mb-4">
-                <ProgressRing3D
-                  progress={calorieProgress}
-                  size={140}
-                  strokeWidth={12}
-                  color="purple"
-                  value={`${totals.calories}`}
-                  label={`of ${calorieGoal} kcal`}
+              <h1 className="text-lg font-semibold text-gray-900">{formatDate(selectedDate)}</h1>
+              <p className="text-sm text-gray-500">
+                {selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
+              </p>
+            </div>
+            <motion.button
+              whileTap={{ scale: 0.95 }}
+              onClick={() => changeDate(1)}
+              className="p-2 rounded-xl hover:bg-gray-100"
+              disabled={selectedDate.toDateString() === new Date().toDateString()}
+            >
+              <ChevronRight size={24} className={selectedDate.toDateString() === new Date().toDateString() ? "text-gray-300" : "text-gray-600"} />
+            </motion.button>
+          </div>
+        </div>
+      </div>
+
+      <PageContent>
+        <motion.div variants={stagger} initial="initial" animate="animate">
+          {/* Nutrition Summary */}
+          <motion.div variants={fadeUp}>
+            <Card className="mb-6">
+              <p className="text-sm text-gray-500 font-medium mb-4">Daily Summary</p>
+              <div className="flex justify-around">
+                <NutritionRing
+                  current={dailyTotals.calories}
+                  target={dailyGoals.calories}
+                  label="Calories"
+                  unit=""
+                  color="#10B981"
+                />
+                <NutritionRing
+                  current={dailyTotals.protein}
+                  target={dailyGoals.protein}
+                  label="Protein"
+                  color="#3B82F6"
+                />
+                <NutritionRing
+                  current={dailyTotals.carbs}
+                  target={dailyGoals.carbs}
+                  label="Carbs"
+                  color="#F59E0B"
+                />
+                <NutritionRing
+                  current={dailyTotals.fat}
+                  target={dailyGoals.fat}
+                  label="Fat"
+                  color="#EF4444"
                 />
               </div>
+            </Card>
+          </motion.div>
 
-              {/* Macro breakdown */}
-              <div className="grid grid-cols-3 gap-4 mt-4">
-                <div className="text-center">
-                  <div className="flex justify-center">
-                    <ProgressRing3D
-                      progress={(totals.protein / proteinGoal) * 100}
-                      size={50}
-                      strokeWidth={4}
-                      color="blue"
-                      showPercentage={false}
-                      icon="🥩"
-                    />
-                  </div>
-                  <p className="text-white font-semibold mt-1">{Math.round(totals.protein)}g</p>
-                  <p className="text-gray-500 text-xs">Protein</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex justify-center">
-                    <ProgressRing3D
-                      progress={(totals.carbs / carbsGoal) * 100}
-                      size={50}
-                      strokeWidth={4}
-                      color="gold"
-                      showPercentage={false}
-                      icon="🍞"
-                    />
-                  </div>
-                  <p className="text-white font-semibold mt-1">{Math.round(totals.carbs)}g</p>
-                  <p className="text-gray-500 text-xs">Carbs</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex justify-center">
-                    <ProgressRing3D
-                      progress={(totals.fat / fatGoal) * 100}
-                      size={50}
-                      strokeWidth={4}
-                      color="pink"
-                      showPercentage={false}
-                      icon="🥑"
-                    />
-                  </div>
-                  <p className="text-white font-semibold mt-1">{Math.round(totals.fat)}g</p>
-                  <p className="text-gray-500 text-xs">Fat</p>
-                </div>
-              </div>
-            </div>
-          </Card3D>
-        </motion.div>
-
-        {/* Meal Sections */}
-        <div className="space-y-4">
-          {mealConfig.map((meal, index) => {
-            const mealItems = getMealsByType(meal.type);
-            const mealCalories = mealItems.reduce((sum, m) => sum + (m.calories || 0), 0);
-            const isExpanded = expandedMeal === meal.type;
+          {/* Meal Sections */}
+          {mealTypes.map((meal) => {
+            const entries = getMealEntries(meal.id);
+            const calories = getMealCalories(meal.id);
+            const Icon = meal.icon;
 
             return (
-              <motion.div
-                key={meal.type}
-                variants={staggerItem}
-                initial="initial"
-                animate="animate"
-                transition={{ delay: index * 0.1 }}
-              >
-                <Card3D
-                  variant="glass"
-                  intensity="subtle"
-                  noPadding
-                  onClick={() => toggleMealExpand(meal.type)}
-                >
-                  <div className="p-4">
-                    {/* Meal Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${meal.color} flex items-center justify-center text-2xl shadow-lg`}>
-                          {meal.icon}
-                        </div>
-                        <div>
-                          <h3 className="font-semibold text-white">{meal.label}</h3>
-                          <p className="text-xs text-gray-400">{meal.timeHint}</p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-bold text-white">{mealCalories} kcal</p>
-                        <p className="text-xs text-gray-400">{mealItems.length} items</p>
-                      </div>
-                    </div>
-
-                    {/* Expanded Meal Items */}
-                    <AnimatePresence>
-                      {isExpanded && (
-                        <motion.div
-                          initial={{ height: 0, opacity: 0 }}
-                          animate={{ height: "auto", opacity: 1 }}
-                          exit={{ height: 0, opacity: 0 }}
-                          transition={{ duration: 0.3 }}
-                          className="overflow-hidden"
-                        >
-                          <div className="mt-4 pt-4 border-t border-white/10 space-y-3">
-                            {mealItems.length === 0 ? (
-                              <p className="text-gray-500 text-center py-4">No items logged</p>
-                            ) : (
-                              mealItems.map((item) => (
-                                <motion.div
-                                  key={item.id}
-                                  className="flex items-center justify-between bg-white/5 rounded-xl p-3"
-                                  initial={{ opacity: 0, x: -20 }}
-                                  animate={{ opacity: 1, x: 0 }}
-                                  layout
-                                >
-                                  <div className="flex-1">
-                                    <p className="font-medium text-white">{item.foodName}</p>
-                                    <p className="text-xs text-gray-400">
-                                      {item.calories} kcal • P:{item.protein}g • C:{item.carbs}g • F:{item.fat}g
-                                    </p>
-                                  </div>
-                                  <motion.button
-                                    onClick={() => {
-                                      handleDeleteMeal(item.id);
-                                    }}
-                                    className="w-8 h-8 rounded-lg bg-red-500/20 text-red-400 flex items-center justify-center"
-                                    whileHover={{ scale: 1.1 }}
-                                    whileTap={{ scale: 0.9 }}
-                                  >
-                                    ×
-                                  </motion.button>
-                                </motion.div>
-                              ))
-                            )}
-
-                            {/* Add Food Button */}
-                            <Button3D
-                              variant="secondary"
-                              size="sm"
-                              fullWidth
-                              icon="+"
-                              onClick={() => {
-                                hapticMedium();
-                                router.push(`/camera?meal=${meal.type}`);
-                              }}
-                            >
-                              Add {meal.label}
-                            </Button3D>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+              <motion.div key={meal.id} variants={fadeUp} className="mb-4">
+                <div className="flex items-center justify-between mb-2 px-1">
+                  <div className="flex items-center gap-2">
+                    <Icon size={18} className="text-gray-400" />
+                    <span className="font-medium text-gray-900">{meal.label}</span>
+                    {calories > 0 && (
+                      <Badge variant="default">{calories} cal</Badge>
+                    )}
                   </div>
-                </Card3D>
+                  <button
+                    onClick={() => {
+                      setSelectedMeal(meal.id);
+                      setShowAddSheet(true);
+                    }}
+                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
+                  >
+                    <Plus size={20} className="text-emerald-600" />
+                  </button>
+                </div>
+
+                {entries.length === 0 ? (
+                  <Card
+                    padding="sm"
+                    className="border-2 border-dashed border-gray-200 bg-gray-50/50"
+                    onClick={() => {
+                      setSelectedMeal(meal.id);
+                      setShowAddSheet(true);
+                    }}
+                  >
+                    <div className="flex items-center justify-center gap-2 py-3 text-gray-400">
+                      <Plus size={18} />
+                      <span className="text-sm">Add {meal.label.toLowerCase()}</span>
+                    </div>
+                  </Card>
+                ) : (
+                  <div className="space-y-2">
+                    {entries.map((entry, index) => (
+                      <Card key={entry.id || index} padding="sm">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
+                            <Utensils size={18} className="text-gray-500" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-gray-900 truncate">
+                              {entry.foodName || "Food Entry"}
+                            </p>
+                            <p className="text-sm text-gray-500">
+                              {entry.servingSize || "1 serving"} • {entry.calories} cal
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => entry.id && removeMealEntry(dateStr, entry.id)}
+                            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                          >
+                            <Trash2 size={18} />
+                          </button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </motion.div>
             );
           })}
-        </div>
-
-        {/* Quick Add Button */}
-        <motion.div
-          className="mt-6"
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.5 }}
-        >
-          <Button3D
-            variant="primary"
-            size="lg"
-            fullWidth
-            icon="📸"
-            onClick={() => router.push('/camera')}
-          >
-            Scan Food
-          </Button3D>
         </motion.div>
-      </div>
+      </PageContent>
 
-      <BottomNavV2 />
-    </PageWrapper>
+      {/* Floating Add Button */}
+      <motion.button
+        className="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 rounded-2xl shadow-lg flex items-center justify-center text-white"
+        whileTap={{ scale: 0.95 }}
+        onClick={() => setShowAddSheet(true)}
+      >
+        <Plus size={28} />
+      </motion.button>
+
+      {/* Add Food Sheet */}
+      <BottomSheet
+        isOpen={showAddSheet}
+        onClose={() => {
+          setShowAddSheet(false);
+          setSelectedMeal(null);
+        }}
+        title={selectedMeal ? `Add ${selectedMeal}` : "Add Food"}
+      >
+        <div className="space-y-3">
+          <Card
+            onClick={() => {
+              setShowAddSheet(false);
+              router.push("/diary/scan");
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-100 flex items-center justify-center">
+                <Camera size={24} className="text-emerald-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Scan with Camera</p>
+                <p className="text-sm text-gray-500">AI-powered food recognition</p>
+              </div>
+              <Sparkles size={20} className="ml-auto text-emerald-500" />
+            </div>
+          </Card>
+
+          <Card
+            onClick={() => {
+              setShowAddSheet(false);
+              router.push("/diary/search");
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-blue-100 flex items-center justify-center">
+                <Search size={24} className="text-blue-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Search Food</p>
+                <p className="text-sm text-gray-500">Browse food database</p>
+              </div>
+            </div>
+          </Card>
+
+          <Card
+            onClick={() => {
+              setShowAddSheet(false);
+              router.push("/diary/manual");
+            }}
+          >
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center">
+                <Plus size={24} className="text-gray-600" />
+              </div>
+              <div>
+                <p className="font-medium text-gray-900">Manual Entry</p>
+                <p className="text-sm text-gray-500">Enter nutrition manually</p>
+              </div>
+            </div>
+          </Card>
+        </div>
+      </BottomSheet>
+
+      <BottomNav />
+    </PageContainer>
   );
 }
