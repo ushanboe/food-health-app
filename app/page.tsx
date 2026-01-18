@@ -58,7 +58,7 @@ export default function HomePage() {
       description: "AI-powered",
       color: "bg-emerald-100",
       iconColor: "text-emerald-600",
-      route: "/diary/scan",
+      route: "/camera",
     },
     {
       icon: Utensils,
@@ -203,7 +203,7 @@ export default function HomePage() {
             {todayEntries.length === 0 ? (
               <Card
                 className="border-2 border-dashed border-gray-200 bg-gray-50/50"
-                onClick={() => router.push("/diary/scan")}
+                onClick={() => router.push("/camera")}
               >
                 <div className="flex flex-col items-center justify-center py-6 text-gray-400">
                   <Camera size={32} className="mb-2" />

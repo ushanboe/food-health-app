@@ -256,7 +256,7 @@ export default function DiaryPage() {
           <Card
             onClick={() => {
               setShowAddSheet(false);
-              router.push("/diary/scan");
+              router.push("/camera");
             }}
           >
             <div className="flex items-center gap-4">
