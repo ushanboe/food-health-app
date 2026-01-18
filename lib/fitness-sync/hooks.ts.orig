@@ -285,9 +285,6 @@ export function useFitnessSync() {
 
       if (results.length > 0) {
         const aggregated = aggregateData(results);
-        // DEBUG: Log aggregated data before storing
-        console.log('[FitnessSync] Aggregated data:', JSON.stringify(aggregated, null, 2));
-        
         setSyncedFitnessData(aggregated);
         setLastFitnessSyncAt(new Date().toISOString());
       } else {
