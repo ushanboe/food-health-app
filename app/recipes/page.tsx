@@ -561,6 +561,8 @@ export default function RecipesPage() {
                       const perServing = {
                         calories: Math.round(nutrition.calories / recipe.servings),
                         protein: Math.round(nutrition.protein / recipe.servings),
+                        carbs: Math.round(nutrition.carbs / recipe.servings),
+                        fat: Math.round(nutrition.fat / recipe.servings),
                       };
 
                       return (
@@ -623,7 +625,10 @@ export default function RecipesPage() {
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <Flame size={16} />
-                                  {perServing.calories} cal/serving
+                                  {perServing.calories} cal
+                                </span>
+                                <span className="text-xs text-gray-400">
+                                  P:{perServing.protein}g C:{perServing.carbs}g F:{perServing.fat}g
                                 </span>
                               </div>
 

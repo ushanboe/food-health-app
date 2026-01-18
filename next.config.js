@@ -26,11 +26,12 @@ const nextConfig = {
       bodySizeLimit: '10mb',
     },
   },
-  // Allow ngrok for development
+  // Allow ngrok and other dev origins
   allowedDevOrigins: [
-    'https://dac21f3cbfc2.ngrok-free.app',
-    'https://*.ngrok-free.app',
-    'https://*.ngrok.io',
+    '63392b5f9e9f.ngrok-free.app',
+    'dac21f3cbfc2.ngrok-free.app',
+    '*.ngrok-free.app',
+    '*.ngrok.io',
   ],
 };
 
