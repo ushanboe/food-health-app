@@ -38,11 +38,6 @@ export default function CloudSyncPage() {
 
         {/* Content */}
         <div className="p-4 space-y-4 pb-24">
-          {/* TEST BANNER - DELETE AFTER TESTING */}
-          <div className="bg-red-500 text-white p-4 rounded-xl text-center font-bold text-lg animate-pulse">
-            🔴 BUILD TEST - If you see this, the page is recompiling! 🔴
-          </div>
-
           {/* Cloud Sync Card */}
           <CloudSyncCard />
 

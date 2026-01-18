@@ -133,7 +133,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            onClick={() => router.push("/cloud")}
+            onClick={() => router.push("/cloud-sync")}
             className={`w-full rounded-2xl p-4 border text-left ${
               cloudConnected 
                 ? 'bg-gradient-to-r from-green-50 to-emerald-50 border-green-100' 
@@ -187,7 +187,7 @@ export default function ProfilePage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.25 }}
-            onClick={() => router.push("/cloud")}
+            onClick={() => router.push("/cloud-sync")}
             className="w-full flex items-center justify-between p-4 bg-white rounded-2xl shadow-sm"
           >
             <div className="flex items-center gap-3">
