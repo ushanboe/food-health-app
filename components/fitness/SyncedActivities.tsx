@@ -1,6 +1,7 @@
 // ============================================================
 // Synced Activities Component
 // Display activities synced from external fitness providers
+// Shows last 7 days of activities
 // ============================================================
 
 'use client';
@@ -21,9 +22,13 @@ import {
   AlertCircle,
   Bike,
   Waves,
+  Calendar,
+  Link as LinkIcon,
+  Settings,
 } from 'lucide-react';
+import Link from 'next/link';
 import { useAppStore } from '@/lib/store';
-import { FitnessProvider, FitnessActivity, AggregatedFitnessData } from '@/lib/fitness-sync/types';
+import { FitnessProvider, FitnessActivity } from '@/lib/fitness-sync/types';
 import { useFitnessSync } from '@/lib/fitness-sync/hooks';
 
 const PROVIDER_COLORS: Record<FitnessProvider, string> = {
@@ -56,31 +61,90 @@ interface SyncedActivitiesProps {
 
 export default function SyncedActivities({ date, onImportActivity }: SyncedActivitiesProps) {
   const {
-    fitnessConnections,
     syncedFitnessData,
     isFitnessSyncing,
     fitnessSyncError,
     lastFitnessSyncAt,
-    getConnectedFitnessProviders,
+    setFitnessConnection,
   } = useAppStore();
 
   const { syncAllProviders, isLoading } = useFitnessSync();
   const [isExpanded, setIsExpanded] = useState(true);
   const [importedIds, setImportedIds] = useState<Set<string>>(new Set());
+  const [connectedProviders, setConnectedProviders] = useState<FitnessProvider[]>([]);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(true);
 
-  const connectedProviders = getConnectedFitnessProviders();
+  // Fetch connection status from server on mount
+  useEffect(() => {
+    const checkConnectionStatus = async () => {
+      try {
+        const response = await fetch('/api/fitness/status');
+        if (response.ok) {
+          const data = await response.json();
+          const connected: FitnessProvider[] = [];
+          
+          if (data.providers) {
+            Object.entries(data.providers).forEach(([provider, status]: [string, any]) => {
+              if (status?.connected) {
+                connected.push(provider as FitnessProvider);
+                // Update local store
+                setFitnessConnection(provider as FitnessProvider, {
+                  isConnected: true,
+                  lastSyncAt: status.lastSync ? new Date(status.lastSync) : undefined,
+                });
+              }
+            });
+          }
+          
+          setConnectedProviders(connected);
+        }
+      } catch (error) {
+        console.error('Failed to check fitness connection status:', error);
+      } finally {
+        setIsCheckingStatus(false);
+      }
+    };
+
+    checkConnectionStatus();
+  }, [setFitnessConnection]);
+
   const hasConnections = connectedProviders.length > 0;
 
-  // Filter activities for the selected date
-  const todayActivities = syncedFitnessData?.activities.filter(a => {
-    const activityDate = new Date(a.startTime).toISOString().split('T')[0];
-    return activityDate === date;
-  }) || [];
+  // Get last 7 days dates
+  const getLast7Days = () => {
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      dates.push(d.toISOString().split('T')[0]);
+    }
+    return dates;
+  };
 
-  // Get aggregated data for today
-  const todaySteps = syncedFitnessData?.dailySteps?.find(d => d.date === date);
-  const todayCalories = syncedFitnessData?.dailyCalories?.find(d => d.date === date);
-  const todayHeartRate = syncedFitnessData?.dailyHeartRate?.find(d => d.date === date);
+  const last7Days = getLast7Days();
+
+  // Get all activities from last 7 days, grouped by date
+  const activitiesByDate = last7Days.reduce((acc, dateStr) => {
+    const activities = syncedFitnessData?.activities.filter(a => {
+      const activityDate = new Date(a.startTime).toISOString().split('T')[0];
+      return activityDate === dateStr;
+    }) || [];
+    if (activities.length > 0) {
+      acc[dateStr] = activities;
+    }
+    return acc;
+  }, {} as Record<string, FitnessActivity[]>);
+
+  const totalActivities = Object.values(activitiesByDate).flat().length;
+
+  // Get aggregated stats for last 7 days
+  const totalSteps = syncedFitnessData?.dailySteps
+    ?.filter(d => last7Days.includes(d.date))
+    ?.reduce((sum, d) => sum + d.value, 0) || 0;
+
+  const totalCalories = syncedFitnessData?.dailyCalories
+    ?.filter(d => last7Days.includes(d.date))
+    ?.reduce((sum, d) => sum + d.value, 0) || 0;
 
   const handleSync = async () => {
     await syncAllProviders();
@@ -104,6 +168,16 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
     return new Date(timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
   };
 
+  const formatDate = (dateStr: string) => {
+    const date = new Date(dateStr);
+    const today = new Date().toISOString().split('T')[0];
+    const yesterday = new Date(Date.now() - 86400000).toISOString().split('T')[0];
+    
+    if (dateStr === today) return 'Today';
+    if (dateStr === yesterday) return 'Yesterday';
+    return date.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+  };
+
   const getActivityIcon = (type: string) => {
     const normalizedType = type.toLowerCase();
     for (const [key, icon] of Object.entries(ACTIVITY_ICONS)) {
@@ -112,12 +186,48 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
     return ACTIVITY_ICONS.default;
   };
 
+  // Show loading state while checking
+  if (isCheckingStatus) {
+    return (
+      <div className="mx-4 mb-4 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 bg-purple-500/30 rounded-xl flex items-center justify-center">
+            <RefreshCw className="w-5 h-5 text-purple-300 animate-spin" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">Checking fitness connections...</h3>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show connect prompt if no providers connected
   if (!hasConnections) {
-    return null; // Don't show if no providers connected
+    return (
+      <div className="mx-4 mb-4 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl p-4">
+        <div className="flex items-center gap-3 mb-3">
+          <div className="w-10 h-10 bg-purple-500/30 rounded-xl flex items-center justify-center">
+            <LinkIcon className="w-5 h-5 text-purple-300" />
+          </div>
+          <div>
+            <h3 className="font-semibold text-white">Connect Fitness Apps</h3>
+            <p className="text-xs text-gray-400">Sync activities from Strava, Fitbit & more</p>
+          </div>
+        </div>
+        <Link
+          href="/settings"
+          className="flex items-center justify-center gap-2 w-full bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-xl font-medium transition-colors"
+        >
+          <Settings className="w-4 h-4" />
+          Connect in Settings
+        </Link>
+      </div>
+    );
   }
 
   return (
-    <div className="bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl overflow-hidden">
+    <div className="mx-4 mb-4 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl overflow-hidden">
       {/* Header */}
       <div
         className="p-4 flex items-center justify-between cursor-pointer"
@@ -138,7 +248,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                 />
               ))}
               <span className="text-xs text-gray-400">
-                {connectedProviders.length} source{connectedProviders.length > 1 ? 's' : ''}
+                {totalActivities} activities (7 days)
               </span>
             </div>
           </div>
@@ -178,128 +288,106 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                 </div>
               )}
 
-              {/* Daily Summary */}
-              {(todaySteps || todayCalories || todayHeartRate) && (
-                <div className="grid grid-cols-3 gap-2">
-                  {todaySteps && (
-                    <div className="bg-white/10 rounded-xl p-3 text-center">
-                      <Footprints className="w-5 h-5 mx-auto mb-1 text-blue-400" />
-                      <p className="text-lg font-bold">{todaySteps.value.toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">Steps</p>
-                      <div className="flex justify-center gap-1 mt-1">
-                        {todaySteps.sources.map(s => (
-                          <span
-                            key={s}
-                            className={`w-1.5 h-1.5 rounded-full ${PROVIDER_COLORS[s]}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {todayCalories && (
-                    <div className="bg-white/10 rounded-xl p-3 text-center">
-                      <Flame className="w-5 h-5 mx-auto mb-1 text-orange-400" />
-                      <p className="text-lg font-bold">{Math.round(todayCalories.value)}</p>
-                      <p className="text-xs text-gray-400">Burned</p>
-                      <div className="flex justify-center gap-1 mt-1">
-                        {todayCalories.sources.map(s => (
-                          <span
-                            key={s}
-                            className={`w-1.5 h-1.5 rounded-full ${PROVIDER_COLORS[s]}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {todayHeartRate && (
-                    <div className="bg-white/10 rounded-xl p-3 text-center">
-                      <Heart className="w-5 h-5 mx-auto mb-1 text-red-400" />
-                      <p className="text-lg font-bold">{Math.round(todayHeartRate.average)}</p>
-                      <p className="text-xs text-gray-400">Avg BPM</p>
-                      <div className="flex justify-center gap-1 mt-1">
-                        {todayHeartRate.sources.map(s => (
-                          <span
-                            key={s}
-                            className={`w-1.5 h-1.5 rounded-full ${PROVIDER_COLORS[s]}`}
-                          />
-                        ))}
-                      </div>
-                    </div>
-                  )}
+              {/* 7-Day Summary Stats */}
+              {(totalSteps > 0 || totalCalories > 0) && (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-white/10 rounded-xl p-3 text-center">
+                    <Footprints className="w-5 h-5 mx-auto mb-1 text-blue-400" />
+                    <p className="text-lg font-bold">{totalSteps.toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">Steps (7 days)</p>
+                  </div>
+                  <div className="bg-white/10 rounded-xl p-3 text-center">
+                    <Flame className="w-5 h-5 mx-auto mb-1 text-orange-400" />
+                    <p className="text-lg font-bold">{Math.round(totalCalories).toLocaleString()}</p>
+                    <p className="text-xs text-gray-400">Calories (7 days)</p>
+                  </div>
                 </div>
               )}
 
-              {/* Activities List */}
-              {todayActivities.length > 0 ? (
-                <div className="space-y-2">
-                  <p className="text-sm text-gray-400">Activities</p>
-                  {todayActivities.map((activity) => {
-                    const isImported = importedIds.has(activity.id);
-                    return (
-                      <motion.div
-                        key={activity.id}
-                        layout
-                        className="bg-white/10 rounded-xl p-3"
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-3">
-                            <div className={`w-8 h-8 ${PROVIDER_COLORS[activity.source]} rounded-lg flex items-center justify-center`}>
-                              {getActivityIcon(activity.type)}
-                            </div>
-                            <div>
-                              <p className="font-medium text-white">{activity.name}</p>
-                              <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
-                                <span className="flex items-center gap-1">
-                                  <Clock className="w-3 h-3" />
-                                  {formatTime(activity.startTime)}
-                                </span>
-                                <span>{formatDuration(activity.duration)}</span>
-                                {activity.calories && (
-                                  <span className="flex items-center gap-1">
-                                    <Flame className="w-3 h-3" />
-                                    {Math.round(activity.calories)}
-                                  </span>
+              {/* Activities List by Date */}
+              {totalActivities > 0 ? (
+                <div className="space-y-4">
+                  {Object.entries(activitiesByDate).map(([dateStr, activities]) => (
+                    <div key={dateStr}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <Calendar className="w-4 h-4 text-gray-400" />
+                        <p className="text-sm font-medium text-gray-300">{formatDate(dateStr)}</p>
+                        <span className="text-xs text-gray-500">({activities.length})</span>
+                      </div>
+                      <div className="space-y-2">
+                        {activities.map((activity) => {
+                          const isImported = importedIds.has(activity.id);
+                          return (
+                            <motion.div
+                              key={activity.id}
+                              layout
+                              className="bg-white/10 rounded-xl p-3"
+                            >
+                              <div className="flex items-start justify-between">
+                                <div className="flex items-start gap-3">
+                                  <div className={`w-8 h-8 ${PROVIDER_COLORS[activity.source]} rounded-lg flex items-center justify-center`}>
+                                    {getActivityIcon(activity.type)}
+                                  </div>
+                                  <div>
+                                    <p className="font-medium text-white">{activity.name}</p>
+                                    <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                                      <span className="flex items-center gap-1">
+                                        <Clock className="w-3 h-3" />
+                                        {formatTime(activity.startTime)}
+                                      </span>
+                                      <span>{formatDuration(activity.duration)}</span>
+                                      {activity.calories && (
+                                        <span className="flex items-center gap-1">
+                                          <Flame className="w-3 h-3" />
+                                          {Math.round(activity.calories)}
+                                        </span>
+                                      )}
+                                    </div>
+                                    {activity.distance && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        {(activity.distance / 1000).toFixed(2)} km
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {onImportActivity && (
+                                  <motion.button
+                                    whileTap={{ scale: 0.9 }}
+                                    onClick={() => handleImport(activity)}
+                                    disabled={isImported}
+                                    className={`p-2 rounded-lg ${
+                                      isImported
+                                        ? 'bg-green-500/30 text-green-400'
+                                        : 'bg-white/10 text-white hover:bg-white/20'
+                                    }`}
+                                  >
+                                    {isImported ? (
+                                      <Check className="w-4 h-4" />
+                                    ) : (
+                                      <Download className="w-4 h-4" />
+                                    )}
+                                  </motion.button>
                                 )}
                               </div>
-                              {activity.distance && (
-                                <p className="text-xs text-gray-500 mt-1">
-                                  {(activity.distance / 1000).toFixed(2)} km
-                                </p>
-                              )}
-                            </div>
-                          </div>
-
-                          {onImportActivity && (
-                            <motion.button
-                              whileTap={{ scale: 0.9 }}
-                              onClick={() => handleImport(activity)}
-                              disabled={isImported}
-                              className={`p-2 rounded-lg ${
-                                isImported
-                                  ? 'bg-green-500/30 text-green-400'
-                                  : 'bg-white/10 text-white hover:bg-white/20'
-                              }`}
-                            >
-                              {isImported ? (
-                                <Check className="w-4 h-4" />
-                              ) : (
-                                <Download className="w-4 h-4" />
-                              )}
-                            </motion.button>
-                          )}
-                        </div>
-                      </motion.div>
-                    );
-                  })}
+                            </motion.div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               ) : (
                 <div className="text-center py-4">
-                  <p className="text-gray-400 text-sm">No activities synced for this date</p>
+                  <Activity className="w-12 h-12 mx-auto mb-3 text-gray-600" />
+                  <p className="text-gray-400 text-sm">No activities synced yet</p>
+                  <p className="text-gray-500 text-xs mt-1">Click sync to fetch your recent workouts</p>
                   <button
                     onClick={handleSync}
-                    className="text-purple-400 text-sm mt-2 underline"
+                    disabled={isLoading || isFitnessSyncing}
+                    className="mt-3 px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 rounded-xl text-sm font-medium transition-colors"
                   >
-                    Sync now
+                    {isLoading || isFitnessSyncing ? 'Syncing...' : 'Sync Now'}
                   </button>
                 </div>
               )}
