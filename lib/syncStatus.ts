@@ -76,12 +76,15 @@ export function getSyncStatus(): SyncStatus {
   history.forEach(record => {
     if (record.status === 'success' || record.status === 'partial') {
       const d = record.details;
-      totalItemsSynced +=
-        d.foodDiary.uploaded + d.foodDiary.downloaded +
-        d.weightEntries.uploaded + d.weightEntries.downloaded +
-        d.goals.uploaded + d.goals.downloaded +
-        d.recipes.uploaded + d.recipes.downloaded +
-        (d.profile.synced ? 1 : 0);
+      // Add null checks for records with missing or incomplete details
+      if (d) {
+        totalItemsSynced +=
+          (d.foodDiary?.uploaded || 0) + (d.foodDiary?.downloaded || 0) +
+          (d.weightEntries?.uploaded || 0) + (d.weightEntries?.downloaded || 0) +
+          (d.goals?.uploaded || 0) + (d.goals?.downloaded || 0) +
+          (d.recipes?.uploaded || 0) + (d.recipes?.downloaded || 0) +
+          (d.profile?.synced ? 1 : 0);
+      }
     }
   });
 
