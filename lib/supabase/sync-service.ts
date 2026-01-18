@@ -1,15 +1,7 @@
-import { getSupabaseClient } from './client';
-import { useAppStore, MealEntry, DailyLog, Recipe, WeightEntry } from '../store';
+import { getSupabaseClient } from '@/lib/supabase-client';
+import { useAppStore, MealEntry, DailyLog, Recipe, WeightEntry } from '@/lib/store';
 
-export interface SyncResult {
-  success: boolean;
-  message: string;
-  uploaded?: number;
-  downloaded?: number;
-  errors?: string[];
-}
-
-// Get the current user
+// Get current authenticated user
 export async function getCurrentUser() {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
@@ -31,30 +23,27 @@ export async function signInWithEmail(email: string, password: string) {
 }
 
 // Sign up with email/password
-export async function signUpWithEmail(email: string, password: string, displayName?: string) {
+export async function signUpWithEmail(email: string, password: string) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase.auth.signUp({
     email,
     password,
-    options: {
-      data: {
-        display_name: displayName || email.split('@')[0],
-      },
-    },
   });
   if (error) throw error;
   return data;
 }
 
 // Sign in with OAuth provider
-export async function signInWithOAuth(provider: 'google' | 'apple' | 'github') {
+export async function signInWithOAuth(provider: 'google' | 'github' | 'apple') {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider,
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: typeof window !== 'undefined' 
+        ? `${window.location.origin}/auth/callback`
+        : undefined,
     },
   });
   if (error) throw error;
@@ -70,9 +59,10 @@ export async function signOut() {
 }
 
 // Upload diary entries to Supabase
-export async function uploadDiaryEntries(dailyLogs: DailyLog[]): Promise<SyncResult> {
+export async function uploadDiaryEntries(dailyLogs: DailyLog[]) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -96,10 +86,11 @@ export async function uploadDiaryEntries(dailyLogs: DailyLog[]): Promise<SyncRes
           protein: meal.protein,
           carbs: meal.carbs,
           fat: meal.fat,
-          fiber: meal.fiber,
-          sugar: meal.sugar,
-          serving_size: meal.servingSize,
-          created_at: meal.timestamp,
+          fiber: meal.fiber || 0,
+          sugar: meal.sugar || 0,
+          serving_size: meal.servingSize || '',
+          image_data: meal.imageData || null,
+          timestamp: meal.timestamp instanceof Date ? meal.timestamp.toISOString() : meal.timestamp,
         };
 
         const { error } = await supabase
@@ -120,15 +111,19 @@ export async function uploadDiaryEntries(dailyLogs: DailyLog[]): Promise<SyncRes
       uploaded: uploadCount,
       errors: errors.length > 0 ? errors : undefined,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Upload failed',
+    };
   }
 }
 
 // Download diary entries from Supabase
-export async function downloadDiaryEntries(): Promise<{ success: boolean; data?: DailyLog[]; message: string }> {
+export async function downloadDiaryEntries() {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -150,16 +145,17 @@ export async function downloadDiaryEntries(): Promise<{ success: boolean; data?:
     for (const entry of data || []) {
       const mealEntry: MealEntry = {
         id: entry.id,
-        mealType: entry.meal_type === 'snack' ? 'snacks' : entry.meal_type,
         foodName: entry.food_name,
-        calories: entry.calories || 0,
-        protein: entry.protein || 0,
-        carbs: entry.carbs || 0,
-        fat: entry.fat || 0,
+        calories: entry.calories,
+        protein: entry.protein,
+        carbs: entry.carbs,
+        fat: entry.fat,
         fiber: entry.fiber,
         sugar: entry.sugar,
         servingSize: entry.serving_size,
-        timestamp: new Date(entry.created_at),
+        mealType: entry.meal_type === 'snack' ? 'snacks' : entry.meal_type,
+        imageData: entry.image_data,
+        timestamp: new Date(entry.timestamp || entry.created_at),
       };
 
       const existing = logsMap.get(entry.date) || [];
@@ -174,18 +170,23 @@ export async function downloadDiaryEntries(): Promise<{ success: boolean; data?:
 
     return {
       success: true,
-      data: dailyLogs,
       message: `Downloaded ${data?.length || 0} diary entries`,
+      data: dailyLogs,
+      downloaded: data?.length || 0,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Download failed',
+    };
   }
 }
 
 // Upload recipes to Supabase
-export async function uploadRecipes(recipes: Recipe[]): Promise<SyncResult> {
+export async function uploadRecipes(recipes: Recipe[]) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -202,7 +203,7 @@ export async function uploadRecipes(recipes: Recipe[]): Promise<SyncResult> {
         user_id: user.id,
         name: recipe.name,
         servings: recipe.servings,
-        imageUrl: recipe.imageUrl,
+        image_url: recipe.imageUrl,
         instructions: recipe.instructions,
         ingredients: recipe.ingredients,
         created_at: recipe.createdAt,
@@ -225,15 +226,19 @@ export async function uploadRecipes(recipes: Recipe[]): Promise<SyncResult> {
       uploaded: uploadCount,
       errors: errors.length > 0 ? errors : undefined,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Upload failed',
+    };
   }
 }
 
 // Download recipes from Supabase
-export async function downloadRecipes(): Promise<{ success: boolean; data?: Recipe[]; message: string }> {
+export async function downloadRecipes() {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -253,26 +258,32 @@ export async function downloadRecipes(): Promise<{ success: boolean; data?: Reci
       id: r.id,
       name: r.name,
       servings: r.servings,
-      imageUrl: r.thumbnail || r.image_url,
+      imageUrl: r.image_url,
       instructions: r.instructions,
       ingredients: r.ingredients || [],
-      createdAt: new Date(r.created_at),
+      createdAt: r.created_at,
+      source: 'imported' as const,
     }));
 
     return {
       success: true,
-      data: recipes,
       message: `Downloaded ${recipes.length} recipes`,
+      data: recipes,
+      downloaded: recipes.length,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Download failed',
+    };
   }
 }
 
 // Upload weight entries to Supabase
-export async function uploadWeightEntries(entries: WeightEntry[]): Promise<SyncResult> {
+export async function uploadWeightEntries(entries: WeightEntry[]) {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -309,15 +320,19 @@ export async function uploadWeightEntries(entries: WeightEntry[]): Promise<SyncR
       uploaded: uploadCount,
       errors: errors.length > 0 ? errors : undefined,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Upload failed',
+    };
   }
 }
 
 // Download weight entries from Supabase
-export async function downloadWeightEntries(): Promise<{ success: boolean; data?: WeightEntry[]; message: string }> {
+export async function downloadWeightEntries() {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -342,78 +357,23 @@ export async function downloadWeightEntries(): Promise<{ success: boolean; data?
 
     return {
       success: true,
-      data: entries,
       message: `Downloaded ${entries.length} weight entries`,
+      data: entries,
+      downloaded: entries.length,
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
-  }
-}
-
-// Full sync - upload and download all data
-export async function fullSync(): Promise<SyncResult> {
-  const store = useAppStore.getState();
-  const errors: string[] = [];
-  let totalUploaded = 0;
-  let totalDownloaded = 0;
-
-  try {
-    // Upload local data
-    const diaryResult = await uploadDiaryEntries(store.dailyLogs);
-    if (!diaryResult.success && diaryResult.errors) {
-      errors.push(...diaryResult.errors);
-    }
-    totalUploaded += diaryResult.uploaded || 0;
-
-    const recipesResult = await uploadRecipes(store.recipes);
-    if (!recipesResult.success && recipesResult.errors) {
-      errors.push(...recipesResult.errors);
-    }
-    totalUploaded += recipesResult.uploaded || 0;
-
-    const weightResult = await uploadWeightEntries(store.weightHistory);
-    if (!weightResult.success && weightResult.errors) {
-      errors.push(...weightResult.errors);
-    }
-    totalUploaded += weightResult.uploaded || 0;
-
-    // Download cloud data (for merging on other devices)
-    const downloadedDiary = await downloadDiaryEntries();
-    if (downloadedDiary.success && downloadedDiary.data) {
-      totalDownloaded += downloadedDiary.data.reduce((acc, log) => acc + log.meals.length, 0);
-    }
-
-    const downloadedRecipes = await downloadRecipes();
-    if (downloadedRecipes.success && downloadedRecipes.data) {
-      totalDownloaded += downloadedRecipes.data.length;
-    }
-
-    const downloadedWeight = await downloadWeightEntries();
-    if (downloadedWeight.success && downloadedWeight.data) {
-      totalDownloaded += downloadedWeight.data.length;
-    }
-
-    // Update last sync time
-    store.updateAISettings({
-      supabaseLastSync: new Date().toISOString(),
-    });
-
+  } catch (error) {
     return {
-      success: errors.length === 0,
-      message: `Synced ${totalUploaded} items up, ${totalDownloaded} items down`,
-      uploaded: totalUploaded,
-      downloaded: totalDownloaded,
-      errors: errors.length > 0 ? errors : undefined,
+      success: false,
+      message: error instanceof Error ? error.message : 'Download failed',
     };
-  } catch (error: any) {
-    return { success: false, message: error.message };
   }
 }
 
-// Delete user account and all data
-export async function deleteAccount(): Promise<{ success: boolean; message: string }> {
+// Delete all user data
+export async function deleteAllUserData() {
   const supabase = getSupabaseClient();
   if (!supabase) throw new Error('Supabase not configured');
+  
   const user = await getCurrentUser();
   
   if (!user) {
@@ -435,12 +395,111 @@ export async function deleteAccount(): Promise<{ success: boolean; message: stri
     await signOut();
 
     return { success: true, message: 'Account deleted successfully' };
-  } catch (error: any) {
-    return { success: false, message: error.message };
+  } catch (error) {
+    return {
+      success: false,
+      message: error instanceof Error ? error.message : 'Delete failed',
+    };
   }
 }
 
-// Convenience object for importing all sync functions
+// Full sync - upload and download all data
+export async function fullSync() {
+  const supabase = getSupabaseClient();
+  if (!supabase) {
+    return {
+      success: false,
+      message: 'Supabase not configured',
+      uploaded: 0,
+      downloaded: 0,
+    };
+  }
+
+  // Check for authenticated user
+  const { data: { user }, error: userError } = await supabase.auth.getUser();
+  
+  if (userError || !user) {
+    return {
+      success: false,
+      message: 'Auth session missing!',
+      uploaded: 0,
+      downloaded: 0,
+    };
+  }
+
+  const store = useAppStore.getState();
+  let totalUploaded = 0;
+  let totalDownloaded = 0;
+  const allErrors: string[] = [];
+
+  // Upload local data
+  const diaryUpload = await uploadDiaryEntries(store.dailyLogs);
+  const recipesUpload = await uploadRecipes(store.recipes);
+  const weightUpload = await uploadWeightEntries(store.weightHistory);
+
+  totalUploaded += (diaryUpload.uploaded || 0);
+  totalUploaded += (recipesUpload.uploaded || 0);
+  totalUploaded += (weightUpload.uploaded || 0);
+
+  if (diaryUpload.errors) allErrors.push(...diaryUpload.errors);
+  if (recipesUpload.errors) allErrors.push(...recipesUpload.errors);
+  if (weightUpload.errors) allErrors.push(...weightUpload.errors);
+
+  // Download cloud data
+  const diaryDownload = await downloadDiaryEntries();
+  const recipesDownload = await downloadRecipes();
+  const weightDownload = await downloadWeightEntries();
+
+  totalDownloaded += (diaryDownload.downloaded || 0);
+  totalDownloaded += (recipesDownload.downloaded || 0);
+  totalDownloaded += (weightDownload.downloaded || 0);
+
+  // Merge downloaded data into store
+  if (diaryDownload.success && diaryDownload.data) {
+    // Merge diary logs
+    const existingDates = new Set(store.dailyLogs.map(l => l.date));
+    const newLogs = diaryDownload.data.filter(l => !existingDates.has(l.date));
+    if (newLogs.length > 0) {
+      useAppStore.setState({
+        dailyLogs: [...store.dailyLogs, ...newLogs],
+      });
+    }
+  }
+
+  if (recipesDownload.success && recipesDownload.data) {
+    // Merge recipes
+    const existingIds = new Set(store.recipes.map(r => r.id));
+    const newRecipes = recipesDownload.data.filter(r => !existingIds.has(r.id));
+    if (newRecipes.length > 0) {
+      useAppStore.setState({
+        recipes: [...store.recipes, ...newRecipes],
+      });
+    }
+  }
+
+  if (weightDownload.success && weightDownload.data) {
+    // Merge weight entries
+    const existingIds = new Set(store.weightHistory.map(w => w.id));
+    const newEntries = weightDownload.data.filter(w => !existingIds.has(w.id));
+    if (newEntries.length > 0) {
+      useAppStore.setState({
+        weightHistory: [...store.weightHistory, ...newEntries],
+      });
+    }
+  }
+
+  return {
+    success: allErrors.length === 0,
+    message: allErrors.length === 0 
+      ? `Synced successfully! Uploaded ${totalUploaded}, downloaded ${totalDownloaded} items.`
+      : `Sync completed with errors: ${allErrors.join(', ')}`,
+    uploaded: totalUploaded,
+    downloaded: totalDownloaded,
+    errors: allErrors.length > 0 ? allErrors : undefined,
+  };
+}
+
+// Export sync service
 export const syncService = {
   getCurrentUser,
   signIn: signInWithEmail,
@@ -464,30 +523,21 @@ export const syncService = {
     };
   },
   downloadFromCloud: async () => {
-    const downloadedDiary = await downloadDiaryEntries();
-    const downloadedRecipes = await downloadRecipes();
-    const downloadedWeight = await downloadWeightEntries();
+    const diaryResult = await downloadDiaryEntries();
+    const recipesResult = await downloadRecipes();
+    const weightResult = await downloadWeightEntries();
 
-    let totalDownloaded = 0;
-    if (downloadedDiary.success && downloadedDiary.data) {
-      totalDownloaded += downloadedDiary.data.reduce((acc, log) => acc + log.meals.length, 0);
-    }
-    if (downloadedRecipes.success && downloadedRecipes.data) {
-      totalDownloaded += downloadedRecipes.data.length;
-    }
-    if (downloadedWeight.success && downloadedWeight.data) {
-      totalDownloaded += downloadedWeight.data.length;
-    }
+    const totalDownloaded = (diaryResult.downloaded || 0) + (recipesResult.downloaded || 0) + (weightResult.downloaded || 0);
 
     return {
-      success: true,
+      success: diaryResult.success && recipesResult.success && weightResult.success,
       message: `Downloaded ${totalDownloaded} items`,
       downloaded: totalDownloaded,
-      diaryData: downloadedDiary.data,
-      recipesData: downloadedRecipes.data,
-      weightData: downloadedWeight.data,
+      diary: diaryResult.data,
+      recipes: recipesResult.data,
+      weight: weightResult.data,
     };
   },
   fullSync,
-  deleteAccount,
+  deleteAllUserData,
 };

@@ -1,7 +1,12 @@
 import { createBrowserClient } from '@supabase/ssr';
 import { useAppStore } from '@/lib/store';
 
-// Get Supabase credentials from store settings
+// Singleton instance - MUST be reused to preserve session
+let supabaseInstance: ReturnType<typeof createBrowserClient> | null = null;
+let currentUrl: string = '';
+let currentKey: string = '';
+
+// Get or create Supabase client (singleton)
 export function getSupabaseClient() {
   const { aiSettings } = useAppStore.getState();
   
@@ -12,20 +17,24 @@ export function getSupabaseClient() {
     return null;
   }
   
-  return createBrowserClient(supabaseUrl, supabaseAnonKey);
-}
-
-// Singleton instance for when we know credentials exist
-let supabaseInstance: ReturnType<typeof createBrowserClient> | null = null;
-
-export function getSupabase() {
-  if (!supabaseInstance) {
-    supabaseInstance = getSupabaseClient();
+  // Only create new instance if credentials changed or no instance exists
+  if (!supabaseInstance || supabaseUrl !== currentUrl || supabaseAnonKey !== currentKey) {
+    supabaseInstance = createBrowserClient(supabaseUrl, supabaseAnonKey);
+    currentUrl = supabaseUrl;
+    currentKey = supabaseAnonKey;
   }
+  
   return supabaseInstance;
 }
 
-// Reset instance when credentials change
+// Alias for backward compatibility
+export function getSupabase() {
+  return getSupabaseClient();
+}
+
+// Reset instance when credentials change (call this after updating settings)
 export function resetSupabaseClient() {
   supabaseInstance = null;
+  currentUrl = '';
+  currentKey = '';
 }
