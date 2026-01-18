@@ -628,7 +628,7 @@ export default function RecipesPage() {
                                   {perServing.calories} cal
                                 </span>
                                 <span className="text-xs text-gray-400">
-                                  P:{perServing.protein}g C:{perServing.carbs}g F:{perServing.fat}g
+                                  Pro: {perServing.protein}g  Carb: {perServing.carbs}g  Fat: {perServing.fat}g
                                 </span>
                               </div>
 

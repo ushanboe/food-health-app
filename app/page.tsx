@@ -23,6 +23,7 @@ import {
   ChefHat,
   Cloud,
   Dumbbell,
+  Activity,
   Timer,
   Zap,
 } from "lucide-react";
@@ -366,9 +367,20 @@ export default function HomePage() {
                     {/* Fitness Activities Section */}
                     <div className="pt-4">
                       <div className="flex items-center justify-between mb-3">
+                        <div>
+                          <p className="text-sm text-gray-500">Fitness</p>
+                          <p className="text-lg font-bold text-gray-900">
+                            {exercises.length} <span className="text-sm font-normal text-gray-400">activities</span>
+                          </p>
+                        </div>
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center">
+                          <Activity size={24} className="text-emerald-600" />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-2">
                           <Dumbbell size={16} className="text-emerald-600" />
-                          <span className="text-sm font-medium text-gray-700">Fitness Activities</span>
+                          <span className="text-sm font-medium text-gray-700">Today's Activities</span>
                         </div>
                         {exercises.length > 0 && (
                           <div className="flex items-center gap-3 text-xs text-gray-500">
