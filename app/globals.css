@@ -17,13 +17,12 @@
 
 html {
   height: 100%;
-  overflow: hidden;
-  overscroll-behavior: none;
+  /* Allow scrolling - removed overflow: hidden */
 }
 
 body {
   height: 100%;
-  overflow: hidden;
+  /* Allow scrolling - removed overflow: hidden */
   overscroll-behavior: none;
   background-color: #f9fafb;
 }
@@ -68,7 +67,7 @@ body {
   height: 100vh;
   height: 100dvh;
   position: relative;
-  overflow: hidden;
+  /* Allow children to scroll */
 }
 
 /* Safe area utilities */

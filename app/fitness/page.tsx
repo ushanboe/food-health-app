@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import SyncedActivities from "@/components/fitness/SyncedActivities";
+import { FloatingNutri } from "@/components/FloatingNutri";
 import {
   Activity,
   Flame,
@@ -274,6 +275,8 @@ export default function FitnessPage() {
       >
         <Plus size={28} />
       </motion.button>
+
+      <FloatingNutri interval={30} duration={5} position="bottom-left" />
 
       <BottomNav />
     </PageContainer>

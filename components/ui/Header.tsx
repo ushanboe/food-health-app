@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { ChevronLeft, MoreHorizontal } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { ReactNode } from "react";
 
 interface HeaderProps {
@@ -68,11 +68,15 @@ interface PageContainerProps {
 
 export function PageContainer({ children, className = "" }: PageContainerProps) {
   return (
-    <main className={`min-h-screen bg-gray-50 pb-24 ${className}`}>
-      <div className="max-w-lg mx-auto">
-        {children}
-      </div>
-    </main>
+    <div className="flex flex-col h-screen h-[100dvh]">
+      <main className={`flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 pb-24 ${className}`}
+            style={{ WebkitOverflowScrolling: 'touch' }}>
+        <div className="max-w-lg mx-auto">
+          {children}
+        </div>
+      </main>
+      {/* BottomNav is rendered separately in each page */}
+    </div>
   );
 }
 

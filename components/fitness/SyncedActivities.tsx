@@ -236,13 +236,13 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
   // Show loading state while checking
   if (isCheckingStatus) {
     return (
-      <div className="mx-4 mb-4 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl p-4">
+      <div className="mb-4 bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200 rounded-2xl p-4">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-purple-500/30 rounded-xl flex items-center justify-center">
-            <RefreshCw className="w-5 h-5 text-purple-300 animate-spin" />
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <RefreshCw className="w-5 h-5 text-emerald-600 animate-spin" />
           </div>
           <div>
-            <h3 className="font-semibold text-white">Checking fitness connections...</h3>
+            <h3 className="font-semibold text-gray-900">Checking fitness connections...</h3>
           </div>
         </div>
       </div>
@@ -252,19 +252,19 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
   // Show connect prompt if no providers connected
   if (!hasConnections) {
     return (
-      <div className="mx-4 mb-4 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl p-4">
+      <div className="mb-4 bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200 rounded-2xl p-4">
         <div className="flex items-center gap-3 mb-3">
-          <div className="w-10 h-10 bg-purple-500/30 rounded-xl flex items-center justify-center">
-            <LinkIcon className="w-5 h-5 text-purple-300" />
+          <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center">
+            <LinkIcon className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <h3 className="font-semibold text-white">Connect Fitness Apps</h3>
-            <p className="text-xs text-gray-400">Sync activities from Strava, Fitbit & more</p>
+            <h3 className="font-semibold text-gray-900">Connect Fitness Apps</h3>
+            <p className="text-xs text-gray-500">Sync activities from Strava, Fitbit & more</p>
           </div>
         </div>
         <Link
           href="/settings"
-          className="flex items-center justify-center gap-2 w-full bg-purple-500 hover:bg-purple-600 text-white py-3 rounded-xl font-medium transition-colors"
+          className="flex items-center justify-center gap-2 w-full bg-emerald-500 hover:bg-emerald-600 text-white py-3 rounded-xl font-medium transition-colors"
         >
           <Settings className="w-4 h-4" />
           Connect in Settings
@@ -275,18 +275,18 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
 
   return (
     <>
-      <div className="mx-4 mb-4 bg-gradient-to-br from-purple-900/50 to-indigo-900/50 rounded-2xl overflow-hidden">
+      <div className="mb-4 bg-gradient-to-br from-emerald-50 to-lime-50 border border-emerald-200 rounded-2xl overflow-hidden">
         {/* Header */}
         <div
           className="p-4 flex items-center justify-between cursor-pointer"
           onClick={() => setIsExpanded(!isExpanded)}
         >
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-purple-500/30 rounded-xl flex items-center justify-center text-xl">
+            <div className="w-10 h-10 bg-emerald-100 rounded-xl flex items-center justify-center text-xl">
               🏃
             </div>
             <div>
-              <h3 className="font-semibold text-white">Synced Activities</h3>
+              <h3 className="font-semibold text-gray-900">Synced Activities</h3>
               <div className="flex items-center gap-2">
                 {connectedProviders.map(provider => (
                   <span
@@ -295,7 +295,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                     title={PROVIDER_NAMES[provider]}
                   />
                 ))}
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-gray-500">
                   {totalActivities} activities (7 days)
                 </span>
               </div>
@@ -310,11 +310,11 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                 handleSync();
               }}
               disabled={isLoading || isFitnessSyncing}
-              className="p-2 bg-white/10 rounded-lg disabled:opacity-50"
+              className="p-2 bg-emerald-100 rounded-lg disabled:opacity-50 text-emerald-600"
             >
               <RefreshCw className={`w-4 h-4 ${isLoading || isFitnessSyncing ? 'animate-spin' : ''}`} />
             </motion.button>
-            {isExpanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
+            {isExpanded ? <ChevronUp className="w-5 h-5 text-gray-500" /> : <ChevronDown className="w-5 h-5 text-gray-500" />}
           </div>
         </div>
 
@@ -330,24 +330,24 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
               <div className="px-4 pb-4 space-y-4">
                 {/* Error Message */}
                 {fitnessSyncError && (
-                  <div className="bg-red-500/20 border border-red-500/30 rounded-xl p-3 flex items-start gap-2">
-                    <AlertCircle className="w-4 h-4 text-red-400 flex-shrink-0 mt-0.5" />
-                    <p className="text-sm text-red-300">{fitnessSyncError}</p>
+                  <div className="bg-red-50 border border-red-200 rounded-xl p-3 flex items-start gap-2">
+                    <AlertCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+                    <p className="text-sm text-red-600">{fitnessSyncError}</p>
                   </div>
                 )}
 
                 {/* 7-Day Summary Stats */}
                 {(totalSteps > 0 || totalCalories > 0) && (
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="bg-white/10 rounded-xl p-3 text-center">
+                    <div className="bg-white/80 border border-emerald-100 rounded-xl p-3 text-center">
                       <span className="text-2xl">👟</span>
-                      <p className="text-lg font-bold">{totalSteps.toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">Steps (7 days)</p>
+                      <p className="text-lg font-bold text-gray-900">{totalSteps.toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">Steps (7 days)</p>
                     </div>
-                    <div className="bg-white/10 rounded-xl p-3 text-center">
+                    <div className="bg-white/80 border border-emerald-100 rounded-xl p-3 text-center">
                       <span className="text-2xl">🔥</span>
-                      <p className="text-lg font-bold">{Math.round(totalCalories).toLocaleString()}</p>
-                      <p className="text-xs text-gray-400">Calories (7 days)</p>
+                      <p className="text-lg font-bold text-gray-900">{Math.round(totalCalories).toLocaleString()}</p>
+                      <p className="text-xs text-gray-500">Calories (7 days)</p>
                     </div>
                   </div>
                 )}
@@ -359,8 +359,8 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                       <div key={dateStr}>
                         <div className="flex items-center gap-2 mb-2">
                           <Calendar className="w-4 h-4 text-gray-400" />
-                          <p className="text-sm font-medium text-gray-300">{formatDate(dateStr)}</p>
-                          <span className="text-xs text-gray-500">({activities.length})</span>
+                          <p className="text-sm font-medium text-gray-700">{formatDate(dateStr)}</p>
+                          <span className="text-xs text-gray-400">({activities.length})</span>
                         </div>
                         <div className="space-y-2">
                           {activities.map((activity) => {
@@ -371,7 +371,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                                 layout
                                 whileTap={{ scale: 0.98 }}
                                 onClick={() => setSelectedActivity(activity)}
-                                className="bg-white/10 rounded-xl p-3 cursor-pointer hover:bg-white/15 transition-colors"
+                                className="bg-white border border-gray-100 rounded-xl p-3 cursor-pointer hover:border-emerald-200 hover:shadow-sm transition-all"
                               >
                                 <div className="flex items-start justify-between">
                                   <div className="flex items-start gap-3">
@@ -379,8 +379,8 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                                       {getActivityIcon(activity.type)}
                                     </div>
                                     <div>
-                                      <p className="font-medium text-white">{activity.name}</p>
-                                      <div className="flex items-center gap-3 text-xs text-gray-400 mt-1">
+                                      <p className="font-medium text-gray-900">{activity.name}</p>
+                                      <div className="flex items-center gap-3 text-xs text-gray-500 mt-1">
                                         <span className="flex items-center gap-1">
                                           <Clock className="w-3 h-3" />
                                           {formatTime(activity.startTime)}
@@ -394,7 +394,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                                         )}
                                       </div>
                                       {activity.distance && (
-                                        <p className="text-xs text-gray-500 mt-1">
+                                        <p className="text-xs text-gray-400 mt-1">
                                           {(activity.distance / 1000).toFixed(2)} km
                                         </p>
                                       )}
@@ -408,8 +408,8 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                                       disabled={isImported}
                                       className={`p-2 rounded-lg ${
                                         isImported
-                                          ? 'bg-green-500/30 text-green-400'
-                                          : 'bg-white/10 text-white hover:bg-white/20'
+                                          ? 'bg-green-100 text-green-600'
+                                          : 'bg-gray-100 text-gray-600 hover:bg-emerald-100 hover:text-emerald-600'
                                       }`}
                                     >
                                       {isImported ? (
@@ -430,12 +430,12 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                 ) : (
                   <div className="text-center py-4">
                     <span className="text-4xl block mb-3">🏃</span>
-                    <p className="text-gray-400 text-sm">No activities synced yet</p>
-                    <p className="text-gray-500 text-xs mt-1">Click sync to fetch your recent workouts</p>
+                    <p className="text-gray-600 text-sm">No activities synced yet</p>
+                    <p className="text-gray-400 text-xs mt-1">Click sync to fetch your recent workouts</p>
                     <button
                       onClick={handleSync}
                       disabled={isLoading || isFitnessSyncing}
-                      className="mt-3 px-4 py-2 bg-purple-500 hover:bg-purple-600 disabled:opacity-50 rounded-xl text-sm font-medium transition-colors"
+                      className="mt-3 px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white rounded-xl text-sm font-medium transition-colors"
                     >
                       {isLoading || isFitnessSyncing ? 'Syncing...' : 'Sync Now'}
                     </button>
@@ -444,7 +444,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
 
                 {/* Last Sync Info */}
                 {lastFitnessSyncAt && (
-                  <p className="text-xs text-gray-500 text-center">
+                  <p className="text-xs text-gray-400 text-center">
                     Last synced: {new Date(lastFitnessSyncAt).toLocaleString()}
                   </p>
                 )}
@@ -461,7 +461,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/80 z-50 flex items-end sm:items-center justify-center p-4"
+            className="fixed inset-0 bg-black/50 z-50 flex items-end sm:items-center justify-center p-4"
             onClick={() => setSelectedActivity(null)}
           >
             <motion.div
@@ -469,7 +469,7 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
               animate={{ y: 0, opacity: 1 }}
               exit={{ y: '100%', opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-gray-900 w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 max-h-[85vh] overflow-y-auto"
+              className="bg-white w-full max-w-md rounded-t-3xl sm:rounded-3xl p-6 max-h-[85vh] overflow-y-auto"
             >
               {/* Modal Header */}
               <div className="flex items-start justify-between mb-6">
@@ -478,8 +478,8 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                     {getActivityIcon(selectedActivity.type)}
                   </div>
                   <div>
-                    <h2 className="text-xl font-bold text-white">{selectedActivity.name}</h2>
-                    <p className="text-sm text-gray-400">
+                    <h2 className="text-xl font-bold text-gray-900">{selectedActivity.name}</h2>
+                    <p className="text-sm text-gray-500">
                       {new Date(selectedActivity.startTime).toLocaleDateString([], {
                         weekday: 'long',
                         month: 'short',
@@ -490,38 +490,38 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                 </div>
                 <button
                   onClick={() => setSelectedActivity(null)}
-                  className="p-2 hover:bg-white/10 rounded-full"
+                  className="p-2 hover:bg-gray-100 rounded-full"
                 >
-                  <X className="w-6 h-6" />
+                  <X className="w-6 h-6 text-gray-500" />
                 </button>
               </div>
 
               {/* Main Stats */}
               <div className="grid grid-cols-2 gap-3 mb-6">
-                <div className="bg-white/10 rounded-xl p-4 text-center">
-                  <Timer className="w-6 h-6 mx-auto mb-2 text-blue-400" />
-                  <p className="text-2xl font-bold">{formatDuration(selectedActivity.duration)}</p>
-                  <p className="text-xs text-gray-400">Duration</p>
+                <div className="bg-blue-50 rounded-xl p-4 text-center">
+                  <Timer className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                  <p className="text-2xl font-bold text-gray-900">{formatDuration(selectedActivity.duration)}</p>
+                  <p className="text-xs text-gray-500">Duration</p>
                 </div>
                 {selectedActivity.distance && (
-                  <div className="bg-white/10 rounded-xl p-4 text-center">
-                    <MapPin className="w-6 h-6 mx-auto mb-2 text-green-400" />
-                    <p className="text-2xl font-bold">{(selectedActivity.distance / 1000).toFixed(2)}</p>
-                    <p className="text-xs text-gray-400">Kilometers</p>
+                  <div className="bg-emerald-50 rounded-xl p-4 text-center">
+                    <MapPin className="w-6 h-6 mx-auto mb-2 text-emerald-500" />
+                    <p className="text-2xl font-bold text-gray-900">{(selectedActivity.distance / 1000).toFixed(2)}</p>
+                    <p className="text-xs text-gray-500">Kilometers</p>
                   </div>
                 )}
                 {selectedActivity.calories && (
-                  <div className="bg-white/10 rounded-xl p-4 text-center">
-                    <Flame className="w-6 h-6 mx-auto mb-2 text-orange-400" />
-                    <p className="text-2xl font-bold">{Math.round(selectedActivity.calories)}</p>
-                    <p className="text-xs text-gray-400">Calories</p>
+                  <div className="bg-orange-50 rounded-xl p-4 text-center">
+                    <Flame className="w-6 h-6 mx-auto mb-2 text-orange-500" />
+                    <p className="text-2xl font-bold text-gray-900">{Math.round(selectedActivity.calories)}</p>
+                    <p className="text-xs text-gray-500">Calories</p>
                   </div>
                 )}
                 {selectedActivity.averageSpeed && (
-                  <div className="bg-white/10 rounded-xl p-4 text-center">
-                    <Gauge className="w-6 h-6 mx-auto mb-2 text-cyan-400" />
-                    <p className="text-2xl font-bold">{formatSpeed(selectedActivity.averageSpeed)}</p>
-                    <p className="text-xs text-gray-400">Avg Speed</p>
+                  <div className="bg-cyan-50 rounded-xl p-4 text-center">
+                    <Gauge className="w-6 h-6 mx-auto mb-2 text-cyan-500" />
+                    <p className="text-2xl font-bold text-gray-900">{formatSpeed(selectedActivity.averageSpeed)}</p>
+                    <p className="text-xs text-gray-500">Avg Speed</p>
                   </div>
                 )}
               </div>
@@ -529,21 +529,21 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
               {/* Heart Rate Stats */}
               {(selectedActivity.averageHeartRate || selectedActivity.maxHeartRate) && (
                 <div className="mb-6">
-                  <h3 className="text-sm font-medium text-gray-400 mb-3 flex items-center gap-2">
-                    <Heart className="w-4 h-4 text-red-400" />
+                  <h3 className="text-sm font-medium text-gray-500 mb-3 flex items-center gap-2">
+                    <Heart className="w-4 h-4 text-red-500" />
                     Heart Rate
                   </h3>
                   <div className="grid grid-cols-2 gap-3">
                     {selectedActivity.averageHeartRate && (
-                      <div className="bg-red-500/20 rounded-xl p-4 text-center">
-                        <p className="text-2xl font-bold text-red-400">{Math.round(selectedActivity.averageHeartRate)}</p>
-                        <p className="text-xs text-gray-400">Avg BPM</p>
+                      <div className="bg-red-50 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-red-600">{Math.round(selectedActivity.averageHeartRate)}</p>
+                        <p className="text-xs text-gray-500">Avg BPM</p>
                       </div>
                     )}
                     {selectedActivity.maxHeartRate && (
-                      <div className="bg-red-500/20 rounded-xl p-4 text-center">
-                        <p className="text-2xl font-bold text-red-400">{Math.round(selectedActivity.maxHeartRate)}</p>
-                        <p className="text-xs text-gray-400">Max BPM</p>
+                      <div className="bg-red-50 rounded-xl p-4 text-center">
+                        <p className="text-2xl font-bold text-red-600">{Math.round(selectedActivity.maxHeartRate)}</p>
+                        <p className="text-xs text-gray-500">Max BPM</p>
                       </div>
                     )}
                   </div>
@@ -553,36 +553,36 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
               {/* Additional Stats */}
               <div className="space-y-3">
                 {selectedActivity.elevationGain && (
-                  <div className="flex items-center justify-between bg-white/5 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                     <div className="flex items-center gap-3">
-                      <Mountain className="w-5 h-5 text-emerald-400" />
-                      <span className="text-gray-300">Elevation Gain</span>
+                      <Mountain className="w-5 h-5 text-emerald-500" />
+                      <span className="text-gray-700">Elevation Gain</span>
                     </div>
-                    <span className="font-bold">{Math.round(selectedActivity.elevationGain)} m</span>
+                    <span className="font-bold text-gray-900">{Math.round(selectedActivity.elevationGain)} m</span>
                   </div>
                 )}
                 {selectedActivity.averageSpeed && (
-                  <div className="flex items-center justify-between bg-white/5 rounded-xl p-3">
+                  <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                     <div className="flex items-center gap-3">
-                      <TrendingUp className="w-5 h-5 text-purple-400" />
-                      <span className="text-gray-300">Pace</span>
+                      <TrendingUp className="w-5 h-5 text-lime-500" />
+                      <span className="text-gray-700">Pace</span>
                     </div>
-                    <span className="font-bold">{formatPace(selectedActivity.averageSpeed)}</span>
+                    <span className="font-bold text-gray-900">{formatPace(selectedActivity.averageSpeed)}</span>
                   </div>
                 )}
-                <div className="flex items-center justify-between bg-white/5 rounded-xl p-3">
+                <div className="flex items-center justify-between bg-gray-50 rounded-xl p-3">
                   <div className="flex items-center gap-3">
-                    <Clock className="w-5 h-5 text-blue-400" />
-                    <span className="text-gray-300">Start Time</span>
+                    <Clock className="w-5 h-5 text-blue-500" />
+                    <span className="text-gray-700">Start Time</span>
                   </div>
-                  <span className="font-bold">{formatTime(selectedActivity.startTime)}</span>
+                  <span className="font-bold text-gray-900">{formatTime(selectedActivity.startTime)}</span>
                 </div>
               </div>
 
               {/* Source Badge */}
               <div className="mt-6 flex items-center justify-center gap-2">
                 <span className={`w-3 h-3 rounded-full ${PROVIDER_COLORS[selectedActivity.source]}`} />
-                <span className="text-sm text-gray-400">Synced from {PROVIDER_NAMES[selectedActivity.source]}</span>
+                <span className="text-sm text-gray-500">Synced from {PROVIDER_NAMES[selectedActivity.source]}</span>
               </div>
 
               {/* Import Button */}
@@ -596,8 +596,8 @@ export default function SyncedActivities({ date, onImportActivity }: SyncedActiv
                   disabled={importedIds.has(selectedActivity.id)}
                   className={`w-full mt-6 py-4 rounded-xl font-bold text-lg flex items-center justify-center gap-2 ${
                     importedIds.has(selectedActivity.id)
-                      ? 'bg-green-500/30 text-green-400'
-                      : 'bg-purple-500 hover:bg-purple-600 text-white'
+                      ? 'bg-green-100 text-green-600'
+                      : 'bg-emerald-500 hover:bg-emerald-600 text-white'
                   }`}
                 >
                   {importedIds.has(selectedActivity.id) ? (

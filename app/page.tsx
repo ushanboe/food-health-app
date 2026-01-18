@@ -9,6 +9,7 @@ import { PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
 import { NutritionRing } from "@/components/ui/ProgressRing";
 import { Badge } from "@/components/ui/Badge";
+import { FloatingNutri } from "@/components/FloatingNutri";
 import {
   Camera,
   Utensils,
@@ -119,7 +120,6 @@ export default function HomePage() {
                     target={dailyGoals.calories}
                     label=""
                     size="lg"
-                    
                     color="#10B981"
                   />
                 </div>
@@ -236,6 +236,9 @@ export default function HomePage() {
           </motion.div>
         </motion.div>
       </PageContent>
+
+      {/* Floating Nutri Mascot */}
+      <FloatingNutri interval={20} duration={6} position="bottom-left" />
 
       <BottomNav />
     </PageContainer>

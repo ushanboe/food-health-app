@@ -12,6 +12,7 @@ import { BottomSheet } from "@/components/ui/Modal";
 import { EmptyState } from "@/components/ui/EmptyState";
 import { Badge } from "@/components/ui/Badge";
 import { NutritionRing } from "@/components/ui/ProgressRing";
+import { FloatingNutri } from "@/components/FloatingNutri";
 import {
   Plus,
   Camera,
@@ -49,12 +50,12 @@ export default function DiaryPage() {
   const { dailyGoals, getDailyLog, getDailyTotals, removeMealEntry } = useAppStore();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showAddSheet, setShowAddSheet] = useState(false);
-  const [selectedMeal, setSelectedMeal] = useState<string | null>(null);
+  const [selectedMealType, setSelectedMealType] = useState<string | null>(null);
 
-  const dateStr = selectedDate.toISOString().split('T')[0];
+  const dateStr = selectedDate.toISOString().split("T")[0];
   const dailyLog = getDailyLog(dateStr);
   const dailyTotals = getDailyTotals(dateStr);
-  const todayEntries = dailyLog?.meals || [];
+  const meals = dailyLog?.meals || [];
 
   const formatDate = (date: Date) => {
     const today = new Date();
@@ -66,180 +67,190 @@ export default function DiaryPage() {
     return date.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric" });
   };
 
-  const changeDate = (days: number) => {
+  const navigateDate = (direction: number) => {
     const newDate = new Date(selectedDate);
-    newDate.setDate(newDate.getDate() + days);
+    newDate.setDate(newDate.getDate() + direction);
     setSelectedDate(newDate);
   };
 
   const getMealEntries = (mealType: string) => {
-    return todayEntries.filter(
-      (entry) => entry.mealType?.toLowerCase() === mealType.toLowerCase()
-    );
+    return meals.filter((m) => m.mealType === mealType);
   };
 
   const getMealCalories = (mealType: string) => {
-    return getMealEntries(mealType).reduce((sum, entry) => sum + (entry.calories || 0), 0);
+    return getMealEntries(mealType).reduce((sum, m) => sum + (m.calories || 0), 0);
   };
+
+  const caloriesRemaining = dailyGoals.calories - dailyTotals.calories;
 
   return (
     <PageContainer>
-      {/* Header with Date Navigation */}
-      <div className="bg-white sticky top-0 z-40">
-        <div className="max-w-lg mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => changeDate(-1)}
-              className="p-2 rounded-xl hover:bg-gray-100"
-            >
-              <ChevronLeft size={24} className="text-gray-600" />
-            </motion.button>
-            <div className="text-center">
-              <h1 className="text-lg font-semibold text-gray-900">{formatDate(selectedDate)}</h1>
-              <p className="text-sm text-gray-500">
-                {selectedDate.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}
-              </p>
-            </div>
-            <motion.button
-              whileTap={{ scale: 0.95 }}
-              onClick={() => changeDate(1)}
-              className="p-2 rounded-xl hover:bg-gray-100"
-              disabled={selectedDate.toDateString() === new Date().toDateString()}
-            >
-              <ChevronRight size={24} className={selectedDate.toDateString() === new Date().toDateString() ? "text-gray-300" : "text-gray-600"} />
-            </motion.button>
-          </div>
-        </div>
-      </div>
+      <Header title="Food Diary" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">
-          {/* Nutrition Summary */}
+          {/* Date Navigation */}
+          <motion.div variants={fadeUp} className="mb-4">
+            <div className="flex items-center justify-between bg-white rounded-2xl p-3 shadow-sm">
+              <button
+                onClick={() => navigateDate(-1)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+              >
+                <ChevronLeft size={20} className="text-gray-600" />
+              </button>
+              <span className="font-semibold text-gray-900">{formatDate(selectedDate)}</span>
+              <button
+                onClick={() => navigateDate(1)}
+                className="p-2 hover:bg-gray-100 rounded-xl transition-colors"
+                disabled={selectedDate.toDateString() === new Date().toDateString()}
+              >
+                <ChevronRight
+                  size={20}
+                  className={selectedDate.toDateString() === new Date().toDateString() ? "text-gray-300" : "text-gray-600"}
+                />
+              </button>
+            </div>
+          </motion.div>
+
+          {/* Daily Summary */}
           <motion.div variants={fadeUp}>
-            <Card className="mb-6">
-              <p className="text-sm text-gray-500 font-medium mb-4">Daily Summary</p>
-              <div className="flex justify-around">
+            <Card className="mb-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-sm text-gray-500">Calories</p>
+                  <p className="text-2xl font-bold text-gray-900">
+                    {Math.round(dailyTotals.calories)}
+                    <span className="text-base font-normal text-gray-400"> / {dailyGoals.calories}</span>
+                  </p>
+                  <p className={`text-sm mt-1 ${caloriesRemaining >= 0 ? "text-emerald-600" : "text-red-500"}`}>
+                    {caloriesRemaining >= 0 ? `${Math.round(caloriesRemaining)} remaining` : `${Math.round(Math.abs(caloriesRemaining))} over`}
+                  </p>
+                </div>
                 <NutritionRing
                   current={dailyTotals.calories}
                   target={dailyGoals.calories}
-                  label="Calories"
-                  unit=""
+                  label=""
+                  size="lg"
                   color="#10B981"
                 />
-                <NutritionRing
-                  current={dailyTotals.protein}
-                  target={dailyGoals.protein}
-                  label="Protein"
-                  color="#3B82F6"
-                />
-                <NutritionRing
-                  current={dailyTotals.carbs}
-                  target={dailyGoals.carbs}
-                  label="Carbs"
-                  color="#F59E0B"
-                />
-                <NutritionRing
-                  current={dailyTotals.fat}
-                  target={dailyGoals.fat}
-                  label="Fat"
-                  color="#EF4444"
-                />
+              </div>
+
+              {/* Macro Summary */}
+              <div className="grid grid-cols-3 gap-3 mt-4 pt-4 border-t border-gray-100">
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">Protein</p>
+                  <p className="font-semibold text-gray-900">{Math.round(dailyTotals.protein)}g</p>
+                  <p className="text-xs text-gray-400">/ {dailyGoals.protein}g</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">Carbs</p>
+                  <p className="font-semibold text-gray-900">{Math.round(dailyTotals.carbs)}g</p>
+                  <p className="text-xs text-gray-400">/ {dailyGoals.carbs}g</p>
+                </div>
+                <div className="text-center">
+                  <p className="text-xs text-gray-500">Fat</p>
+                  <p className="font-semibold text-gray-900">{Math.round(dailyTotals.fat)}g</p>
+                  <p className="text-xs text-gray-400">/ {dailyGoals.fat}g</p>
+                </div>
               </div>
             </Card>
           </motion.div>
 
           {/* Meal Sections */}
           {mealTypes.map((meal) => {
+            const Icon = meal.icon;
             const entries = getMealEntries(meal.id);
             const calories = getMealCalories(meal.id);
-            const Icon = meal.icon;
 
             return (
-              <motion.div key={meal.id} variants={fadeUp} className="mb-4">
-                <div className="flex items-center justify-between mb-2 px-1">
-                  <div className="flex items-center gap-2">
-                    <Icon size={18} className="text-gray-400" />
-                    <span className="font-medium text-gray-900">{meal.label}</span>
-                    {calories > 0 && (
-                      <Badge variant="default">{calories} cal</Badge>
-                    )}
-                  </div>
-                  <button
+              <motion.div key={meal.id} variants={fadeUp} className="mb-3">
+                <Card>
+                  <div
+                    className="flex items-center justify-between cursor-pointer"
                     onClick={() => {
-                      setSelectedMeal(meal.id);
-                      setShowAddSheet(true);
-                    }}
-                    className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors"
-                  >
-                    <Plus size={20} className="text-emerald-600" />
-                  </button>
-                </div>
-
-                {entries.length === 0 ? (
-                  <Card
-                    padding="sm"
-                    className="border-2 border-dashed border-gray-200 bg-gray-50/50"
-                    onClick={() => {
-                      setSelectedMeal(meal.id);
+                      setSelectedMealType(meal.id);
                       setShowAddSheet(true);
                     }}
                   >
-                    <div className="flex items-center justify-center gap-2 py-3 text-gray-400">
-                      <Plus size={18} />
-                      <span className="text-sm">Add {meal.label.toLowerCase()}</span>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                        <Icon size={20} className="text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="font-medium text-gray-900">{meal.label}</p>
+                        <p className="text-xs text-gray-500">{meal.time}</p>
+                      </div>
                     </div>
-                  </Card>
-                ) : (
-                  <div className="space-y-2">
-                    {entries.map((entry, index) => (
-                      <Card key={entry.id || index} padding="sm">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                            <Utensils size={18} className="text-gray-500" />
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-medium text-gray-900 truncate">
-                              {entry.foodName || "Food Entry"}
-                            </p>
-                            <p className="text-sm text-gray-500">
-                              {entry.servingSize || "1 serving"} • {entry.calories} cal
-                            </p>
+                    <div className="flex items-center gap-2">
+                      {calories > 0 && (
+                        <Badge variant="default">{calories} cal</Badge>
+                      )}
+                      <Plus size={20} className="text-emerald-500" />
+                    </div>
+                  </div>
+
+                  {/* Meal Entries */}
+                  {entries.length > 0 && (
+                    <div className="mt-3 pt-3 border-t border-gray-100 space-y-2">
+                      {entries.map((entry, index) => (
+                        <div
+                          key={entry.id || index}
+                          className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-xl"
+                        >
+                          <div className="flex items-center gap-3">
+                            <Utensils size={16} className="text-gray-400" />
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">
+                                {entry.foodName || "Food Entry"}
+                              </p>
+                              <p className="text-xs text-gray-500">
+                                {entry.servingSize || "1 serving"} • {entry.calories} cal
+                              </p>
+                            </div>
                           </div>
                           <button
-                            onClick={() => entry.id && removeMealEntry(dateStr, entry.id)}
-                            className="p-2 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-500 transition-colors"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              if (entry.id) removeMealEntry(dateStr, entry.id);
+                            }}
+                            className="p-2 hover:bg-red-100 rounded-lg transition-colors"
                           >
-                            <Trash2 size={18} />
+                            <Trash2 size={16} className="text-red-500" />
                           </button>
                         </div>
-                      </Card>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </Card>
               </motion.div>
             );
           })}
+
+          {/* Empty State */}
+          {meals.length === 0 && (
+            <motion.div variants={fadeUp}>
+              <EmptyState
+                icon={<Utensils size={32} />}
+                title="No meals logged"
+                description="Start tracking your nutrition by adding your first meal"
+                action={{
+                  label: "Add Food",
+                  onClick: () => setShowAddSheet(true),
+                }}
+              />
+            </motion.div>
+          )}
         </motion.div>
       </PageContent>
-
-      {/* Floating Add Button */}
-      <motion.button
-        className="fixed bottom-24 right-4 w-14 h-14 bg-emerald-500 rounded-2xl shadow-lg flex items-center justify-center text-white"
-        whileTap={{ scale: 0.95 }}
-        onClick={() => setShowAddSheet(true)}
-      >
-        <Plus size={28} />
-      </motion.button>
 
       {/* Add Food Sheet */}
       <BottomSheet
         isOpen={showAddSheet}
         onClose={() => {
           setShowAddSheet(false);
-          setSelectedMeal(null);
+          setSelectedMealType(null);
         }}
-        title={selectedMeal ? `Add ${selectedMeal}` : "Add Food"}
+        title={selectedMealType ? `Add to ${mealTypes.find((m) => m.id === selectedMealType)?.label}` : "Add Food"}
       >
         <div className="space-y-3">
           <Card
@@ -295,6 +306,8 @@ export default function DiaryPage() {
           </Card>
         </div>
       </BottomSheet>
+
+      <FloatingNutri interval={25} duration={5} position="bottom-left" />
 
       <BottomNav />
     </PageContainer>
