@@ -20,10 +20,11 @@ import { useAppStore, Recipe } from '@/lib/store';
 export default function RecipeDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { recipes, removeRecipe } = useAppStore();
+  const { recipes, removeRecipe, updateRecipe } = useAppStore();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   useEffect(() => {
     const id = params.id as string;
@@ -51,6 +52,41 @@ export default function RecipeDetailPage() {
         console.log('Share cancelled');
       }
     }
+  };
+
+  const handleRecalculateNutrition = async () => {
+    if (!recipe) return;
+    
+    setIsRecalculating(true);
+    
+    try {
+      // Use quick estimation for ingredients
+      const ingredientsWithNutrition = quickEstimateIngredients(
+        recipe.ingredients.map(ing => ({
+          name: ing.name,
+          amount: ing.amount,
+          unit: ing.unit,
+        }))
+      );
+      
+      // Update recipe with new nutrition values
+      const updatedIngredients = recipe.ingredients.map((ing, idx) => ({
+        ...ing,
+        calories: ingredientsWithNutrition[idx]?.nutrition.calories || 0,
+        protein: ingredientsWithNutrition[idx]?.nutrition.protein || 0,
+        carbs: ingredientsWithNutrition[idx]?.nutrition.carbs || 0,
+        fat: ingredientsWithNutrition[idx]?.nutrition.fat || 0,
+      }));
+      
+      updateRecipe(recipe.id, { ingredients: updatedIngredients });
+      
+      // Update local state
+      setRecipe({ ...recipe, ingredients: updatedIngredients });
+    } catch (error) {
+      console.error('Error recalculating nutrition:', error);
+    }
+    
+    setIsRecalculating(false);
   };
 
   if (!recipe) {
@@ -243,11 +279,43 @@ export default function RecipeDetailPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5 }}
-          className="mt-6 flex gap-3"
+          className="mt-6 flex flex-col gap-3"
         >
+          {/* Recalculate Nutrition Button */}
+          {totalCalories === 0 && (
+            <button
+              onClick={handleRecalculateNutrition}
+              disabled={isRecalculating}
+              className="w-full flex items-center justify-center gap-2 p-4 bg-emerald-500/20 text-emerald-400 rounded-xl disabled:opacity-50"
+            >
+              {isRecalculating ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                <Calculator className="w-5 h-5" />
+              )}
+              <span>{isRecalculating ? 'Calculating...' : 'Calculate Nutrition'}</span>
+            </button>
+          )}
+          
+          {/* Always show recalculate option */}
+          {totalCalories > 0 && (
+            <button
+              onClick={handleRecalculateNutrition}
+              disabled={isRecalculating}
+              className="w-full flex items-center justify-center gap-2 p-4 bg-blue-500/20 text-blue-400 rounded-xl disabled:opacity-50"
+            >
+              {isRecalculating ? (
+                <RefreshCw className="w-5 h-5 animate-spin" />
+              ) : (
+                <RefreshCw className="w-5 h-5" />
+              )}
+              <span>{isRecalculating ? 'Recalculating...' : 'Recalculate Nutrition'}</span>
+            </button>
+          )}
+          
           <button
             onClick={() => setShowDeleteConfirm(true)}
-            className="flex-1 flex items-center justify-center gap-2 p-4 bg-red-500/20 text-red-400 rounded-xl"
+            className="w-full flex items-center justify-center gap-2 p-4 bg-red-500/20 text-red-400 rounded-xl"
           >
             <Trash2 className="w-5 h-5" />
             <span>Delete Recipe</span>

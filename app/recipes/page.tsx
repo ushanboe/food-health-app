@@ -21,6 +21,7 @@ import {
   Trash2,
   Star,
   Share2,
+  Calculator,
   Globe,
   Sparkles,
   BookOpen,
@@ -51,6 +52,8 @@ import {
   MealDBMealSimple,
   MealDBCategory,
 } from "@/lib/mealdb-api";
+import { extractNutrition } from "@/lib/spoonacular-api";
+import { quickEstimateIngredients, calculateIngredientsNutrition } from "@/lib/nutrition-api";
 
 type OnlineTab = "spoonacular" | "mealdb";
 
@@ -64,6 +67,7 @@ export default function RecipesPage() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showRatingModal, setShowRatingModal] = useState<string | null>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null);
+  const [isRecalculatingAll, setIsRecalculatingAll] = useState(false);
   const carouselRef = useRef<HTMLDivElement>(null);
 
   // Online search state
@@ -154,6 +158,45 @@ export default function RecipesPage() {
     }
   };
 
+  // Count recipes with zero nutrition
+  const recipesWithoutNutrition = recipes.filter(r => {
+    const total = r.ingredients.reduce((sum, ing) => sum + (ing.calories || 0), 0);
+    return total === 0;
+  });
+
+  // Batch recalculate nutrition for all recipes without nutrition data
+  const handleRecalculateAll = async () => {
+    if (recipesWithoutNutrition.length === 0) return;
+    
+    setIsRecalculatingAll(true);
+    
+    for (const recipe of recipesWithoutNutrition) {
+      try {
+        const ingredientsWithNutrition = quickEstimateIngredients(
+          recipe.ingredients.map(ing => ({
+            name: ing.name,
+            amount: ing.amount,
+            unit: ing.unit,
+          }))
+        );
+        
+        const updatedIngredients = recipe.ingredients.map((ing, idx) => ({
+          ...ing,
+          calories: ingredientsWithNutrition[idx]?.nutrition.calories || 0,
+          protein: ingredientsWithNutrition[idx]?.nutrition.protein || 0,
+          carbs: ingredientsWithNutrition[idx]?.nutrition.carbs || 0,
+          fat: ingredientsWithNutrition[idx]?.nutrition.fat || 0,
+        }));
+        
+        updateRecipe(recipe.id, { ingredients: updatedIngredients });
+      } catch (error) {
+        console.error('Error recalculating nutrition for recipe:', recipe.name, error);
+      }
+    }
+    
+    setIsRecalculatingAll(false);
+  };
+
   const nextRecipe = () => {
     if (currentIndex < filteredRecipes.length - 1) {
       setCurrentIndex(currentIndex + 1);
@@ -214,19 +257,34 @@ export default function RecipesPage() {
   const importSpoonRecipe = () => {
     if (!selectedSpoonRecipe) return;
 
+    // Extract total nutrition from Spoonacular response
+    const totalNutrition = extractNutrition(selectedSpoonRecipe);
+    const ingredientCount = selectedSpoonRecipe.extendedIngredients?.length || 1;
+    const servings = selectedSpoonRecipe.servings || 4;
+    
+    // Distribute nutrition across ingredients (rough estimate)
+    // This gives a reasonable approximation for display purposes
+    const perIngredient = {
+      calories: Math.round(totalNutrition.calories / ingredientCount),
+      protein: Math.round((totalNutrition.protein / ingredientCount) * 10) / 10,
+      carbs: Math.round((totalNutrition.carbs / ingredientCount) * 10) / 10,
+      fat: Math.round((totalNutrition.fat / ingredientCount) * 10) / 10,
+    };
+
     const newRecipe: Recipe = {
       id: Date.now().toString(),
       name: selectedSpoonRecipe.title,
-      servings: selectedSpoonRecipe.servings || 4,
+      servings: servings,
       ingredients: (selectedSpoonRecipe.extendedIngredients || []).map((ing, idx) => ({
         id: idx.toString(),
         name: ing.name || ing.original,
         amount: ing.amount || 0,
         unit: ing.unit || "",
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
+        // Use distributed nutrition from API
+        calories: perIngredient.calories,
+        protein: perIngredient.protein,
+        carbs: perIngredient.carbs,
+        fat: perIngredient.fat,
       })),
       instructions: selectedSpoonRecipe.instructions
         ? selectedSpoonRecipe.instructions.replace(/<[^>]*>/g, "")
@@ -311,19 +369,28 @@ export default function RecipesPage() {
   const importMealDBRecipe = () => {
     if (!selectedMeal) return;
 
+    // Estimate nutrition for each ingredient using our local database
+    const ingredientsWithNutrition = quickEstimateIngredients(
+      selectedMeal.ingredients.map(ing => ({
+        name: ing.name,
+        amount: 1,
+        unit: ing.measure || "",
+      }))
+    );
+
     const newRecipe: Recipe = {
       id: Date.now().toString(),
       name: selectedMeal.strMeal,
       servings: 4,
-      ingredients: selectedMeal.ingredients.map((ing, idx) => ({
+      ingredients: ingredientsWithNutrition.map((ing, idx) => ({
         id: idx.toString(),
-        name: `${ing.measure} ${ing.name}`.trim(),
-        amount: 1,
-        unit: "",
-        calories: 0,
-        protein: 0,
-        carbs: 0,
-        fat: 0,
+        name: `${selectedMeal.ingredients[idx]?.measure || ""} ${ing.name}`.trim(),
+        amount: ing.amount,
+        unit: ing.unit,
+        calories: ing.nutrition.calories,
+        protein: ing.nutrition.protein,
+        carbs: ing.nutrition.carbs,
+        fat: ing.nutrition.fat,
       })),
       instructions: selectedMeal.strInstructions || "",
       imageUrl: selectedMeal.strMealThumb,
@@ -391,6 +458,48 @@ export default function RecipesPage() {
               className="w-full pl-11 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 text-gray-900 placeholder-gray-400"
             />
           </div>
+
+          {/* Nutrition Recalculation Banner */}
+          {recipesWithoutNutrition.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="bg-amber-50 border border-amber-200 rounded-2xl p-4"
+            >
+              <div className="flex items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-amber-100 rounded-xl flex items-center justify-center">
+                    <Calculator size={20} className="text-amber-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-medium text-amber-800">
+                      {recipesWithoutNutrition.length} recipe{recipesWithoutNutrition.length > 1 ? 's' : ''} missing nutrition data
+                    </p>
+                    <p className="text-xs text-amber-600">
+                      Calculate estimated nutrition values
+                    </p>
+                  </div>
+                </div>
+                <button
+                  onClick={handleRecalculateAll}
+                  disabled={isRecalculatingAll}
+                  className="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-xl hover:bg-amber-600 transition-colors disabled:opacity-50 flex items-center gap-2"
+                >
+                  {isRecalculatingAll ? (
+                    <>
+                      <Shuffle size={16} className="animate-spin" />
+                      Calculating...
+                    </>
+                  ) : (
+                    <>
+                      <Calculator size={16} />
+                      Calculate All
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          )}
 
           {/* Downloaded Recipes Section */}
           <div>
