@@ -102,6 +102,8 @@ export default function FitnessConnections() {
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Fetch connection status from server
+  // Note: We intentionally exclude fitnessConnections from deps to prevent infinite loop
+  // The store functions are stable references from zustand
   const fetchStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/fitness/status');
@@ -110,9 +112,12 @@ export default function FitnessConnections() {
         setProviderStatuses(data.providers);
 
         // Update local store with server status
+        // Get current state directly from store to avoid stale closure
+        const currentConnections = useAppStore.getState().fitnessConnections;
+        
         for (const status of data.providers) {
           if (status.connected) {
-            const existingConnection = fitnessConnections[status.provider as FitnessProvider];
+            const existingConnection = currentConnections[status.provider as FitnessProvider];
             setFitnessConnection(status.provider, {
               provider: status.provider,
               isConnected: true,
@@ -120,7 +125,7 @@ export default function FitnessConnections() {
               lastSyncAt: existingConnection?.lastSyncAt || null,
               syncEnabled: existingConnection?.syncEnabled ?? true,
             });
-          } else if (fitnessConnections[status.provider as FitnessProvider]?.isConnected) {
+          } else if (currentConnections[status.provider as FitnessProvider]?.isConnected) {
             // Server says not connected but local says connected - clear local
             clearFitnessConnection(status.provider);
           }
@@ -131,9 +136,10 @@ export default function FitnessConnections() {
     } finally {
       setIsLoadingStatus(false);
     }
-  }, [fitnessConnections, setFitnessConnection, clearFitnessConnection]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [setFitnessConnection, clearFitnessConnection]);
 
-  // Check for OAuth callback results on mount
+  // Check for OAuth callback results on mount - runs only once
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const connectedProvider = urlParams.get('fitness_connected');
@@ -166,7 +172,8 @@ export default function FitnessConnections() {
 
     // Initial status fetch
     fetchStatus();
-  }, [fetchStatus, setFitnessSyncError]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Empty deps - run only on mount
 
   // Clear success message after 5 seconds
   useEffect(() => {
