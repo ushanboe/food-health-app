@@ -104,6 +104,7 @@ export interface RecipeIngredient {
 }
 
 export interface Recipe {
+  rating?: number; // 1-5 star rating
   id: string;
   name: string;
   ingredients: RecipeIngredient[];

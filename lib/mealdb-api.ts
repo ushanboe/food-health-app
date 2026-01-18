@@ -16,6 +16,12 @@ export interface MealDBMeal {
   ingredients: { name: string; measure: string }[];
 }
 
+export interface MealDBMealSimple {
+  idMeal: string;
+  strMeal: string;
+  strMealThumb: string;
+}
+
 export interface MealDBCategory {
   strCategory: string;
   strCategoryThumb: string;
