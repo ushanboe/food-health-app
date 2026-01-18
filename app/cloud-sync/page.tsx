@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -7,13 +6,12 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/contexts/AuthContext";
 import { useAppStore } from "@/lib/store";
 import { getSyncHistory, SyncRecord, saveSyncRecord } from "@/lib/syncStatus";
-import { fullSync, syncService } from "@/lib/supabase/sync-service";
+import { fullSync } from "@/lib/supabase/sync-service";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { Header, PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { EmptyState } from "@/components/ui/EmptyState";
 import { BottomSheet } from "@/components/ui/Modal";
 import {
   Cloud,
@@ -22,7 +20,6 @@ import {
   Check,
   AlertCircle,
   Clock,
-  Smartphone,
   Shield,
   ChevronDown,
   ChevronUp,
@@ -34,10 +31,11 @@ import {
   Scale,
   ChefHat,
   Target,
-  User,
-  Dumbbell,
-  Droplets,
-  HardDrive,
+  UserPlus,
+  Mail,
+  Lock,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 const stagger = {
@@ -165,7 +163,7 @@ const NutriSyncSuccess = ({ show, uploaded, downloaded }: { show: boolean; uploa
 
 export default function CloudSyncPage() {
   const router = useRouter();
-  const { user, isConfigured, signIn, signOut, loading } = useAuth();
+  const { user, isConfigured, signIn, signUp, signOut, loading } = useAuth();
   const { dailyLogs, recipes, weightHistory, userProfile, dailyGoals } = useAppStore();
 
   const [isSyncing, setIsSyncing] = useState(false);
@@ -175,6 +173,10 @@ export default function CloudSyncPage() {
   const [lastSyncResult, setLastSyncResult] = useState({ uploaded: 0, downloaded: 0 });
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [isSignUp, setIsSignUp] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(false);
   const [expandedRecord, setExpandedRecord] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
 
@@ -209,64 +211,116 @@ export default function CloudSyncPage() {
       const result = await fullSync();
       const duration = Date.now() - startTime;
 
-      // Record sync in history
-      saveSyncRecord({
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        type: 'full',
-        status: result.success ? "success" : "failed",
-        duration,
-        details: {
-          foodDiary: { uploaded: dataStats.diaryEntries, downloaded: result.downloaded || 0 },
-          weightEntries: { uploaded: dataStats.weightEntries, downloaded: 0 },
-          goals: { uploaded: dataStats.hasGoals, downloaded: 0 },
-          recipes: { uploaded: dataStats.recipes, downloaded: 0 },
-          profile: { synced: dataStats.hasProfile > 0 },
-        },
-      });
-
       if (result.success) {
-        setLastSyncResult({
-          uploaded: result.uploaded || 0,
-          downloaded: result.downloaded || 0,
-        });
+        const uploaded = result.uploaded || 0;
+        const downloaded = result.downloaded || 0;
+
+        // Save sync record
+        const record: SyncRecord = {
+          id: Date.now().toString(),
+          timestamp: new Date().toISOString(),
+          type: "full",
+          status: "success",
+          duration: duration,
+          details: {
+            foodDiary: { uploaded, downloaded: 0 },
+            weightEntries: { uploaded: 0, downloaded },
+            goals: { uploaded: 0, downloaded: 0 },
+            recipes: { uploaded: 0, downloaded: 0 },
+            profile: { synced: true }
+          },
+        };
+        saveSyncRecord(record);
+        setSyncHistory((prev) => [record, ...prev].slice(0, 10));
+
+        // Show celebration
+        setLastSyncResult({ uploaded, downloaded });
         setShowCelebration(true);
         setTimeout(() => setShowCelebration(false), 3000);
       } else {
-        setSyncError(result.message || "Sync failed");
+        const errorMsg = result.errors?.join(", ") || result.message || "Sync failed. Please try again.";
+        setSyncError(errorMsg);
+        const record: SyncRecord = {
+          id: Date.now().toString(),
+          timestamp: new Date().toISOString(),
+          type: "full",
+          status: "failed",
+          duration: Date.now() - startTime,
+          error: errorMsg,
+          details: {
+            foodDiary: { uploaded: 0, downloaded: 0 },
+            weightEntries: { uploaded: 0, downloaded: 0 },
+            goals: { uploaded: 0, downloaded: 0 },
+            recipes: { uploaded: 0, downloaded: 0 },
+            profile: { synced: false }
+          },
+        };
+        saveSyncRecord(record);
+        setSyncHistory((prev) => [record, ...prev].slice(0, 10));
       }
-
-      // Refresh history
-      const history = getSyncHistory();
-      setSyncHistory(history);
     } catch (error: any) {
-      setSyncError(error.message || "Sync failed");
-      saveSyncRecord({
-        id: crypto.randomUUID(),
-        timestamp: new Date().toISOString(),
-        type: 'full',
-        status: "failed",
-        duration: Date.now() - startTime,
-        details: {
-          foodDiary: { uploaded: 0, downloaded: 0 },
-          weightEntries: { uploaded: 0, downloaded: 0 },
-          goals: { uploaded: 0, downloaded: 0 },
-          recipes: { uploaded: 0, downloaded: 0 },
-          profile: { synced: false },
-        },
-        error: error.message,
-      });
+      setSyncError(error.message || "An unexpected error occurred. Please try again.");
     } finally {
       setIsSyncing(false);
     }
   };
 
-  const handleLogin = async () => {
-    const result = await signIn(email, password);
-    if (!result.error) {
-      setShowLoginModal(false);
-      setEmail("");
-      setPassword("");
+  const handleAuth = async () => {
+    if (!email || !password) {
+      setAuthError("Please enter both email and password");
+      return;
+    }
+
+    if (password.length < 6) {
+      setAuthError("Password must be at least 6 characters");
+      return;
+    }
+
+    setAuthLoading(true);
+    setAuthError(null);
+
+    try {
+      let result;
+      if (isSignUp) {
+        result = await signUp(email, password);
+        if (!result.error) {
+          setAuthError(null);
+          setShowLoginModal(false);
+          setEmail("");
+          setPassword("");
+          setIsSignUp(false);
+          // Note: User may need to verify email depending on Supabase settings
+          setSyncError("Account created! Please check your email to verify, then sign in.");
+        }
+      } else {
+        result = await signIn(email, password);
+        if (!result.error) {
+          setShowLoginModal(false);
+          setEmail("");
+          setPassword("");
+          setAuthError(null);
+        }
+      }
+
+      if (result.error) {
+        // Parse common Supabase errors into user-friendly messages
+        const errorMessage = result.error.message || "Authentication failed";
+        if (errorMessage.includes("Invalid login credentials")) {
+          setAuthError("Invalid email or password. Please try again.");
+        } else if (errorMessage.includes("Email not confirmed")) {
+          setAuthError("Please verify your email before signing in.");
+        } else if (errorMessage.includes("User already registered")) {
+          setAuthError("This email is already registered. Try signing in instead.");
+        } else if (errorMessage.includes("Password")) {
+          setAuthError("Password must be at least 6 characters.");
+        } else {
+          setAuthError(errorMessage);
+        }
+      }
+    } catch (error: any) {
+      setAuthError(error.message || "An unexpected error occurred");
+    } finally {
+      setAuthLoading(false);
     }
   };
 
@@ -282,6 +336,15 @@ export default function CloudSyncPage() {
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return `${diffDays}d ago`;
+  };
+
+  const resetAuthModal = () => {
+    setShowLoginModal(false);
+    setEmail("");
+    setPassword("");
+    setAuthError(null);
+    setIsSignUp(false);
+    setShowPassword(false);
   };
 
   if (loading) {
@@ -303,10 +366,10 @@ export default function CloudSyncPage() {
       <Header title="Cloud Backup" showBack />
 
       {/* Nutri Celebration */}
-      <NutriSyncSuccess 
-        show={showCelebration} 
-        uploaded={lastSyncResult.uploaded} 
-        downloaded={lastSyncResult.downloaded} 
+      <NutriSyncSuccess
+        show={showCelebration}
+        uploaded={lastSyncResult.uploaded}
+        downloaded={lastSyncResult.downloaded}
       />
 
       <PageContent>
@@ -340,10 +403,14 @@ export default function CloudSyncPage() {
               </div>
 
               {syncError && (
-                <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2">
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2"
+                >
                   <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-red-700">{syncError}</p>
-                </div>
+                </motion.div>
               )}
 
               <div className="mt-4 pt-4 border-t border-gray-100">
@@ -380,228 +447,325 @@ export default function CloudSyncPage() {
             </Card>
           </motion.div>
 
-          {/* Your Data Summary */}
+          {/* Data Summary */}
           <motion.div variants={fadeUp} className="mb-6">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <p className="text-sm text-gray-500 font-medium">Your Data</p>
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <HardDrive size={12} />
-                <span>{totalItems} items</span>
-              </div>
-            </div>
-
-            <Card className="bg-gradient-to-br from-emerald-50 to-teal-50 border border-emerald-100">
+            <Card>
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-emerald-500 flex items-center justify-center">
-                  <Database size={20} className="text-white" />
+                <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center">
+                  <Database size={20} className="text-blue-600" />
                 </div>
                 <div>
-                  <p className="font-semibold text-gray-900">Data to Backup</p>
+                  <h3 className="font-semibold text-gray-900">Your Data</h3>
                   <p className="text-sm text-gray-500">All your health data in one place</p>
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
-                <div className="flex items-center gap-3 p-3 bg-white/70 rounded-xl">
-                  <div className="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center">
-                    <Utensils size={16} className="text-orange-600" />
-                  </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <Utensils size={18} className="text-orange-500" />
                   <div>
-                    <p className="text-lg font-bold text-gray-900">{dataStats.diaryEntries}</p>
+                    <p className="font-semibold text-gray-900">{dataStats.diaryEntries}</p>
                     <p className="text-xs text-gray-500">Food Entries</p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white/70 rounded-xl">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <ChefHat size={16} className="text-purple-600" />
-                  </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <ChefHat size={18} className="text-emerald-500" />
                   <div>
-                    <p className="text-lg font-bold text-gray-900">{dataStats.recipes}</p>
+                    <p className="font-semibold text-gray-900">{dataStats.recipes}</p>
                     <p className="text-xs text-gray-500">Recipes</p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white/70 rounded-xl">
-                  <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                    <Scale size={16} className="text-blue-600" />
-                  </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <Scale size={18} className="text-purple-500" />
                   <div>
-                    <p className="text-lg font-bold text-gray-900">{dataStats.weightEntries}</p>
+                    <p className="font-semibold text-gray-900">{dataStats.weightEntries}</p>
                     <p className="text-xs text-gray-500">Weight Logs</p>
                   </div>
                 </div>
-
-                <div className="flex items-center gap-3 p-3 bg-white/70 rounded-xl">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center">
-                    <Target size={16} className="text-emerald-600" />
-                  </div>
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+                  <Target size={18} className="text-blue-500" />
                   <div>
-                    <p className="text-lg font-bold text-gray-900">{dataStats.hasGoals ? "Set" : "—"}</p>
+                    <p className="font-semibold text-gray-900">{dataStats.hasGoals ? "Set" : "Not Set"}</p>
                     <p className="text-xs text-gray-500">Goals</p>
                   </div>
                 </div>
               </div>
 
               {!isConnected && totalItems > 0 && (
-                <div className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2">
-                  <AlertCircle size={16} className="text-amber-500 flex-shrink-0 mt-0.5" />
+                <motion.div 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-xl flex items-start gap-2"
+                >
+                  <AlertCircle size={18} className="text-amber-500 flex-shrink-0 mt-0.5" />
                   <p className="text-sm text-amber-700">
-                    You have <strong>{totalItems} items</strong> not backed up! Sign in to protect your data.
+                    You have {totalItems} items not backed up. Sign in to protect your data!
                   </p>
+                </motion.div>
+              )}
+            </Card>
+          </motion.div>
+
+          {/* Sync History */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <Card>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-xl bg-purple-100 flex items-center justify-center">
+                  <Clock size={20} className="text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Sync History</h3>
+                  <p className="text-sm text-gray-500">
+                    {syncHistory.length > 0
+                      ? `${syncHistory.length} sync${syncHistory.length > 1 ? "s" : ""} recorded`
+                      : "No syncs yet"}
+                  </p>
+                </div>
+              </div>
+
+              {syncHistory.length === 0 ? (
+                <div className="text-center py-6 text-gray-400">
+                  <Cloud size={32} className="mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No sync history yet</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {syncHistory.slice(0, 5).map((record) => (
+                    <motion.div
+                      key={record.id}
+                      className="p-3 bg-gray-50 rounded-xl cursor-pointer"
+                      onClick={() =>
+                        setExpandedRecord(
+                          expandedRecord === record.id ? null : record.id
+                        )
+                      }
+                      whileTap={{ scale: 0.98 }}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          {record.status === "success" ? (
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 flex items-center justify-center">
+                              <Check size={16} className="text-emerald-600" />
+                            </div>
+                          ) : (
+                            <div className="w-8 h-8 rounded-full bg-red-100 flex items-center justify-center">
+                              <AlertCircle size={16} className="text-red-600" />
+                            </div>
+                          )}
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">
+                              {record.status === "success" ? "Sync Complete" : "Sync Failed"}
+                            </p>
+                            <p className="text-xs text-gray-500">
+                              {formatTime(record.timestamp)}
+                            </p>
+                          </div>
+                        </div>
+                        {expandedRecord === record.id ? (
+                          <ChevronUp size={18} className="text-gray-400" />
+                        ) : (
+                          <ChevronDown size={18} className="text-gray-400" />
+                        )}
+                      </div>
+
+                      <AnimatePresence>
+                        {expandedRecord === record.id && (
+                          <motion.div
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: "auto", opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            className="overflow-hidden"
+                          >
+                            <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+                              {record.error ? (
+                                <p className="text-sm text-red-600">{record.error}</p>
+                              ) : (
+                                <>
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">Duration</span>
+                                    <span className="text-gray-900">{record.duration}ms</span>
+                                  </div>
+                                  {Object.entries(record.details || {}).map(([key, value]) => (
+                                    <div key={key} className="flex justify-between text-sm">
+                                      <span className="text-gray-500 capitalize">{key.replace(/([A-Z])/g, ' $1').trim()}</span>
+                                      <span className="text-gray-900">
+                                        {key === 'profile' 
+                                          ? ((value as { synced: boolean })?.synced ? '✓ Synced' : '✗ Not synced')
+                                          : `↑${(value as { uploaded: number; downloaded: number })?.uploaded || 0} ↓${(value as { uploaded: number; downloaded: number })?.downloaded || 0}`
+                                        }
+                                      </span>
+                                    </div>
+                                  ))}
+                                </>
+                              )}
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  ))}
                 </div>
               )}
             </Card>
           </motion.div>
 
-          {/* Features */}
+          {/* Security Info */}
           <motion.div variants={fadeUp} className="mb-6">
-            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Why Backup?</p>
-            <div className="grid grid-cols-2 gap-3">
-              <Card className="text-center py-4">
-                <Smartphone size={24} className="mx-auto mb-2 text-blue-500" />
-                <p className="text-sm font-medium text-gray-900">Multi-Device</p>
-                <p className="text-xs text-gray-500">Access anywhere</p>
-              </Card>
-              <Card className="text-center py-4">
-                <Shield size={24} className="mx-auto mb-2 text-emerald-500" />
-                <p className="text-sm font-medium text-gray-900">Secure</p>
-                <p className="text-xs text-gray-500">Encrypted data</p>
-              </Card>
-              <Card className="text-center py-4">
-                <Cloud size={24} className="mx-auto mb-2 text-purple-500" />
-                <p className="text-sm font-medium text-gray-900">Auto Restore</p>
-                <p className="text-xs text-gray-500">Never lose data</p>
-              </Card>
-              <Card className="text-center py-4">
-                <RefreshCw size={24} className="mx-auto mb-2 text-orange-500" />
-                <p className="text-sm font-medium text-gray-900">Real-time</p>
-                <p className="text-xs text-gray-500">Instant sync</p>
-              </Card>
-            </div>
-          </motion.div>
-
-          {/* Sync History */}
-          <motion.div variants={fadeUp}>
-            <div className="flex items-center justify-between mb-3 px-1">
-              <p className="text-sm text-gray-500 font-medium">Sync History</p>
-              <span className="text-xs text-gray-400">{syncHistory.length} syncs</span>
-            </div>
-
-            {syncHistory.length === 0 ? (
-              <EmptyState
-                icon={<Clock size={32} />}
-                title="No sync history"
-                description={isConnected ? "Tap Sync Now to backup your data" : "Sign in to start backing up"}
-              />
-            ) : (
-              <div className="space-y-2">
-                {syncHistory.slice(0, 5).map((record) => (
-                  <Card key={record.id} padding="sm">
-                    <div
-                      className="flex items-center gap-3 cursor-pointer"
-                      onClick={() => setExpandedRecord(
-                        expandedRecord === record.id ? null : record.id
-                      )}
-                    >
-                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                        record.status === "success" ? "bg-emerald-100" : "bg-red-100"
-                      }`}>
-                        {record.status === "success" ? (
-                          <Check size={18} className="text-emerald-600" />
-                        ) : (
-                          <AlertCircle size={18} className="text-red-600" />
-                        )}
-                      </div>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">
-                          {record.status === "success" ? "Backup Complete" : "Backup Failed"}
-                        </p>
-                        <p className="text-sm text-gray-500">
-                          {formatTime(record.timestamp)}
-                        </p>
-                      </div>
-                      {expandedRecord === record.id ? (
-                        <ChevronUp size={18} className="text-gray-400" />
-                      ) : (
-                        <ChevronDown size={18} className="text-gray-400" />
-                      )}
-                    </div>
-
-                    {expandedRecord === record.id && record.details && (
-                      <motion.div
-                        initial={{ opacity: 0, height: 0 }}
-                        animate={{ opacity: 1, height: "auto" }}
-                        className="mt-3 pt-3 border-t border-gray-100"
-                      >
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          {Object.entries(record.details || {}).map(([key, value]) => (
-                            <div key={key} className="flex justify-between">
-                              <span className="text-gray-500 capitalize">
-                                {key.replace(/([A-Z])/g, ' $1').trim()}
-                              </span>
-                              <span className="text-gray-900 font-medium">{String(value)}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {record.duration && (
-                          <p className="text-xs text-gray-400 mt-2">
-                            Duration: {(record.duration / 1000).toFixed(1)}s
-                          </p>
-                        )}
-                      </motion.div>
-                    )}
-                  </Card>
-                ))}
+            <Card>
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                  <Shield size={20} className="text-emerald-600" />
+                </div>
+                <div>
+                  <h3 className="font-semibold text-gray-900">Secure & Private</h3>
+                  <p className="text-sm text-gray-500">
+                    Your data is encrypted and stored securely
+                  </p>
+                </div>
               </div>
-            )}
+            </Card>
           </motion.div>
         </motion.div>
       </PageContent>
 
-      {/* Login Modal */}
+      {/* Login/Signup Modal */}
       <BottomSheet
         isOpen={showLoginModal}
-        onClose={() => setShowLoginModal(false)}
-        title="Sign In to Backup"
+        onClose={resetAuthModal}
+        title={isSignUp ? "Create Account" : "Sign In to Backup"}
       >
-        <div className="space-y-4">
-          <div className="text-center mb-4">
-            <div className="w-16 h-16 mx-auto mb-3 bg-emerald-100 rounded-full flex items-center justify-center">
-              <Cloud size={32} className="text-emerald-600" />
+        <div className="space-y-4 pb-6">
+          {/* Header */}
+          <div className="text-center mb-2">
+            <div className={`w-16 h-16 mx-auto mb-3 rounded-full flex items-center justify-center ${
+              isSignUp ? "bg-blue-100" : "bg-emerald-100"
+            }`}>
+              {isSignUp ? (
+                <UserPlus size={32} className="text-blue-600" />
+              ) : (
+                <Cloud size={32} className="text-emerald-600" />
+              )}
             </div>
             <p className="text-sm text-gray-500">
-              Sign in to securely backup your {totalItems} items to the cloud
+              {isSignUp 
+                ? "Create an account to backup your data"
+                : `Sign in to securely backup your ${totalItems} items`
+              }
             </p>
           </div>
 
+          {/* Error Message */}
+          <AnimatePresence>
+            {authError && (
+              <motion.div
+                initial={{ opacity: 0, y: -10, height: 0 }}
+                animate={{ opacity: 1, y: 0, height: "auto" }}
+                exit={{ opacity: 0, y: -10, height: 0 }}
+                className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-start gap-2"
+              >
+                <AlertCircle size={18} className="text-red-500 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{authError}</p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Email Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder="your@email.com"
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-            />
+            <div className="relative">
+              <Mail size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => {
+                  setEmail(e.target.value);
+                  setAuthError(null);
+                }}
+                placeholder="your@email.com"
+                className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                autoComplete="email"
+              />
+            </div>
           </div>
+
+          {/* Password Input */}
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••"
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
-            />
+            <div className="relative">
+              <Lock size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type={showPassword ? "text" : "password"}
+                value={password}
+                onChange={(e) => {
+                  setPassword(e.target.value);
+                  setAuthError(null);
+                }}
+                placeholder="••••••••"
+                className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {isSignUp && (
+              <p className="text-xs text-gray-500 mt-1">Must be at least 6 characters</p>
+            )}
           </div>
-          <Button fullWidth onClick={handleLogin}>
-            <LogIn size={18} className="mr-2" />
-            Sign In & Backup
+
+          {/* Submit Button */}
+          <Button 
+            fullWidth 
+            onClick={handleAuth}
+            disabled={authLoading || !email || !password}
+          >
+            {authLoading ? (
+              <>
+                <RefreshCw size={18} className="animate-spin mr-2" />
+                {isSignUp ? "Creating Account..." : "Signing In..."}
+              </>
+            ) : (
+              <>
+                {isSignUp ? (
+                  <><UserPlus size={18} className="mr-2" />Create Account</>
+                ) : (
+                  <><LogIn size={18} className="mr-2" />Sign In & Backup</>
+                )}
+              </>
+            )}
           </Button>
-          <p className="text-center text-sm text-gray-500">
-            Don't have an account?{" "}
-            <button className="text-emerald-600 font-medium">Sign Up</button>
+
+          {/* Toggle Sign In / Sign Up */}
+          <p className="text-center text-sm text-gray-500 pb-4">
+            {isSignUp ? (
+              <>Already have an account?{" "}
+                <button 
+                  onClick={() => {
+                    setIsSignUp(false);
+                    setAuthError(null);
+                  }}
+                  className="text-emerald-600 font-medium hover:underline"
+                >
+                  Sign In
+                </button>
+              </>
+            ) : (
+              <>Don't have an account?{" "}
+                <button 
+                  onClick={() => {
+                    setIsSignUp(true);
+                    setAuthError(null);
+                  }}
+                  className="text-emerald-600 font-medium hover:underline"
+                >
+                  Sign Up
+                </button>
+              </>
+            )}
           </p>
         </div>
       </BottomSheet>
