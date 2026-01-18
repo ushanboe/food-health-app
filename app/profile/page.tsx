@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/contexts/AuthContext";
 import {
   User,
+  ChefHat,
   Target,
   Scale,
   TrendingUp,
@@ -146,6 +147,13 @@ export default function ProfilePage() {
                 subtitle="View your journey"
                 showArrow
                 onClick={() => router.push("/progress")}
+              />
+              <ListItem
+                icon={<ChefHat size={20} />}
+                title="My Recipes"
+                subtitle="Saved recipes and meals"
+                showArrow
+                onClick={() => router.push("/recipes")}
               />
             </ListGroup>
           </motion.div>
