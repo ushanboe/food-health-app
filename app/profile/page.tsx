@@ -18,17 +18,13 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
+import { useAuth } from "@/lib/auth-context";
 
 export default function ProfilePage() {
   const router = useRouter();
   const { analysisHistory, userProfile, aiSettings, clearHistory } = useAppStore();
-  const [cloudConnected, setCloudConnected] = useState(false);
-
-  useEffect(() => {
-    const url = localStorage.getItem('supabase_url');
-    const key = localStorage.getItem('supabase_key');
-    setCloudConnected(!!(url && key));
-  }, []);
+    const { user, isConfigured } = useAuth();
+  const cloudConnected = !!(user && isConfigured);
 
   const totalScans = analysisHistory.length;
   const avgScore = totalScans > 0
