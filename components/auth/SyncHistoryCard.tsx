@@ -255,14 +255,14 @@ export default function SyncHistoryCard() {
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <Upload className="w-3 h-3 text-green-500" />
                     <span>
-                      {Object.values(record.details).reduce(
+                      {Object.values(record.details || {}).reduce(
                         (sum, d) => sum + (typeof d === 'object' && 'uploaded' in d ? d.uploaded : 0),
                         0
                       )}
                     </span>
                     <Download className="w-3 h-3 text-blue-500 ml-2" />
                     <span>
-                      {Object.values(record.details).reduce(
+                      {Object.values(record.details || {}).reduce(
                         (sum, d) => sum + (typeof d === 'object' && 'downloaded' in d ? d.downloaded : 0),
                         0
                       )}
