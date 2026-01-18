@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/Card";
 import { ListItem } from "@/components/ui/ListItem";
 import FitnessConnections from "@/components/fitness/FitnessConnections";
 import {
+  Key,
   Bell,
   Moon,
   Globe,
@@ -97,7 +98,21 @@ export default function SettingsPage() {
             <FitnessConnections />
           </motion.div>
 
-          {/* Data & Privacy Section */}
+                    {/* API Configuration */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Developer</p>
+            <Card padding="none">
+              <ListItem
+                icon={<Key size={20} className="text-purple-500" />}
+                title="API Settings"
+                subtitle="Configure API keys for AI & sync"
+                showArrow
+                onClick={() => router.push("/settings/api")}
+              />
+            </Card>
+          </motion.div>
+
+{/* Data & Privacy Section */}
           <motion.div variants={fadeUp} className="mb-6">
             <p className="text-sm text-gray-500 font-medium mb-3 px-1">Data & Privacy</p>
             <Card padding="none">
