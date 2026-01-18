@@ -18,7 +18,7 @@ import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 import { useState, useEffect } from "react";
-import { useAuth } from "@/lib/auth-context";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function ProfilePage() {
   const router = useRouter();
