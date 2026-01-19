@@ -1,51 +1,22 @@
 "use client";
 
-import { Suspense, useRef } from "react";
-import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, useGLTF, Environment, Center, Html } from "@react-three/drei";
+import dynamic from "next/dynamic";
 import { motion } from "framer-motion";
 import { Header, PageContainer, PageContent } from "@/components/ui/Header";
-import * as THREE from "three";
 
-function LoadingSpinner() {
-  return (
-    <Html center>
+// Dynamically import the 3D scene to avoid SSR issues with Three.js
+const MascotScene = dynamic(() => import("./MascotScene"), {
+  ssr: false,
+  loading: () => (
+    <div className="h-[70vh] w-full bg-gradient-to-b from-emerald-50 to-white flex items-center justify-center">
       <div className="flex flex-col items-center gap-3">
         <div className="w-12 h-12 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
         <p className="text-gray-600 font-medium">Loading 3D Model...</p>
         <p className="text-gray-400 text-sm">This may take a moment (54MB)</p>
       </div>
-    </Html>
-  );
-}
-
-function Mascot() {
-  const { scene } = useGLTF("/mascot.glb");
-  const meshRef = useRef<THREE.Group>(null);
-
-  // Optional: Add gentle animation
-  useFrame((state) => {
-    if (meshRef.current) {
-      // Gentle floating motion
-      meshRef.current.position.y = Math.sin(state.clock.elapsedTime * 0.5) * 0.1;
-      // Slow rotation
-      meshRef.current.rotation.y = state.clock.elapsedTime * 0.2;
-    }
-  });
-
-  return (
-    <Center>
-      <primitive 
-        ref={meshRef}
-        object={scene} 
-        scale={1}
-      />
-    </Center>
-  );
-}
-
-// Preload the model
-useGLTF.preload("/mascot.glb");
+    </div>
+  ),
+});
 
 export default function MascotTestPage() {
   return (
@@ -56,29 +27,9 @@ export default function MascotTestPage() {
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="h-[70vh] w-full bg-gradient-to-b from-emerald-50 to-white"
+          className="h-[70vh] w-full"
         >
-          <Canvas
-            camera={{ position: [0, 0, 5], fov: 50 }}
-            gl={{ antialias: true }}
-          >
-            <ambientLight intensity={0.6} />
-            <directionalLight position={[10, 10, 5]} intensity={1} />
-            <directionalLight position={[-10, -10, -5]} intensity={0.4} />
-            
-            <Suspense fallback={<LoadingSpinner />}>
-              <Mascot />
-              <Environment preset="city" />
-            </Suspense>
-            
-            <OrbitControls 
-              enablePan={false}
-              enableZoom={true}
-              minDistance={2}
-              maxDistance={10}
-              autoRotate={false}
-            />
-          </Canvas>
+          <MascotScene />
         </motion.div>
 
         <div className="p-4">
