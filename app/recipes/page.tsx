@@ -297,7 +297,7 @@ export default function RecipesPage() {
     addRecipe(newRecipe);
     // Navigate to show the newly saved recipe
     // Since recipes are sorted by rating then date, find where this recipe will be
-    const updatedRecipes = [...recipes, newRecipe].sort((a, b) => {
+    const updatedRecipes = [...(recipes || []), newRecipe].sort((a, b) => {
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingB !== ratingA) return ratingB - ratingA;
@@ -411,7 +411,7 @@ export default function RecipesPage() {
 
     addRecipe(newRecipe);
     // Navigate to show the newly saved recipe
-    const updatedRecipes = [...recipes, newRecipe].sort((a, b) => {
+    const updatedRecipes = [...(recipes || []), newRecipe].sort((a, b) => {
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingB !== ratingA) return ratingB - ratingA;
