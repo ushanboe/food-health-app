@@ -5,7 +5,7 @@ import { motion } from "framer-motion";
 import { Header, PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { useAppStore } from "@/lib/store";
+import { useAppStore, Recipe, RecipeIngredient } from "@/lib/store";
 import {
   Download,
   FileJson,
@@ -126,6 +126,19 @@ export default function ExportDataPage() {
     setExported(false);
   };
 
+  // Calculate total nutrition from recipe ingredients
+  const calculateRecipeNutrition = (ingredients: RecipeIngredient[]) => {
+    return ingredients.reduce(
+      (totals, ing) => ({
+        calories: totals.calories + (ing.calories || 0),
+        protein: totals.protein + (ing.protein || 0),
+        carbs: totals.carbs + (ing.carbs || 0),
+        fat: totals.fat + (ing.fat || 0),
+      }),
+      { calories: 0, protein: 0, carbs: 0, fat: 0 }
+    );
+  };
+
   const exportData = async (format: "json" | "csv") => {
     setExporting(true);
     setExported(false);
@@ -193,57 +206,34 @@ export default function ExportDataPage() {
         // RECIPES
         if (selectedCategories.includes("recipes") && recipes) {
           lines.push("=== RECIPES ===");
-          lines.push("Name,Servings,Prep Time,Cook Time,Total Time,Calories,Protein (g),Carbs (g),Fat (g),Source,Rating,Cuisine,Diet,Ingredients,Instructions");
-          (recipes as any[]).forEach((recipe) => {
-            // Format ingredients
-            let ingredientsList = "";
-            if (recipe.ingredients) {
-              if (Array.isArray(recipe.ingredients)) {
-                ingredientsList = recipe.ingredients
-                  .map((ing: any) => {
-                    if (typeof ing === "string") return ing;
-                    if (ing.original) return ing.original;
-                    if (ing.name) return `${ing.amount || ""} ${ing.unit || ""} ${ing.name}`.trim();
-                    return JSON.stringify(ing);
-                  })
-                  .join("; ");
-              }
-            }
+          lines.push("Name,Servings,Total Calories,Total Protein (g),Total Carbs (g),Total Fat (g),Rating,Source,Ingredients,Instructions");
+          (recipes as Recipe[]).forEach((recipe) => {
+            // Calculate total nutrition from ingredients
+            const nutrition = calculateRecipeNutrition(recipe.ingredients || []);
+            
+            // Format ingredients as semicolon-separated list
+            const ingredientsList = (recipe.ingredients || []).map((ing) => {
+              const amount = ing.amount ? `${ing.amount}` : "";
+              const unit = ing.unit || "";
+              const name = ing.name || "";
+              return `${amount} ${unit} ${name}`.trim();
+            }).join("; ");
 
-            // Format instructions
-            let instructionsList = "";
-            if (recipe.instructions) {
-              if (typeof recipe.instructions === "string") {
-                instructionsList = recipe.instructions.replace(/\n/g, " ");
-              } else if (Array.isArray(recipe.instructions)) {
-                instructionsList = recipe.instructions
-                  .map((inst: any, idx: number) => {
-                    if (typeof inst === "string") return `${idx + 1}. ${inst}`;
-                    if (inst.step) return `${idx + 1}. ${inst.step}`;
-                    return `${idx + 1}. ${JSON.stringify(inst)}`;
-                  })
-                  .join(" ");
-              }
-            }
-
-            const nutrition = recipe.nutrition || {};
+            // Format instructions - clean up and truncate if very long
+            let instructionsText = recipe.instructions || "";
+            instructionsText = instructionsText.replace(/\n/g, " ").replace(/\s+/g, " ").trim();
 
             lines.push([
-              escapeCSV(recipe.name || recipe.title),
+              escapeCSV(recipe.name),
               escapeCSV(recipe.servings || 1),
-              escapeCSV(recipe.prepTime || recipe.preparationMinutes || ""),
-              escapeCSV(recipe.cookTime || recipe.cookingMinutes || ""),
-              escapeCSV(recipe.readyInMinutes || recipe.totalTime || ""),
-              escapeCSV(nutrition.calories || recipe.calories || ""),
-              escapeCSV(nutrition.protein || recipe.protein || ""),
-              escapeCSV(nutrition.carbs || recipe.carbs || ""),
-              escapeCSV(nutrition.fat || recipe.fat || ""),
-              escapeCSV(recipe.source || recipe.sourceName || recipe.creditsText || ""),
+              escapeCSV(Math.round(nutrition.calories)),
+              escapeCSV(Math.round(nutrition.protein)),
+              escapeCSV(Math.round(nutrition.carbs)),
+              escapeCSV(Math.round(nutrition.fat)),
               escapeCSV(recipe.rating || ""),
-              escapeCSV(Array.isArray(recipe.cuisines) ? recipe.cuisines.join("; ") : (recipe.cuisine || "")),
-              escapeCSV(Array.isArray(recipe.diets) ? recipe.diets.join("; ") : (recipe.diet || "")),
+              escapeCSV(recipe.source || ""),
               escapeCSV(ingredientsList),
-              escapeCSV(instructionsList),
+              escapeCSV(instructionsText),
             ].join(","));
           });
           lines.push("");
@@ -252,15 +242,13 @@ export default function ExportDataPage() {
         // WEIGHT HISTORY
         if (selectedCategories.includes("weight") && weightHistory) {
           lines.push("=== WEIGHT HISTORY ===");
-          lines.push("Date,Weight (kg),Weight (lbs),BMI,Body Fat %,Notes");
+          lines.push("Date,Weight (kg),Weight (lbs),Notes");
           (weightHistory as any[]).forEach((entry) => {
             const weightLbs = entry.weight ? (entry.weight * 2.20462).toFixed(1) : "";
             lines.push([
               escapeCSV(entry.date),
               escapeCSV(entry.weight),
               escapeCSV(weightLbs),
-              escapeCSV(entry.bmi || ""),
-              escapeCSV(entry.bodyFat || ""),
               escapeCSV(entry.note || entry.notes || ""),
             ].join(","));
           });
@@ -297,7 +285,6 @@ export default function ExportDataPage() {
             lines.push(`Carbs (g),${escapeCSV(dailyGoals.carbs)}`);
             lines.push(`Fat (g),${escapeCSV(dailyGoals.fat)}`);
             lines.push(`Water (ml),${escapeCSV(dailyGoals.water)}`);
-            lines.push(`Fiber (g),${escapeCSV((dailyGoals as any).fiber || "")}`);
           }
           lines.push("");
 
@@ -306,11 +293,9 @@ export default function ExportDataPage() {
           if (userStats) {
             lines.push(`Height (cm),${escapeCSV(userStats.height)}`);
             lines.push(`Current Weight (kg),${escapeCSV(userStats.weight)}`);
-            lines.push(`Target Weight (kg),${escapeCSV((userStats as any).targetWeight || "")}`);
             lines.push(`Age,${escapeCSV(userStats.age)}`);
             lines.push(`Gender,${escapeCSV(userStats.gender)}`);
             lines.push(`Activity Level,${escapeCSV(userStats.activityLevel)}`);
-            lines.push(`Goal,${escapeCSV((userStats as any).goal || "")}`);
           }
         }
 
@@ -479,7 +464,7 @@ export default function ExportDataPage() {
               <p className="text-sm text-gray-600">
                 <strong>JSON format</strong> is best for backups and importing into other apps. Contains complete data structure.
                 <br /><br />
-                <strong>CSV format</strong> can be opened in Excel or Google Sheets. Includes full details for recipes (ingredients, instructions, nutrition), meals, weight history, and more.
+                <strong>CSV format</strong> can be opened in Excel or Google Sheets. Includes full recipe details with ingredients, instructions, and calculated nutrition totals.
               </p>
             </Card>
           </motion.div>
