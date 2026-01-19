@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import { ArrowLeft, Share2, BookmarkPlus, AlertCircle, Barcode } from "lucide-react";
 import { useAppStore, MealType } from "@/lib/store";
 import { analyzeFood, getHealthierAlternatives } from "@/lib/ai-vision";
-import { getNutritionByName, getOpenFoodFactsNutrition, NutritionData } from "@/lib/nutrition-api";
+import { getNutritionByName, getOpenFoodFactsNutrition, NutritionData, ExtendedNutritionData } from "@/lib/nutrition-api";
 import { HealthScore } from "@/components/HealthScore";
 import { NutritionCard } from "@/components/NutritionCard";
 import { AlternativesCard } from "@/components/AlternativesCard";
@@ -117,9 +117,9 @@ export default function AnalysisPage() {
         protein: nutrition.protein,
         carbs: nutrition.carbs,
         fat: nutrition.fat,
-        fiber: nutrition.fiber,
-        sugar: nutrition.sugar,
-        sodium: nutrition.sodium,
+        fiber: nutrition.fiber || 0,
+        sugar: nutrition.sugar || 0,
+        sodium: nutrition.sodium || 0,
         nutriScore: nutrition.nutriScore,
       });
       const verdict = getVerdict(healthScore);
@@ -185,9 +185,9 @@ export default function AnalysisPage() {
         protein: nutrition.protein,
         carbs: nutrition.carbs,
         fat: nutrition.fat,
-        fiber: nutrition.fiber,
-        sugar: nutrition.sugar,
-        sodium: nutrition.sodium,
+        fiber: nutrition.fiber || 0,
+        sugar: nutrition.sugar || 0,
+        sodium: nutrition.sodium || 0,
       });
       const verdict = getVerdict(healthScore);
       const alternatives = getHealthierAlternatives(food.name);
@@ -245,9 +245,9 @@ export default function AnalysisPage() {
           protein: analysisResult.nutrition.protein,
           carbs: analysisResult.nutrition.carbs,
           fat: analysisResult.nutrition.fat,
-          fiber: analysisResult.nutrition.fiber,
-          sugar: analysisResult.nutrition.sugar,
-          sodium: analysisResult.nutrition.sodium,
+          fiber: analysisResult.nutrition.fiber || 0,
+          sugar: analysisResult.nutrition.sugar || 0,
+          sodium: analysisResult.nutrition.sodium || 0,
           servingSize: analysisResult.nutrition.servingSize,
           verdict: analysisResult.verdict,
           description: analysisResult.description || "",
@@ -454,11 +454,9 @@ export default function AnalysisPage() {
                             foodName: result.foodName,
                             calories: result.nutrition.calories || 0,
                             protein: result.nutrition.protein || 0,
-                            carbs: result.nutrition.carbohydrates || result.nutrition.carbs || 0,
+                            carbs: result.nutrition.carbs || 0,
                             fat: result.nutrition.fat || 0,
-                            fiber: result.nutrition.fiber,
-                            sugar: result.nutrition.sugar,
-                            servingSize: result.nutrition.servingSize,
+                            servingSize: undefined,
                             imageData: displayImage || undefined,
                             timestamp: new Date(),
                             sourceAnalysisId: result.barcode || undefined,

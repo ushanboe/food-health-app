@@ -169,7 +169,7 @@ export function estimateNutritionFromName(ingredientName: string): NutritionData
     'carrot': { calories: 41, protein: 0.9, carbs: 10, fat: 0.2 },
     'broccoli': { calories: 55, protein: 3.7, carbs: 11, fat: 0.6 },
     'spinach': { calories: 23, protein: 2.9, carbs: 3.6, fat: 0.4 },
-    'pepper': { calories: 31, protein: 1, carbs: 6, fat: 0.3 },
+    'bell pepper': { calories: 31, protein: 1, carbs: 6, fat: 0.3 },
     'mushroom': { calories: 22, protein: 3.1, carbs: 3.3, fat: 0.3 },
     'lettuce': { calories: 15, protein: 1.4, carbs: 2.9, fat: 0.2 },
     'cucumber': { calories: 16, protein: 0.7, carbs: 3.6, fat: 0.1 },
@@ -233,3 +233,80 @@ export function quickEstimateIngredients(
     nutrition: estimateNutritionFromName(ing.name),
   }));
 }
+
+// Extended nutrition data for food analysis
+export interface ExtendedNutritionData extends NutritionData {
+  foodName: string;
+  brandName?: string;
+  servingSize?: string;
+  fiber?: number;
+  sugar?: number;
+  sodium?: number;
+  nutriScore?: string;
+  novaGroup?: number;
+}
+
+// Open Food Facts API for barcode scanning
+export async function getOpenFoodFactsNutrition(barcode: string): Promise<ExtendedNutritionData | null> {
+  try {
+    const response = await fetch(
+      `https://world.openfoodfacts.org/api/v0/product/${barcode}.json`,
+      { signal: AbortSignal.timeout(10000) }
+    );
+
+    if (!response.ok) return null;
+
+    const data = await response.json();
+
+    if (data.status !== 1 || !data.product) return null;
+
+    const product = data.product;
+    const nutrients = product.nutriments || {};
+
+    return {
+      foodName: product.product_name || 'Unknown Product',
+      brandName: product.brands,
+      servingSize: product.serving_size,
+      calories: Math.round(nutrients['energy-kcal_100g'] || nutrients['energy-kcal'] || 0),
+      protein: Math.round((nutrients.proteins_100g || nutrients.proteins || 0) * 10) / 10,
+      carbs: Math.round((nutrients.carbohydrates_100g || nutrients.carbohydrates || 0) * 10) / 10,
+      fat: Math.round((nutrients.fat_100g || nutrients.fat || 0) * 10) / 10,
+      fiber: Math.round((nutrients.fiber_100g || nutrients.fiber || 0) * 10) / 10,
+      sugar: Math.round((nutrients.sugars_100g || nutrients.sugars || 0) * 10) / 10,
+      sodium: Math.round((nutrients.sodium_100g || nutrients.sodium || 0) * 1000), // Convert to mg
+      nutriScore: product.nutriscore_grade?.toUpperCase(),
+      novaGroup: product.nova_group,
+    };
+  } catch (error) {
+    console.error('Open Food Facts error:', error);
+    return null;
+  }
+}
+
+// Get nutrition by food name - tries USDA first, then falls back to estimates
+export async function getNutritionByName(foodName: string): Promise<ExtendedNutritionData> {
+  // Try USDA first
+  const usdaResult = await searchUSDAFood(foodName);
+
+  if (usdaResult) {
+    return {
+      ...usdaResult,
+      foodName,
+      fiber: 0,
+      sugar: 0,
+      sodium: 0,
+    };
+  }
+
+  // Fall back to local estimates
+  const estimate = estimateNutritionFromName(foodName);
+
+  return {
+    ...estimate,
+    foodName,
+    fiber: 0,
+    sugar: 0,
+    sodium: 0,
+  };
+}
+

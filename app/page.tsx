@@ -7,7 +7,7 @@ import { useAppStore } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
-import { NutritionRing } from "@/components/ui/ProgressRing";
+import { MacroDonut, FitnessDonut } from "@/components/ui/DonutChart";
 import { Badge } from "@/components/ui/Badge";
 import { FloatingNutri } from "@/components/FloatingNutri";
 import {
@@ -17,15 +17,10 @@ import {
   Target,
   ChevronRight,
   ChevronLeft,
-  Sparkles,
-  Flame,
-  Droplets,
   ChefHat,
   Cloud,
+  Flame,
   Dumbbell,
-  Activity,
-  Timer,
-  Zap,
 } from "lucide-react";
 
 const stagger = {
@@ -62,6 +57,16 @@ const exerciseIcons: Record<string, string> = {
   boxing: "🥊",
 };
 
+// Activity colors for donut chart
+const activityColors = [
+  "#10B981", // emerald
+  "#3B82F6", // blue
+  "#8B5CF6", // violet
+  "#F59E0B", // amber
+  "#EC4899", // pink
+  "#06B6D4", // cyan
+];
+
 // Get array of last N days
 function getLastNDays(n: number): string[] {
   const days: string[] = [];
@@ -80,32 +85,28 @@ function formatDateLabel(dateStr: string): string {
   today.setHours(0, 0, 0, 0);
   const yesterday = new Date(today);
   yesterday.setDate(yesterday.getDate() - 1);
-  
+
   if (dateStr === today.toISOString().split('T')[0]) return "Today";
   if (dateStr === yesterday.toISOString().split('T')[0]) return "Yesterday";
-  
+
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
 
 export default function HomePage() {
   const router = useRouter();
   const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog } = useAppStore();
-  
+
   // Swipeable days state
   const days = useMemo(() => getLastNDays(7), []);
   const [currentDayIndex, setCurrentDayIndex] = useState(0);
   const [direction, setDirection] = useState(0);
-  
+
   const currentDate = days[currentDayIndex];
   const dailyTotals = getDailyTotals(currentDate);
   const dailyLog = getDailyLog(currentDate);
   const fitnessLog = getDailyFitnessLog(currentDate);
   const todayEntries = dailyLog?.meals || [];
   const exercises = fitnessLog?.exercises || [];
-
-  const calorieProgress = dailyGoals.calories > 0
-    ? (dailyTotals.calories / dailyGoals.calories) * 100
-    : 0;
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -144,6 +145,14 @@ export default function HomePage() {
   // Calculate total exercise stats for the day
   const totalExerciseCalories = exercises.reduce((sum, e) => sum + e.caloriesBurned, 0);
   const totalExerciseDuration = exercises.reduce((sum, e) => sum + e.duration, 0);
+
+  // Prepare fitness activities for donut chart
+  const fitnessActivities = exercises.map((e, index) => ({
+    name: e.exerciseName,
+    calories: e.caloriesBurned,
+    duration: e.duration,
+    color: activityColors[index % activityColors.length],
+  }));
 
   const quickActions = [
     {
@@ -247,7 +256,7 @@ export default function HomePage() {
               >
                 <ChevronLeft size={20} />
               </button>
-              
+
               <div className="flex items-center gap-2">
                 <motion.span
                   key={currentDate}
@@ -274,7 +283,7 @@ export default function HomePage() {
                   ))}
                 </div>
               </div>
-              
+
               <button
                 onClick={goToNextDay}
                 disabled={currentDayIndex <= 0}
@@ -310,129 +319,68 @@ export default function HomePage() {
                   className="cursor-grab active:cursor-grabbing"
                 >
                   <Card className="bg-gradient-to-br from-white to-gray-50 border border-gray-100 shadow-lg">
-                    {/* Nutrition Section */}
-                    <div className="flex items-center justify-between mb-4">
-                      <div>
-                        <p className="text-sm text-gray-500">Nutrition</p>
-                        <p className="text-2xl font-bold text-gray-900">
-                          {Math.round(dailyTotals.calories)}
-                          <span className="text-base font-normal text-gray-400"> / {dailyGoals.calories} cal</span>
-                        </p>
+                    {/* Two Column Layout for Charts */}
+                    <div className="grid grid-cols-2 gap-4">
+                      {/* Nutrition Donut */}
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Flame size={16} className="text-emerald-500" />
+                          <span className="text-sm font-semibold text-gray-700">Nutrition</span>
+                        </div>
+                        <MacroDonut
+                          protein={Math.round(dailyTotals.protein)}
+                          carbs={Math.round(dailyTotals.carbs)}
+                          fat={Math.round(dailyTotals.fat)}
+                          calories={Math.round(dailyTotals.calories)}
+                          targetCalories={dailyGoals.calories}
+                          size={130}
+                          className="flex-col"
+                        />
                       </div>
-                      <div className="relative">
-                        <NutritionRing
-                          current={dailyTotals.calories}
-                          target={dailyGoals.calories}
-                          label=""
-                          size="lg"
-                          color="#10B981"
+
+                      {/* Fitness Donut */}
+                      <div className="flex flex-col items-center">
+                        <div className="flex items-center gap-2 mb-3">
+                          <Dumbbell size={16} className="text-emerald-500" />
+                          <span className="text-sm font-semibold text-gray-700">Fitness</span>
+                        </div>
+                        <FitnessDonut
+                          activities={fitnessActivities}
+                          totalCalories={totalExerciseCalories}
+                          totalDuration={totalExerciseDuration}
+                          size={130}
+                          className="flex-col"
                         />
                       </div>
                     </div>
 
-                    {/* Macro Progress */}
-                    <div className="grid grid-cols-3 gap-4 pb-4 border-b border-gray-100">
-                      <div className="text-center">
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                          <Flame size={14} className="text-blue-500" />
-                          <span className="text-xs text-gray-500">Protein</span>
-                        </div>
-                        <p className="font-semibold text-gray-900">
-                          {Math.round(dailyTotals.protein)}g
-                        </p>
-                        <p className="text-xs text-gray-400">/ {dailyGoals.protein}g</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                          <Sparkles size={14} className="text-amber-500" />
-                          <span className="text-xs text-gray-500">Carbs</span>
-                        </div>
-                        <p className="font-semibold text-gray-900">
-                          {Math.round(dailyTotals.carbs)}g
-                        </p>
-                        <p className="text-xs text-gray-400">/ {dailyGoals.carbs}g</p>
-                      </div>
-                      <div className="text-center">
-                        <div className="flex items-center justify-center gap-1 mb-1">
-                          <Droplets size={14} className="text-red-500" />
-                          <span className="text-xs text-gray-500">Fat</span>
-                        </div>
-                        <p className="font-semibold text-gray-900">
-                          {Math.round(dailyTotals.fat)}g
-                        </p>
-                        <p className="text-xs text-gray-400">/ {dailyGoals.fat}g</p>
-                      </div>
-                    </div>
-
-                    {/* Fitness Activities Section */}
-                    <div className="pt-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <p className="text-sm text-gray-500">Fitness</p>
-                          <p className="text-lg font-bold text-gray-900">
-                            {exercises.length} <span className="text-sm font-normal text-gray-400">activities</span>
-                          </p>
-                        </div>
-                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-100 to-green-100 flex items-center justify-center">
-                          <Activity size={24} className="text-emerald-600" />
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-2">
-                          <Dumbbell size={16} className="text-emerald-600" />
-                          <span className="text-sm font-medium text-gray-700">Today's Activities</span>
-                        </div>
-                        {exercises.length > 0 && (
-                          <div className="flex items-center gap-3 text-xs text-gray-500">
-                            <span className="flex items-center gap-1">
-                              <Zap size={12} className="text-orange-500" />
-                              {totalExerciseCalories} cal
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <Timer size={12} className="text-blue-500" />
-                              {totalExerciseDuration} min
-                            </span>
-                          </div>
-                        )}
-                      </div>
-
-                      {exercises.length === 0 ? (
-                        <div className="flex items-center justify-center py-4 text-gray-400">
-                          <p className="text-sm">No activities logged</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {exercises.slice(0, 3).map((exercise) => (
+                    {/* Activity List (if any) */}
+                    {exercises.length > 0 && (
+                      <div className="mt-4 pt-4 border-t border-gray-100">
+                        <div className="flex flex-wrap gap-2">
+                          {exercises.slice(0, 4).map((exercise, index) => (
                             <motion.div
                               key={exercise.id}
-                              initial={{ opacity: 0, x: -10 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              className="flex items-center gap-3 p-2 rounded-xl bg-emerald-50/50"
+                              initial={{ opacity: 0, scale: 0.8 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ delay: index * 0.1 }}
+                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 text-xs"
                             >
-                              <div className="w-8 h-8 rounded-lg bg-emerald-100 flex items-center justify-center text-lg">
-                                {exerciseIcons[exercise.exerciseId] || "🏃"}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium text-gray-900 truncate">
-                                  {exercise.exerciseName}
-                                </p>
-                                <p className="text-xs text-gray-500">
-                                  {exercise.duration} min • {exercise.intensity}
-                                </p>
-                              </div>
+                              <span>{exerciseIcons[exercise.exerciseId] || "🏃"}</span>
+                              <span className="font-medium text-gray-700">{exercise.exerciseName}</span>
                               <Badge variant="success" size="sm">
                                 {exercise.caloriesBurned} cal
                               </Badge>
                             </motion.div>
                           ))}
-                          {exercises.length > 3 && (
-                            <p className="text-xs text-center text-gray-400 pt-1">
-                              +{exercises.length - 3} more activities
-                            </p>
+                          {exercises.length > 4 && (
+                            <span className="flex items-center px-2.5 py-1.5 text-xs text-gray-400">
+                              +{exercises.length - 4} more
+                            </span>
                           )}
                         </div>
-                      )}
-                    </div>
+                      </div>
+                    )}
 
                     {/* Swipe Hint */}
                     <div className="flex items-center justify-center mt-4 pt-3 border-t border-gray-100">
@@ -499,38 +447,54 @@ export default function HomePage() {
               >
                 <div className="flex flex-col items-center justify-center py-6 text-gray-400">
                   <Camera size={32} className="mb-2" />
-                  <p className="text-sm">No meals logged {currentDayIndex === 0 ? "today" : "this day"}</p>
-                  <p className="text-xs mt-1">Tap to scan your first meal</p>
+                  <p className="text-sm font-medium">No meals logged yet</p>
+                  <p className="text-xs">Tap to scan your first meal</p>
                 </div>
               </Card>
             ) : (
               <div className="space-y-2">
-                {todayEntries.slice(0, 3).map((entry, index) => (
-                  <Card key={entry.id || index} padding="sm">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center">
-                        <Utensils size={18} className="text-gray-500" />
+                {todayEntries.slice(0, 3).map((entry) => (
+                  <Card key={entry.id} padding="sm">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                          <Utensils size={18} className="text-emerald-600" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-gray-900 text-sm">
+                            {entry.foodName}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {entry.mealType} • {entry.servingSize}
+                          </p>
+                        </div>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
-                          {entry.foodName || "Food Entry"}
+                      <div className="text-right">
+                        <p className="font-semibold text-gray-900">
+                          {entry.calories} cal
                         </p>
-                        <p className="text-sm text-gray-500">
-                          {entry.mealType} • {entry.calories} cal
+                        <p className="text-xs text-gray-500">
+                          P:{entry.protein}g C:{entry.carbs}g F:{entry.fat}g
                         </p>
                       </div>
-                      <Badge variant="default">{entry.calories} cal</Badge>
                     </div>
                   </Card>
                 ))}
+                {todayEntries.length > 3 && (
+                  <button
+                    onClick={() => router.push("/diary")}
+                    className="w-full text-center text-sm text-emerald-600 font-medium py-2"
+                  >
+                    View {todayEntries.length - 3} more entries
+                  </button>
+                )}
               </div>
             )}
           </motion.div>
         </motion.div>
       </PageContent>
 
-      {/* Floating Nutri Mascot */}
-      <FloatingNutri interval={20} duration={6} position="bottom-left" />
+      <FloatingNutri interval={25} duration={5} position="bottom-left" />
 
       <BottomNav />
     </PageContainer>

@@ -79,12 +79,12 @@ export default function SearchFoodPage() {
     const entry = {
       id: crypto.randomUUID(),
       mealType: mealType,
-      name: food.name,
+      foodName: food.name,
       calories: Math.round(food.calories * servings),
       protein: Math.round(food.protein * servings * 10) / 10,
       carbs: Math.round(food.carbs * servings * 10) / 10,
       fat: Math.round(food.fat * servings * 10) / 10,
-      timestamp: new Date().toISOString(),
+      timestamp: new Date(),
     };
 
     addMealEntry(entry);

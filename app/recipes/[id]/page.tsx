@@ -13,9 +13,12 @@ import {
   Heart,
   Edit,
   Trash2,
-  ExternalLink
+  ExternalLink,
+  RefreshCw,
+  Calculator
 } from 'lucide-react';
 import { useAppStore, Recipe } from '@/lib/store';
+import { quickEstimateIngredients } from '@/lib/nutrition-api';
 
 export default function RecipeDetailPage() {
   const params = useParams();
