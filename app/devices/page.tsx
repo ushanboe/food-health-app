@@ -41,7 +41,7 @@ interface DeviceInfo {
 }
 
 export default function DevicesPage() {
-  const { cloudSyncEnabled } = useAppStore();
+  const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [currentDevice, setCurrentDevice] = useState<DeviceInfo | null>(null);
   const [syncing, setSyncing] = useState(false);
 
