@@ -61,7 +61,7 @@ export default function DiaryPage() {
 
   // Sort recipes by rating (highest first), then by date
   const sortedRecipes = useMemo(() => {
-    return [...recipes].sort((a, b) => {
+    return [...(recipes || [])].sort((a, b) => {
       const ratingA = a.rating || 0;
       const ratingB = b.rating || 0;
       if (ratingB !== ratingA) return ratingB - ratingA;

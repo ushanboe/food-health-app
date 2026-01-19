@@ -38,7 +38,7 @@ export default function WeightPage() {
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [newWeight, setNewWeight] = useState("");
 
-  const sortedEntries = [...weightHistory].sort(
+  const sortedEntries = [...(weightHistory || [])].sort(
     (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
   );
 
