@@ -38,6 +38,16 @@ interface DataCategory {
   count?: number;
 }
 
+// Helper to escape CSV values
+const escapeCSV = (value: any): string => {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  if (str.includes(",") || str.includes(""") || str.includes("\n")) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+  return str;
+};
+
 export default function ExportDataPage() {
   const {
     meals,
@@ -123,73 +133,227 @@ export default function ExportDataPage() {
 
     try {
       // Build export data object
-      const exportData: Record<string, any> = {
+      const exportDataObj: Record<string, any> = {
         exportDate: new Date().toISOString(),
         appVersion: "2.1.0",
         format: format,
       };
 
       if (selectedCategories.includes("meals")) {
-        exportData.meals = meals || {};
+        exportDataObj.meals = meals || {};
       }
       if (selectedCategories.includes("recipes")) {
-        exportData.recipes = recipes || [];
+        exportDataObj.recipes = recipes || [];
       }
       if (selectedCategories.includes("weight")) {
-        exportData.weightHistory = weightHistory || [];
+        exportDataObj.weightHistory = weightHistory || [];
       }
       if (selectedCategories.includes("water")) {
-        exportData.waterLog = waterLog || {};
+        exportDataObj.waterLog = waterLog || {};
       }
       if (selectedCategories.includes("goals")) {
-        exportData.dailyGoals = dailyGoals;
-        exportData.userStats = userStats;
+        exportDataObj.dailyGoals = dailyGoals;
+        exportDataObj.userStats = userStats;
       }
 
       let blob: Blob;
       let filename: string;
 
       if (format === "json") {
-        // JSON export
-        const jsonString = JSON.stringify(exportData, null, 2);
+        // JSON export - full data
+        const jsonString = JSON.stringify(exportDataObj, null, 2);
         blob = new Blob([jsonString], { type: "application/json" });
         filename = `fitfork-export-${new Date().toISOString().split("T")[0]}.json`;
       } else {
-        // CSV export - flatten data for spreadsheet
+        // CSV export - comprehensive data
         let csvContent = "";
 
-        // Meals CSV
+        // ===== FOOD DIARY =====
         if (selectedCategories.includes("meals") && meals) {
-          csvContent += "=== FOOD DIARY ===\n";
-          csvContent += "Date,Meal Type,Food Name,Calories,Protein,Carbs,Fat\n";
+          csvContent += "=== FOOD DIARY ===
+";
+          csvContent += "Date,Meal Type,Food Name,Calories,Protein (g),Carbs (g),Fat (g),Fiber (g),Sugar (g),Sodium (mg),Serving Size,Notes
+";
           Object.entries(meals).forEach(([date, dayMeals]) => {
             (dayMeals as any[]).forEach((meal) => {
-              csvContent += `${date},${meal.mealType || ""},"${meal.name || ""}",${meal.calories || 0},${meal.protein || 0},${meal.carbs || 0},${meal.fat || 0}\n`;
+              csvContent += [
+                escapeCSV(date),
+                escapeCSV(meal.mealType),
+                escapeCSV(meal.name),
+                escapeCSV(meal.calories || 0),
+                escapeCSV(meal.protein || 0),
+                escapeCSV(meal.carbs || 0),
+                escapeCSV(meal.fat || 0),
+                escapeCSV(meal.fiber || 0),
+                escapeCSV(meal.sugar || 0),
+                escapeCSV(meal.sodium || 0),
+                escapeCSV(meal.servingSize || meal.portion || ""),
+                escapeCSV(meal.notes || ""),
+              ].join(",") + "
+";
             });
           });
-          csvContent += "\n";
+          csvContent += "
+";
         }
 
-        // Weight CSV
-        if (selectedCategories.includes("weight") && weightHistory) {
-          csvContent += "=== WEIGHT HISTORY ===\n";
-          csvContent += "Date,Weight (kg),Notes\n";
-          (weightHistory as any[]).forEach((entry) => {
-            csvContent += `${entry.date},${entry.weight},"${entry.note || ""}"\n`;
-          });
-          csvContent += "\n";
-        }
-
-        // Recipes CSV
+        // ===== RECIPES =====
         if (selectedCategories.includes("recipes") && recipes) {
-          csvContent += "=== RECIPES ===\n";
-          csvContent += "Name,Servings,Source,Rating\n";
+          csvContent += "=== RECIPES ===
+";
+          csvContent += "Name,Servings,Prep Time,Cook Time,Total Time,Calories,Protein (g),Carbs (g),Fat (g),Source,Rating,Cuisine,Diet,Ingredients,Instructions
+";
           (recipes as any[]).forEach((recipe) => {
-            csvContent += `"${recipe.name || ""}",${recipe.servings || 1},"${recipe.source || ""}",${recipe.rating || ""}\n`;
+            // Format ingredients as semicolon-separated list
+            let ingredientsList = "";
+            if (recipe.ingredients) {
+              if (Array.isArray(recipe.ingredients)) {
+                ingredientsList = recipe.ingredients
+                  .map((ing: any) => {
+                    if (typeof ing === "string") return ing;
+                    if (ing.original) return ing.original;
+                    if (ing.name) return `${ing.amount || ""} ${ing.unit || ""} ${ing.name}`.trim();
+                    return JSON.stringify(ing);
+                  })
+                  .join("; ");
+              }
+            }
+
+            // Format instructions as numbered list
+            let instructionsList = "";
+            if (recipe.instructions) {
+              if (typeof recipe.instructions === "string") {
+                instructionsList = recipe.instructions.replace(/
+/g, " ");
+              } else if (Array.isArray(recipe.instructions)) {
+                instructionsList = recipe.instructions
+                  .map((inst: any, idx: number) => {
+                    if (typeof inst === "string") return `${idx + 1}. ${inst}`;
+                    if (inst.step) return `${idx + 1}. ${inst.step}`;
+                    return `${idx + 1}. ${JSON.stringify(inst)}`;
+                  })
+                  .join(" ");
+              }
+            }
+
+            // Get nutrition info
+            const nutrition = recipe.nutrition || {};
+
+            csvContent += [
+              escapeCSV(recipe.name || recipe.title),
+              escapeCSV(recipe.servings || 1),
+              escapeCSV(recipe.prepTime || recipe.preparationMinutes || ""),
+              escapeCSV(recipe.cookTime || recipe.cookingMinutes || ""),
+              escapeCSV(recipe.readyInMinutes || recipe.totalTime || ""),
+              escapeCSV(nutrition.calories || recipe.calories || ""),
+              escapeCSV(nutrition.protein || recipe.protein || ""),
+              escapeCSV(nutrition.carbs || recipe.carbs || ""),
+              escapeCSV(nutrition.fat || recipe.fat || ""),
+              escapeCSV(recipe.source || recipe.sourceName || recipe.creditsText || ""),
+              escapeCSV(recipe.rating || ""),
+              escapeCSV(Array.isArray(recipe.cuisines) ? recipe.cuisines.join("; ") : (recipe.cuisine || "")),
+              escapeCSV(Array.isArray(recipe.diets) ? recipe.diets.join("; ") : (recipe.diet || "")),
+              escapeCSV(ingredientsList),
+              escapeCSV(instructionsList),
+            ].join(",") + "
+";
           });
+          csvContent += "
+";
         }
 
-        blob = new Blob([csvContent], { type: "text/csv" });
+        // ===== WEIGHT HISTORY =====
+        if (selectedCategories.includes("weight") && weightHistory) {
+          csvContent += "=== WEIGHT HISTORY ===
+";
+          csvContent += "Date,Weight (kg),Weight (lbs),BMI,Body Fat %,Notes
+";
+          (weightHistory as any[]).forEach((entry) => {
+            const weightLbs = entry.weight ? (entry.weight * 2.20462).toFixed(1) : "";
+            csvContent += [
+              escapeCSV(entry.date),
+              escapeCSV(entry.weight),
+              escapeCSV(weightLbs),
+              escapeCSV(entry.bmi || ""),
+              escapeCSV(entry.bodyFat || ""),
+              escapeCSV(entry.note || entry.notes || ""),
+            ].join(",") + "
+";
+          });
+          csvContent += "
+";
+        }
+
+        // ===== WATER INTAKE =====
+        if (selectedCategories.includes("water") && waterLog) {
+          csvContent += "=== WATER INTAKE ===
+";
+          csvContent += "Date,Amount (ml),Amount (oz),Goal (ml),Percentage
+";
+          const waterGoal = dailyGoals?.water || 2000;
+          Object.entries(waterLog).forEach(([date, amount]) => {
+            const amountNum = Number(amount) || 0;
+            const amountOz = (amountNum / 29.5735).toFixed(1);
+            const percentage = ((amountNum / waterGoal) * 100).toFixed(0);
+            csvContent += [
+              escapeCSV(date),
+              escapeCSV(amountNum),
+              escapeCSV(amountOz),
+              escapeCSV(waterGoal),
+              escapeCSV(`${percentage}%`),
+            ].join(",") + "
+";
+          });
+          csvContent += "
+";
+        }
+
+        // ===== GOALS & PROFILE =====
+        if (selectedCategories.includes("goals")) {
+          csvContent += "=== DAILY GOALS ===
+";
+          csvContent += "Setting,Value
+";
+          if (dailyGoals) {
+            csvContent += `Calories,${escapeCSV(dailyGoals.calories)}
+`;
+            csvContent += `Protein (g),${escapeCSV(dailyGoals.protein)}
+`;
+            csvContent += `Carbs (g),${escapeCSV(dailyGoals.carbs)}
+`;
+            csvContent += `Fat (g),${escapeCSV(dailyGoals.fat)}
+`;
+            csvContent += `Water (ml),${escapeCSV(dailyGoals.water)}
+`;
+            csvContent += `Fiber (g),${escapeCSV(dailyGoals.fiber || "")}
+`;
+          }
+          csvContent += "
+";
+
+          csvContent += "=== USER PROFILE ===
+";
+          csvContent += "Setting,Value
+";
+          if (userStats) {
+            csvContent += `Height (cm),${escapeCSV(userStats.height)}
+`;
+            csvContent += `Current Weight (kg),${escapeCSV(userStats.weight)}
+`;
+            csvContent += `Target Weight (kg),${escapeCSV(userStats.targetWeight || "")}
+`;
+            csvContent += `Age,${escapeCSV(userStats.age)}
+`;
+            csvContent += `Gender,${escapeCSV(userStats.gender)}
+`;
+            csvContent += `Activity Level,${escapeCSV(userStats.activityLevel)}
+`;
+            csvContent += `Goal,${escapeCSV(userStats.goal || "")}
+`;
+          }
+        }
+
+        blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
         filename = `fitfork-export-${new Date().toISOString().split("T")[0]}.csv`;
       }
 
@@ -351,9 +515,9 @@ export default function ExportDataPage() {
           <motion.div variants={fadeUp} className="mt-6 mb-8">
             <Card className="bg-gray-50">
               <p className="text-sm text-gray-600">
-                <strong>JSON format</strong> is best for backups and importing into other apps.
-                <br />
-                <strong>CSV format</strong> can be opened in Excel or Google Sheets.
+                <strong>JSON format</strong> is best for backups and importing into other apps. Contains complete data structure.
+                <br /><br />
+                <strong>CSV format</strong> can be opened in Excel or Google Sheets. Includes full details for recipes (ingredients, instructions, nutrition), meals, weight history, and more.
               </p>
             </Card>
           </motion.div>
