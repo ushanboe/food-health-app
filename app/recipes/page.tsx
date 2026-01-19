@@ -295,6 +295,17 @@ export default function RecipesPage() {
     };
 
     addRecipe(newRecipe);
+    // Navigate to show the newly saved recipe
+    // Since recipes are sorted by rating then date, find where this recipe will be
+    const updatedRecipes = [...recipes, newRecipe].sort((a, b) => {
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      if (ratingB !== ratingA) return ratingB - ratingA;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    const newIndex = updatedRecipes.findIndex(r => r.id === newRecipe.id);
+    if (newIndex !== -1) setCurrentIndex(newIndex);
+
     setSelectedSpoonRecipe(null);
     setSpoonResults([]);
     setSpoonSearch("");
@@ -399,6 +410,16 @@ export default function RecipesPage() {
     };
 
     addRecipe(newRecipe);
+    // Navigate to show the newly saved recipe
+    const updatedRecipes = [...recipes, newRecipe].sort((a, b) => {
+      const ratingA = a.rating || 0;
+      const ratingB = b.rating || 0;
+      if (ratingB !== ratingA) return ratingB - ratingA;
+      return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    });
+    const newIndex = updatedRecipes.findIndex(r => r.id === newRecipe.id);
+    if (newIndex !== -1) setCurrentIndex(newIndex);
+
     setSelectedMeal(null);
     setMealResults([]);
     setMealSearch("");
@@ -506,7 +527,7 @@ export default function RecipesPage() {
             <div className="flex items-center justify-between mb-3 px-1">
               <div className="flex items-center gap-2">
                 <ChefHat size={20} className="text-emerald-500" />
-                <h2 className="font-semibold text-gray-900">Your Recipes</h2>
+                <h2 className="font-semibold text-gray-900">Saved Recipes</h2>
                 <Badge variant="default" size="sm">
                   {filteredRecipes.length}
                 </Badge>

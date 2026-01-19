@@ -346,7 +346,7 @@ export default function DiaryPage() {
             <div>
               <div className="flex items-center gap-2 mb-3">
                 <ChefHat size={18} className="text-emerald-600" />
-                <h3 className="font-semibold text-gray-900">Your Recipes</h3>
+                <h3 className="font-semibold text-gray-900">Saved Recipes</h3>
                 <span className="text-xs text-gray-500">({sortedRecipes.length})</span>
               </div>
               <div className="max-h-64 overflow-y-auto space-y-2 pr-1">
