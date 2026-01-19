@@ -424,7 +424,7 @@ export default function UserGuidePage() {
           {/* Download Full Guide */}
           <motion.div variants={fadeUp} className="mt-6">
             <a 
-              href="/USER_GUIDE.md" 
+              href="/USER_GUIDE.pdf" 
               download="FitFork_User_Guide.md"
               className="block"
             >
