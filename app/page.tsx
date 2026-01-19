@@ -67,27 +67,42 @@ const activityColors = [
   "#06B6D4", // cyan
 ];
 
-// Get array of last N days
+// Format date to YYYY-MM-DD in LOCAL timezone (not UTC)
+function formatLocalDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
+// Get array of last N days using LOCAL dates
 function getLastNDays(n: number): string[] {
   const days: string[] = [];
+  const now = new Date();
   for (let i = 0; i < n; i++) {
-    const date = new Date();
-    date.setDate(date.getDate() - i);
-    days.push(date.toISOString().split('T')[0]);
+    const date = new Date(now);
+    date.setDate(now.getDate() - i);
+    days.push(formatLocalDate(date));
   }
   return days;
 }
 
 // Format date for display
 function formatDateLabel(dateStr: string): string {
-  const date = new Date(dateStr + 'T00:00:00');
+  // Parse the date string as local date
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  
+  // Get today and yesterday in local timezone
   const today = new Date();
-  today.setHours(0, 0, 0, 0);
+  const todayStr = formatLocalDate(today);
+  
   const yesterday = new Date(today);
-  yesterday.setDate(yesterday.getDate() - 1);
+  yesterday.setDate(today.getDate() - 1);
+  const yesterdayStr = formatLocalDate(yesterday);
 
-  if (dateStr === today.toISOString().split('T')[0]) return "Today";
-  if (dateStr === yesterday.toISOString().split('T')[0]) return "Yesterday";
+  if (dateStr === todayStr) return "Today";
+  if (dateStr === yesterdayStr) return "Yesterday";
 
   return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
 }
@@ -112,7 +127,8 @@ export default function HomePage() {
   const syncedActivitiesForDate = useMemo(() => {
     if (!syncedFitnessData?.activities) return [];
     return syncedFitnessData.activities.filter(activity => {
-      const activityDate = new Date(activity.startTime).toISOString().split('T')[0];
+      // Convert activity start time to local date string for comparison
+      const activityDate = formatLocalDate(new Date(activity.startTime));
       return activityDate === currentDate;
     });
   }, [syncedFitnessData, currentDate]);
