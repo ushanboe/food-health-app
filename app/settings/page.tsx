@@ -121,21 +121,21 @@ export default function SettingsPage() {
                 title="Export Data"
                 subtitle="Download your data"
                 showArrow
-                onClick={() => {}}
+                onClick={() => router.push("/export")}
               />
               <ListItem
                 icon={<Shield size={20} className="text-red-500" />}
                 title="Privacy"
                 subtitle="Manage your data"
                 showArrow
-                onClick={() => {}}
+                onClick={() => router.push("/privacy")}
               />
               <ListItem
                 icon={<Smartphone size={20} className="text-gray-500" />}
                 title="Connected Devices"
                 subtitle="Manage devices"
                 showArrow
-                onClick={() => {}}
+                onClick={() => router.push("/devices")}
               />
             </Card>
           </motion.div>
