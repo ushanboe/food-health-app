@@ -36,102 +36,75 @@ interface ApiConfig {
   supabaseAnonKey: string;
 }
 
-// Nutri mascot component with thumbs up
+// Floating Nutri mascot that floats past when saving
 const NutriCelebration = ({ show }: { show: boolean }) => (
   <AnimatePresence>
     {show && (
       <motion.div
-        initial={{ opacity: 0, scale: 0.5, y: 50 }}
-        animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.5, y: 50 }}
-        transition={{ type: "spring", damping: 15, stiffness: 300 }}
-        className="fixed inset-0 z-50 flex items-center justify-center pointer-events-none"
+        initial={{ x: -100, opacity: 0 }}
+        animate={{ x: [null, window.innerWidth / 2 - 40, window.innerWidth + 100], opacity: [0, 1, 1, 0] }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 2.5, ease: "easeInOut", times: [0, 0.3, 0.8, 1] }}
+        className="fixed top-1/3 z-50 pointer-events-none"
       >
         <motion.div
-          initial={{ rotate: -10 }}
-          animate={{ rotate: [0, -5, 5, -5, 0] }}
-          transition={{ duration: 0.5, delay: 0.3 }}
-          className="bg-white rounded-3xl shadow-2xl p-8 flex flex-col items-center"
+          animate={{ y: [0, -15, 0, -10, 0], rotate: [0, -5, 5, -3, 0] }}
+          transition={{ duration: 1.2, repeat: 2, ease: "easeInOut" }}
+          className="relative"
         >
           {/* Nutri Face */}
-          <motion.div
-            className="relative w-32 h-32 mb-4"
-            animate={{ y: [0, -10, 0] }}
-            transition={{ duration: 1, repeat: 2, ease: "easeInOut" }}
-          >
+          <div className="relative w-20 h-20">
             {/* Face background */}
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full shadow-lg" />
 
             {/* Eyes */}
             <motion.div
-              className="absolute top-8 left-6 w-5 h-5 bg-white rounded-full"
+              className="absolute top-5 left-3.5 w-3.5 h-3.5 bg-white rounded-full"
               animate={{ scaleY: [1, 0.1, 1] }}
-              transition={{ duration: 0.3, delay: 0.5, repeat: 1, repeatDelay: 1 }}
+              transition={{ duration: 0.2, delay: 0.4, repeat: 2, repeatDelay: 0.6 }}
             >
-              <div className="absolute top-1 left-1 w-3 h-3 bg-gray-800 rounded-full" />
+              <div className="absolute top-0.5 left-0.5 w-2 h-2 bg-gray-800 rounded-full" />
             </motion.div>
             <motion.div
-              className="absolute top-8 right-6 w-5 h-5 bg-white rounded-full"
+              className="absolute top-5 right-3.5 w-3.5 h-3.5 bg-white rounded-full"
               animate={{ scaleY: [1, 0.1, 1] }}
-              transition={{ duration: 0.3, delay: 0.5, repeat: 1, repeatDelay: 1 }}
+              transition={{ duration: 0.2, delay: 0.4, repeat: 2, repeatDelay: 0.6 }}
             >
-              <div className="absolute top-1 left-1 w-3 h-3 bg-gray-800 rounded-full" />
+              <div className="absolute top-0.5 left-0.5 w-2 h-2 bg-gray-800 rounded-full" />
             </motion.div>
 
             {/* Happy mouth */}
-            <div className="absolute bottom-6 left-1/2 -translate-x-1/2 w-12 h-6 border-b-4 border-white rounded-b-full" />
+            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 w-8 h-4 border-b-[3px] border-white rounded-b-full" />
 
             {/* Blush */}
-            <div className="absolute top-14 left-3 w-4 h-2 bg-pink-300 rounded-full opacity-60" />
-            <div className="absolute top-14 right-3 w-4 h-2 bg-pink-300 rounded-full opacity-60" />
+            <div className="absolute top-9 left-2 w-2.5 h-1.5 bg-pink-300 rounded-full opacity-60" />
+            <div className="absolute top-9 right-2 w-2.5 h-1.5 bg-pink-300 rounded-full opacity-60" />
 
             {/* Leaf on top */}
             <motion.div
-              className="absolute -top-3 left-1/2 -translate-x-1/2"
-              animate={{ rotate: [0, 10, -10, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute -top-2 left-1/2 -translate-x-1/2"
+              animate={{ rotate: [0, 15, -15, 0] }}
+              transition={{ duration: 0.8, repeat: Infinity }}
             >
-              <div className="w-4 h-6 bg-gradient-to-t from-green-600 to-emerald-400 rounded-full transform rotate-45" />
-            </motion.div>
-          </motion.div>
-
-          {/* Double Thumbs Up */}
-          <div className="flex gap-4 mb-4">
-            <motion.div
-              initial={{ rotate: -30, scale: 0 }}
-              animate={{ rotate: 0, scale: 1 }}
-              transition={{ type: "spring", delay: 0.2 }}
-              className="text-5xl"
-            >
-              👍
-            </motion.div>
-            <motion.div
-              initial={{ rotate: 30, scale: 0 }}
-              animate={{ rotate: 0, scale: 1 }}
-              transition={{ type: "spring", delay: 0.3 }}
-              className="text-5xl"
-            >
-              👍
+              <div className="w-3 h-4 bg-gradient-to-t from-green-600 to-emerald-400 rounded-full transform rotate-45" />
             </motion.div>
           </div>
 
-          {/* Success message */}
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="text-xl font-bold text-emerald-600"
+          {/* Sparkles around Nutri */}
+          <motion.div
+            className="absolute -top-2 -right-2 text-yellow-400"
+            animate={{ scale: [0, 1, 0], rotate: [0, 180] }}
+            transition={{ duration: 0.6, repeat: 3, repeatDelay: 0.3 }}
           >
-            API(s) Saved!
-          </motion.p>
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-gray-500 text-sm mt-1"
+            ✨
+          </motion.div>
+          <motion.div
+            className="absolute -bottom-1 -left-2 text-yellow-400"
+            animate={{ scale: [0, 1, 0], rotate: [0, -180] }}
+            transition={{ duration: 0.6, delay: 0.2, repeat: 3, repeatDelay: 0.3 }}
           >
-            You're all set! 🎉
-          </motion.p>
+            ✨
+          </motion.div>
         </motion.div>
       </motion.div>
     )}
