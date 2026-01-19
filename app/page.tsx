@@ -94,7 +94,7 @@ function formatDateLabel(dateStr: string): string {
 
 export default function HomePage() {
   const router = useRouter();
-  const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog } = useAppStore();
+  const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog, syncedFitnessData } = useAppStore();
 
   // Swipeable days state
   const days = useMemo(() => getLastNDays(7), []);
@@ -106,7 +106,53 @@ export default function HomePage() {
   const dailyLog = getDailyLog(currentDate);
   const fitnessLog = getDailyFitnessLog(currentDate);
   const todayEntries = dailyLog?.meals || [];
-  const exercises = fitnessLog?.exercises || [];
+  const manualExercises = fitnessLog?.exercises || [];
+
+  // Get synced activities for the current date from Strava/Fitbit/etc
+  const syncedActivitiesForDate = useMemo(() => {
+    if (!syncedFitnessData?.activities) return [];
+    return syncedFitnessData.activities.filter(activity => {
+      const activityDate = new Date(activity.startTime).toISOString().split('T')[0];
+      return activityDate === currentDate;
+    });
+  }, [syncedFitnessData, currentDate]);
+
+  // Combine manual exercises and synced activities
+  const allActivities = useMemo(() => {
+    const activities: Array<{
+      id: string;
+      name: string;
+      calories: number;
+      duration: number;
+      source: 'manual' | 'synced';
+      type?: string;
+    }> = [];
+    
+    // Add manual exercises
+    manualExercises.forEach(e => {
+      activities.push({
+        id: e.id,
+        name: e.exerciseName,
+        calories: e.caloriesBurned,
+        duration: e.duration,
+        source: 'manual',
+      });
+    });
+    
+    // Add synced activities
+    syncedActivitiesForDate.forEach(a => {
+      activities.push({
+        id: a.id,
+        name: a.name,
+        calories: a.calories || 0,
+        duration: a.duration,
+        source: 'synced',
+        type: a.type,
+      });
+    });
+    
+    return activities;
+  }, [manualExercises, syncedActivitiesForDate]);
 
   const greeting = useMemo(() => {
     const hour = new Date().getHours();
@@ -142,14 +188,14 @@ export default function HomePage() {
     }
   };
 
-  // Calculate total exercise stats for the day
-  const totalExerciseCalories = exercises.reduce((sum, e) => sum + e.caloriesBurned, 0);
-  const totalExerciseDuration = exercises.reduce((sum, e) => sum + e.duration, 0);
+  // Calculate total exercise stats for the day (combined)
+  const totalExerciseCalories = allActivities.reduce((sum, e) => sum + e.calories, 0);
+  const totalExerciseDuration = allActivities.reduce((sum, e) => sum + e.duration, 0);
 
   // Prepare fitness activities for donut chart
-  const fitnessActivities = exercises.map((e, index) => ({
-    name: e.exerciseName,
-    calories: e.caloriesBurned,
+  const fitnessActivities = allActivities.map((e, index) => ({
+    name: e.name,
+    calories: e.calories,
     duration: e.duration,
     color: activityColors[index % activityColors.length],
   }));
@@ -355,27 +401,32 @@ export default function HomePage() {
                     </div>
 
                     {/* Activity List (if any) */}
-                    {exercises.length > 0 && (
+                    {allActivities.length > 0 && (
                       <div className="mt-4 pt-4 border-t border-gray-100">
                         <div className="flex flex-wrap gap-2">
-                          {exercises.slice(0, 4).map((exercise, index) => (
+                          {allActivities.slice(0, 4).map((activity, index) => (
                             <motion.div
-                              key={exercise.id}
+                              key={activity.id}
                               initial={{ opacity: 0, scale: 0.8 }}
                               animate={{ opacity: 1, scale: 1 }}
                               transition={{ delay: index * 0.1 }}
-                              className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-full bg-emerald-50 text-xs"
+                              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-xs ${
+                                activity.source === 'synced' ? 'bg-orange-50' : 'bg-emerald-50'
+                              }`}
                             >
-                              <span>{exerciseIcons[exercise.exerciseId] || "🏃"}</span>
-                              <span className="font-medium text-gray-700">{exercise.exerciseName}</span>
+                              <span>{exerciseIcons[activity.type || ''] || "🏃"}</span>
+                              <span className="font-medium text-gray-700">{activity.name}</span>
                               <Badge variant="success" size="sm">
-                                {exercise.caloriesBurned} cal
+                                {activity.calories} cal
                               </Badge>
+                              {activity.source === 'synced' && (
+                                <span className="text-[10px] text-orange-500">⚡</span>
+                              )}
                             </motion.div>
                           ))}
-                          {exercises.length > 4 && (
+                          {allActivities.length > 4 && (
                             <span className="flex items-center px-2.5 py-1.5 text-xs text-gray-400">
-                              +{exercises.length - 4} more
+                              +{allActivities.length - 4} more
                             </span>
                           )}
                         </div>
