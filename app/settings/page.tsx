@@ -149,20 +149,20 @@ export default function SettingsPage() {
                 title="Help Center"
                 subtitle="FAQs & guides"
                 showArrow
-                onClick={() => {}}
+                onClick={() => router.push("/help")}
               />
               <ListItem
                 icon={<FileText size={20} className="text-gray-500" />}
                 title="Terms of Service"
                 showArrow
-                onClick={() => {}}
+                onClick={() => router.push("/terms")}
               />
               <ListItem
                 icon={<Info size={20} className="text-gray-500" />}
                 title="About"
                 subtitle="Version 2.1.0"
                 showArrow
-                onClick={() => {}}
+                onClick={() => router.push("/about")}
               />
             </Card>
           </motion.div>
