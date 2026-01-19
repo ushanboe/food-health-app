@@ -16,6 +16,7 @@ import {
   Globe,
   Shield,
   HelpCircle,
+  BookOpen,
   FileText,
   LogOut,
   ChevronRight,
@@ -150,6 +151,13 @@ export default function SettingsPage() {
                 subtitle="FAQs & guides"
                 showArrow
                 onClick={() => router.push("/help")}
+              />
+              <ListItem
+                icon={<BookOpen size={20} className="text-emerald-500" />}
+                title="User Guide"
+                subtitle="Complete app manual"
+                showArrow
+                onClick={() => router.push("/guide")}
               />
               <ListItem
                 icon={<FileText size={20} className="text-gray-500" />}
