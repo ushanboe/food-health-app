@@ -7,6 +7,9 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAppStore, Recipe, RecipeIngredient } from "@/lib/store";
+import { usePremium } from "@/lib/subscription";
+import { UpgradeModal } from "@/components/PremiumGate";
+import { Crown, Lock } from "lucide-react";
 import {
   Download,
   FileJson,
@@ -57,6 +60,9 @@ export default function ExportDataPage() {
     userStats,
     userProfile,
   } = useAppStore();
+
+  const { isPremium } = usePremium();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([
     "meals",
@@ -287,6 +293,38 @@ export default function ExportDataPage() {
     setExported(true);
     setTimeout(() => setExported(false), 3000);
   };
+
+  // Premium gate for export feature
+  if (!isPremium) {
+    return (
+      <PageContainer>
+        <PageHeader icon={Database} title="Export Data" subtitle="Download your information" />
+        <PageContent>
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="flex flex-col items-center justify-center py-12 px-4"
+          >
+            <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mb-6">
+              <Lock className="w-10 h-10 text-amber-600" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">Premium Feature</h2>
+            <p className="text-gray-500 text-center mb-6 max-w-sm">
+              Export your data to CSV or JSON format with a Premium subscription. Keep backups and use your data anywhere.
+            </p>
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
+            >
+              <Crown className="w-5 h-5" />
+              Upgrade to Premium
+            </button>
+          </motion.div>
+        </PageContent>
+        <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} feature="dataExport" />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
