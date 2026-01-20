@@ -16,11 +16,16 @@ import {
 } from "lucide-react";
 import { useAppStore, getTodayString } from "@/lib/store";
 import { Card } from "@/components/ui/Card";
+import { usePremium } from "@/lib/subscription";
+import { UpgradeModal } from "@/components/PremiumGate";
+import { Crown, Lock } from "lucide-react";
 
 export default function ProgressPage() {
   const router = useRouter();
   const { dailyLogs, dailyGoals, getDailyTotals, fitnessLogs } = useAppStore();
   const [timeRange, setTimeRange] = useState<"week" | "month" | "all">("week");
+  const { isPremium } = usePremium();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Calculate date range
   const { start, end, daysInRange } = useMemo(() => {
@@ -101,19 +106,31 @@ export default function ProgressPage() {
 
         {/* Time Range Selector */}
         <div className="flex gap-2 px-4 pb-4">
-          {(["week", "month", "all"] as const).map((range) => (
-            <button
-              key={range}
-              onClick={() => setTimeRange(range)}
-              className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors ${
-                timeRange === range
-                  ? "bg-white text-emerald-600"
-                  : "bg-white/20 text-white"
-              }`}
-            >
-              {range === "week" ? "7 Days" : range === "month" ? "30 Days" : "All Time"}
-            </button>
-          ))}
+          {(["week", "month", "all"] as const).map((range) => {
+            const isLocked = !isPremium && (range === "month" || range === "all");
+            return (
+              <button
+                key={range}
+                onClick={() => {
+                  if (isLocked) {
+                    setShowUpgradeModal(true);
+                  } else {
+                    setTimeRange(range);
+                  }
+                }}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-colors flex items-center gap-1 ${
+                  timeRange === range
+                    ? "bg-white text-emerald-600"
+                    : isLocked
+                    ? "bg-amber-400/30 text-amber-100"
+                    : "bg-white/20 text-white"
+                }`}
+              >
+                {isLocked && <Lock size={12} />}
+                {range === "week" ? "7 Days" : range === "month" ? "30 Days" : "All Time"}
+              </button>
+            );
+          })}
         </div>
       </div>
 
