@@ -50,7 +50,7 @@ const PrivacyPoint = ({ text }: { text: string }) => (
 export default function PrivacyPage() {
   return (
     <PageContainer>
-      <Header title="Privacy Policy" showBack />
+      <Header variant="green" title="Privacy Policy" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

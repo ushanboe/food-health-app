@@ -105,7 +105,7 @@ export default function DevicesPage() {
 
   return (
     <PageContainer>
-      <Header title="Connected Devices" showBack />
+      <Header variant="green" title="Connected Devices" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

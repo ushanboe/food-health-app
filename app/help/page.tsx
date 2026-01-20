@@ -118,7 +118,7 @@ export default function HelpCenterPage() {
 
   return (
     <PageContainer>
-      <Header title="Help Center" showBack />
+      <Header variant="green" title="Help Center" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

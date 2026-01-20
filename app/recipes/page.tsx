@@ -457,7 +457,7 @@ export default function RecipesPage() {
 
   return (
     <PageContainer>
-      <Header title="My Recipes" />
+      <Header variant="green" title="My Recipes" showLogo />
 
       <PageContent>
         <motion.div

@@ -37,7 +37,7 @@ const features = [
 export default function AboutPage() {
   return (
     <PageContainer>
-      <Header title="About" showBack />
+      <Header variant="green" title="About" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

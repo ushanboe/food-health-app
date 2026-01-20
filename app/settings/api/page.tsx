@@ -276,7 +276,7 @@ export default function ApiSettingsPage() {
 
   return (
     <PageContainer>
-      <Header title="API Settings" showBack />
+      <Header variant="green" title="API Settings" showLogo />
 
       {/* Nutri Celebration Overlay */}
       <NutriCelebration show={showCelebration} />

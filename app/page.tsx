@@ -5,7 +5,7 @@ import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent, Header } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
 import { UnifiedProgressRing, UnifiedProgressLegend } from "@/components/ui/UnifiedProgressRing";
 import { Badge } from "@/components/ui/Badge";
@@ -165,13 +165,6 @@ export default function HomePage() {
     return activities;
   }, [manualExercises, syncedActivitiesForDate]);
 
-  const greeting = useMemo(() => {
-    const hour = new Date().getHours();
-    if (hour < 12) return "Good morning";
-    if (hour < 17) return "Good afternoon";
-    return "Good evening";
-  }, []);
-
   // Handle swipe
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
     const threshold = 50;
@@ -274,19 +267,7 @@ export default function HomePage() {
 
   return (
     <PageContainer>
-      {/* Header */}
-      <div className="bg-white">
-        <div className="max-w-lg mx-auto px-5 pt-12 pb-6">
-          <motion.div
-            initial={{ opacity: 0, y: -10 }}
-            animate={{ opacity: 1, y: 0 }}
-          >
-            <p className="text-gray-500 text-sm">{greeting} 👋</p>
-            <h1 className="text-2xl font-bold text-gray-900 mt-1">FitFork</h1>
-          </motion.div>
-        </div>
-      </div>
-
+      <Header variant="green" showGreeting showLogo />
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">
           {/* Swipeable Progress Card */}

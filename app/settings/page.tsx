@@ -56,7 +56,7 @@ export default function SettingsPage() {
 
   return (
     <PageContainer>
-      <Header title="Settings" showBack />
+      <Header variant="green" title="Settings" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

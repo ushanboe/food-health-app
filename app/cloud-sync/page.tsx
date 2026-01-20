@@ -350,7 +350,7 @@ export default function CloudSyncPage() {
   if (loading) {
     return (
       <PageContainer>
-        <Header title="Cloud Backup" showBack />
+        <Header variant="green" title="Cloud Backup" showLogo />
         <PageContent>
           <div className="flex items-center justify-center h-64">
             <RefreshCw size={32} className="animate-spin text-emerald-500" />
@@ -363,7 +363,7 @@ export default function CloudSyncPage() {
 
   return (
     <PageContainer>
-      <Header title="Cloud Backup" showBack />
+      <Header variant="green" title="Cloud Backup" showLogo />
 
       {/* Nutri Celebration */}
       <NutriSyncSuccess

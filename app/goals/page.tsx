@@ -106,9 +106,8 @@ export default function GoalsPage() {
 
   return (
     <PageContainer>
-      <Header
+      <Header variant="green" showLogo
         title="Nutrition Goals"
-        showBack
         rightAction={
           isEditing ? (
             <Button variant="ghost" size="sm" onClick={handleSave}>

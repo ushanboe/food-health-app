@@ -73,9 +73,8 @@ export default function WeightPage() {
 
   return (
     <PageContainer>
-      <Header
+      <Header variant="green" showLogo
         title="Weight Tracking"
-        showBack
         rightAction={
           <Button
             variant="ghost"

@@ -288,7 +288,7 @@ export default function ExportDataPage() {
 
   return (
     <PageContainer>
-      <Header title="Export Data" showBack />
+      <Header variant="green" title="Export Data" showLogo />
 
       <PageContent>
         <motion.div

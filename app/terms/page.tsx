@@ -32,7 +32,7 @@ const Section = ({ title, icon: Icon, iconColor, children }: { title: string; ic
 export default function TermsPage() {
   return (
     <PageContainer>
-      <Header title="Terms of Service" showBack />
+      <Header variant="green" title="Terms of Service" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

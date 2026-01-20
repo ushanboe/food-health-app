@@ -110,7 +110,7 @@ export default function FitnessPage() {
 
   return (
     <PageContainer>
-      <Header title="Fitness" />
+      <Header variant="green" title="Fitness" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

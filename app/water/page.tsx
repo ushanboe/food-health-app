@@ -1,5 +1,8 @@
 "use client";
 
+import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { BottomNav } from "@/components/ui/BottomNav";
+
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
@@ -90,32 +93,22 @@ export default function WaterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-      {/* Header */}
-      <div className="sticky top-0 z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-lg border-b border-gray-200 dark:border-gray-700">
-        <div className="max-w-lg mx-auto px-4 py-4 flex items-center gap-4">
-          <button
-            onClick={() => router.back()}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6 text-gray-700 dark:text-gray-300" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-              <Droplets className="w-6 h-6 text-blue-500" />
-              Water Tracker
-            </h1>
-          </div>
+    <PageContainer>
+      <Header 
+        variant="green" 
+        title="Water Tracker" 
+        showLogo 
+        rightAction={
           <button
             onClick={() => setShowGoalEdit(true)}
-            className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+            className="p-2 hover:bg-white/20 rounded-full transition-colors"
           >
-            <Target className="w-6 h-6 text-blue-500" />
+            <Target className="w-6 h-6 text-white" />
           </button>
-        </div>
-      </div>
+        }
+      />
 
-      <div className="max-w-lg mx-auto px-4 py-6 space-y-6 pb-24">
+      <PageContent className="space-y-6">
         {/* Progress Circle */}
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
@@ -351,7 +344,7 @@ export default function WaterPage() {
             </div>
           )}
         </motion.div>
-      </div>
+      </PageContent>
 
       {/* Success Toast */}
       <AnimatePresence>
@@ -436,6 +429,7 @@ export default function WaterPage() {
           </motion.div>
         )}
       </AnimatePresence>
-    </div>
+      <BottomNav />
+    </PageContainer>
   );
 }

@@ -362,7 +362,7 @@ export default function UserGuidePage() {
 
   return (
     <PageContainer>
-      <Header title="User Guide" showBack />
+      <Header variant="green" title="User Guide" showLogo />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

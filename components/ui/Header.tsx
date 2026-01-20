@@ -4,13 +4,24 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { ReactNode } from "react";
+import Image from "next/image";
 
 interface HeaderProps {
-  title: string;
+  title?: string;
   subtitle?: string;
   showBack?: boolean;
   rightAction?: ReactNode;
   transparent?: boolean;
+  variant?: "default" | "green";
+  showGreeting?: boolean;
+  showLogo?: boolean;
+}
+
+function getGreeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
 }
 
 export function Header({
@@ -19,9 +30,80 @@ export function Header({
   showBack = false,
   rightAction,
   transparent = false,
+  variant = "green",
+  showGreeting = false,
+  showLogo = true,
 }: HeaderProps) {
   const router = useRouter();
+  const greeting = getGreeting();
 
+  // Green variant - new unified design
+  if (variant === "green") {
+    return (
+      <motion.header
+        initial={{ opacity: 0, y: -10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="sticky top-0 z-40 bg-gradient-to-br from-emerald-500 to-emerald-600"
+      >
+        <div className="max-w-lg mx-auto px-5 pt-10 pb-5">
+          <div className="flex flex-col items-center text-center">
+            {/* Greeting - only on home page */}
+            {showGreeting && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-emerald-100 text-sm mb-2"
+              >
+                {greeting} 👋
+              </motion.p>
+            )}
+            
+            {/* Logo */}
+            {showLogo && (
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                transition={{ type: "spring", stiffness: 200, damping: 15 }}
+                className="mb-2"
+              >
+                <Image
+                  src="/logo-icon.png"
+                  alt="FitFork"
+                  width={60}
+                  height={60}
+                  className="rounded-2xl shadow-lg"
+                />
+              </motion.div>
+            )}
+            
+            {/* Page Title - shown on non-home pages */}
+            {title && (
+              <motion.h1
+                initial={{ opacity: 0, y: 5 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-xl font-bold text-white"
+              >
+                {title}
+              </motion.h1>
+            )}
+            
+            {subtitle && (
+              <p className="text-sm text-emerald-100 mt-1">{subtitle}</p>
+            )}
+          </div>
+          
+          {/* Right action if provided */}
+          {rightAction && (
+            <div className="absolute right-5 top-10">
+              {rightAction}
+            </div>
+          )}
+        </div>
+      </motion.header>
+    );
+  }
+
+  // Default variant - original white design (for Profile page)
   return (
     <motion.header
       initial={{ opacity: 0, y: -10 }}
@@ -75,7 +157,6 @@ export function PageContainer({ children, className = "" }: PageContainerProps) 
           {children}
         </div>
       </main>
-      {/* BottomNav is rendered separately in each page */}
     </div>
   );
 }

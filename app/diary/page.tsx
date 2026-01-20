@@ -144,7 +144,7 @@ export default function DiaryPage() {
 
   return (
     <PageContainer>
-      <Header title="Food Diary" showBack />
+      <Header variant="green" title="Food Diary" showLogo />
 
       <PageContent className="pb-32">
         <motion.div
