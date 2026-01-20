@@ -11,15 +11,17 @@ interface PageHeaderProps {
   title: string;
   subtitle: string;
   useLogo?: boolean;
+  profilePhoto?: string; // Base64 encoded image or URL
   rightAction?: ReactNode;
 }
 
-export function PageHeader({ 
-  icon: Icon, 
+export function PageHeader({
+  icon: Icon,
   iconColor = "text-white",
-  title, 
+  title,
   subtitle,
   useLogo = false,
+  profilePhoto,
   rightAction
 }: PageHeaderProps) {
   return (
@@ -31,7 +33,13 @@ export function PageHeader({
           className="flex items-center gap-4"
         >
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center overflow-hidden">
-            {useLogo ? (
+            {profilePhoto ? (
+              <img
+                src={profilePhoto}
+                alt="Profile"
+                className="w-full h-full object-cover"
+              />
+            ) : useLogo ? (
               <Image
                 src="/icons/home-logo.png"
                 alt="FitFork"

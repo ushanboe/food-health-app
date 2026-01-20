@@ -29,6 +29,7 @@ export interface FoodAnalysis {
 }
 
 export interface UserProfile {
+  profilePhoto?: string; // Base64 encoded image (premium feature)
   name: string;
   dietaryPreferences: string[];
   allergies: string[];
