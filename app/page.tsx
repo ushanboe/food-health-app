@@ -7,7 +7,7 @@ import { useAppStore } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
-import { MacroDonut, FitnessDonut } from "@/components/ui/DonutChart";
+import { UnifiedProgressRing, UnifiedProgressLegend } from "@/components/ui/UnifiedProgressRing";
 import { Badge } from "@/components/ui/Badge";
 import { FloatingNutri } from "@/components/FloatingNutri";
 import {
@@ -18,10 +18,8 @@ import {
   ChevronRight,
   ChevronLeft,
   ChefHat,
-  Cloud,
-  Flame,
-  Dumbbell,
   Droplets,
+  Dumbbell,
 } from "lucide-react";
 
 const stagger = {
@@ -58,7 +56,7 @@ const exerciseIcons: Record<string, string> = {
   boxing: "🥊",
 };
 
-// Activity colors for donut chart
+// Activity colors for activity list
 const activityColors = [
   "#10B981", // emerald
   "#3B82F6", // blue
@@ -90,11 +88,9 @@ function getLastNDays(n: number): string[] {
 
 // Format date for display
 function formatDateLabel(dateStr: string): string {
-  // Parse the date string as local date
   const [year, month, day] = dateStr.split('-').map(Number);
   const date = new Date(year, month - 1, day);
   
-  // Get today and yesterday in local timezone
   const today = new Date();
   const todayStr = formatLocalDate(today);
   
@@ -123,12 +119,12 @@ export default function HomePage() {
   const fitnessLog = getDailyFitnessLog(currentDate);
   const todayEntries = dailyLog?.meals || [];
   const manualExercises = fitnessLog?.exercises || [];
+  const waterTotal = getDailyWaterTotal(currentDate);
 
   // Get synced activities for the current date from Strava/Fitbit/etc
   const syncedActivitiesForDate = useMemo(() => {
     if (!syncedFitnessData?.activities) return [];
     return syncedFitnessData.activities.filter(activity => {
-      // Convert activity start time to local date string for comparison
       const activityDate = formatLocalDate(new Date(activity.startTime));
       return activityDate === currentDate;
     });
@@ -145,7 +141,6 @@ export default function HomePage() {
       type?: string;
     }> = [];
     
-    // Add manual exercises
     manualExercises.forEach(e => {
       activities.push({
         id: e.id,
@@ -156,7 +151,6 @@ export default function HomePage() {
       });
     });
     
-    // Add synced activities
     syncedActivitiesForDate.forEach(a => {
       activities.push({
         id: a.id,
@@ -190,7 +184,6 @@ export default function HomePage() {
     }
   };
 
-  // Navigate days with buttons
   const goToPreviousDay = () => {
     if (currentDayIndex < days.length - 1) {
       setDirection(1);
@@ -208,14 +201,6 @@ export default function HomePage() {
   // Calculate total exercise stats for the day (combined)
   const totalExerciseCalories = allActivities.reduce((sum, e) => sum + e.calories, 0);
   const totalExerciseDuration = allActivities.reduce((sum, e) => sum + e.duration, 0);
-
-  // Prepare fitness activities for donut chart
-  const fitnessActivities = allActivities.map((e, index) => ({
-    name: e.name,
-    calories: e.calories,
-    duration: e.duration,
-    color: activityColors[index % activityColors.length],
-  }));
 
   const quickActions = [
     {
@@ -243,20 +228,12 @@ export default function HomePage() {
       route: "/recipes",
     },
     {
-      icon: TrendingUp,
-      label: "Progress",
-      description: "View stats",
+      icon: Dumbbell,
+      label: "Exercise",
+      description: "Log activity",
       color: "bg-purple-100",
       iconColor: "text-purple-600",
-      route: "/progress",
-    },
-    {
-      icon: Target,
-      label: "Goals",
-      description: "Set targets",
-      color: "bg-amber-100",
-      iconColor: "text-amber-600",
-      route: "/goals",
+      route: "/fitness",
     },
     {
       icon: Droplets,
@@ -265,6 +242,14 @@ export default function HomePage() {
       color: "bg-cyan-100",
       iconColor: "text-cyan-600",
       route: "/water",
+    },
+    {
+      icon: Target,
+      label: "Goals",
+      description: "Set targets",
+      color: "bg-amber-100",
+      iconColor: "text-amber-600",
+      route: "/goals",
     },
   ];
 
@@ -382,39 +367,35 @@ export default function HomePage() {
                   className="cursor-grab active:cursor-grabbing"
                 >
                   <Card className="bg-gradient-to-br from-white to-gray-50 border border-gray-100 shadow-lg">
-                    {/* Two Column Layout for Charts */}
-                    <div className="grid grid-cols-2 gap-4">
-                      {/* Nutrition Donut */}
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Flame size={16} className="text-emerald-500" />
-                          <span className="text-sm font-semibold text-gray-700">Nutrition</span>
-                        </div>
-                        <MacroDonut
-                          protein={Math.round(dailyTotals.protein)}
-                          carbs={Math.round(dailyTotals.carbs)}
-                          fat={Math.round(dailyTotals.fat)}
-                          calories={Math.round(dailyTotals.calories)}
-                          targetCalories={dailyGoals.calories}
-                          size={130}
-                          className="flex-col"
-                        />
-                      </div>
-
-                      {/* Fitness Donut */}
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center gap-2 mb-3">
-                          <Dumbbell size={16} className="text-emerald-500" />
-                          <span className="text-sm font-semibold text-gray-700">Fitness</span>
-                        </div>
-                        <FitnessDonut
-                          activities={fitnessActivities}
-                          totalCalories={totalExerciseCalories}
-                          totalDuration={totalExerciseDuration}
-                          size={130}
-                          className="flex-col"
-                        />
-                      </div>
+                    {/* Unified Progress Ring */}
+                    <div className="flex flex-col items-center">
+                      <UnifiedProgressRing
+                        calories={Math.round(dailyTotals.calories)}
+                        targetCalories={dailyGoals.calories}
+                        protein={Math.round(dailyTotals.protein)}
+                        carbs={Math.round(dailyTotals.carbs)}
+                        fat={Math.round(dailyTotals.fat)}
+                        exerciseCalories={totalExerciseCalories}
+                        exerciseGoal={dailyGoals.exerciseCalories || 300}
+                        exerciseMinutes={totalExerciseDuration}
+                        waterMl={waterTotal}
+                        waterGoal={dailyGoals.water || 2000}
+                        size={260}
+                      />
+                      
+                      {/* Legend */}
+                      <UnifiedProgressLegend
+                        calories={Math.round(dailyTotals.calories)}
+                        targetCalories={dailyGoals.calories}
+                        exerciseCalories={totalExerciseCalories}
+                        exerciseGoal={dailyGoals.exerciseCalories || 300}
+                        exerciseMinutes={totalExerciseDuration}
+                        waterMl={waterTotal}
+                        waterGoal={dailyGoals.water || 2000}
+                        protein={Math.round(dailyTotals.protein)}
+                        carbs={Math.round(dailyTotals.carbs)}
+                        fat={Math.round(dailyTotals.fat)}
+                      />
                     </div>
 
                     {/* Activity List (if any) */}
@@ -496,138 +477,81 @@ export default function HomePage() {
             </div>
           </motion.div>
 
-          {/* Water Progress Widget */}
-          <motion.div variants={fadeUp} className="mb-6">
-            <div className="flex items-center justify-between mb-3 px-1">
-              <p className="text-sm text-gray-500 font-medium">Hydration</p>
-              <button
-                onClick={() => router.push("/water")}
-                className="text-sm text-cyan-600 font-medium flex items-center gap-1"
-              >
-                Log water <ChevronRight size={16} />
-              </button>
-            </div>
+          {/* Recent Meals */}
+          {todayEntries.length > 0 && (
+            <motion.div variants={fadeUp} className="mb-6">
+              <div className="flex items-center justify-between mb-3 px-1">
+                <p className="text-sm text-gray-500 font-medium">Recent Meals</p>
+                <button
+                  onClick={() => router.push("/diary")}
+                  className="text-sm text-emerald-600 font-medium flex items-center gap-1"
+                >
+                  View all <ChevronRight size={16} />
+                </button>
+              </div>
+              <div className="space-y-2">
+                {todayEntries.slice(0, 3).map((meal, index) => (
+                  <motion.div
+                    key={meal.id}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: index * 0.1 }}
+                  >
+                    <Card
+                      onClick={() => router.push("/diary")}
+                      className="cursor-pointer hover:shadow-md transition-shadow"
+                      padding="sm"
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center text-lg">
+                            {meal.mealType === 'breakfast' ? '🌅' :
+                             meal.mealType === 'lunch' ? '☀️' :
+                             meal.mealType === 'dinner' ? '🌙' : '🍎'}
+                          </div>
+                          <div>
+                            <p className="font-medium text-gray-900 text-sm">{meal.foodName}</p>
+                            <p className="text-xs text-gray-500 capitalize">{meal.mealType}</p>
+                          </div>
+                        </div>
+                        <div className="text-right">
+                          <p className="font-semibold text-gray-900">{Math.round(meal.calories)} cal</p>
+                          <p className="text-xs text-gray-500">
+                            P:{Math.round(meal.protein)}g C:{Math.round(meal.carbs)}g F:{Math.round(meal.fat)}g
+                          </p>
+                        </div>
+                      </div>
+                    </Card>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Progress Link */}
+          <motion.div variants={fadeUp} className="mb-24">
             <Card
-              onClick={() => router.push("/water")}
-              className="cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-cyan-50 to-blue-50"
+              onClick={() => router.push("/progress")}
+              className="cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-purple-50 to-indigo-50"
             >
-              <div className="flex items-center gap-4">
-                <div className="relative w-16 h-16">
-                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
-                    <circle
-                      cx="18"
-                      cy="18"
-                      r="15"
-                      fill="none"
-                      stroke="#e5e7eb"
-                      strokeWidth="3"
-                    />
-                    <circle
-                      cx="18"
-                      cy="18"
-                      r="15"
-                      fill="none"
-                      stroke="#06b6d4"
-                      strokeWidth="3"
-                      strokeLinecap="round"
-                      strokeDasharray={`${Math.min((getDailyWaterTotal(currentDate) / (dailyGoals.water || 2000)) * 94.2, 94.2)} 94.2`}
-                    />
-                  </svg>
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Droplets className="w-6 h-6 text-cyan-500" />
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-purple-100 flex items-center justify-center">
+                    <TrendingUp size={24} className="text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="font-semibold text-gray-900">View Progress</p>
+                    <p className="text-sm text-gray-500">Track your journey over time</p>
                   </div>
                 </div>
-                <div className="flex-1">
-                  <p className="font-semibold text-gray-900">
-                    {getDailyWaterTotal(currentDate)} ml
-                  </p>
-                  <p className="text-sm text-gray-500">
-                    of {dailyGoals.water || 2000} ml goal
-                  </p>
-                  <div className="mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-500"
-                      style={{ width: `${Math.min((getDailyWaterTotal(currentDate) / (dailyGoals.water || 2000)) * 100, 100)}%` }}
-                    />
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-cyan-600">
-                    {Math.round((getDailyWaterTotal(currentDate) / (dailyGoals.water || 2000)) * 100)}%
-                  </p>
-                </div>
+                <ChevronRight size={20} className="text-gray-400" />
               </div>
             </Card>
-          </motion.div>
-
-          {/* Recent Meals */}
-          <motion.div variants={fadeUp}>
-            <div className="flex items-center justify-between mb-3 px-1">
-              <p className="text-sm text-gray-500 font-medium">Recent Meals</p>
-              <button
-                onClick={() => router.push("/diary")}
-                className="text-sm text-emerald-600 font-medium flex items-center gap-1"
-              >
-                View all <ChevronRight size={16} />
-              </button>
-            </div>
-
-            {todayEntries.length === 0 ? (
-              <Card
-                className="border-2 border-dashed border-gray-200 bg-gray-50/50"
-                onClick={() => router.push("/camera")}
-              >
-                <div className="flex flex-col items-center justify-center py-6 text-gray-400">
-                  <Camera size={32} className="mb-2" />
-                  <p className="text-sm font-medium">No meals logged yet</p>
-                  <p className="text-xs">Tap to scan your first meal</p>
-                </div>
-              </Card>
-            ) : (
-              <div className="space-y-2">
-                {todayEntries.slice(0, 3).map((entry) => (
-                  <Card key={entry.id} padding="sm">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
-                          <Utensils size={18} className="text-emerald-600" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900 text-sm">
-                            {entry.foodName}
-                          </p>
-                          <p className="text-xs text-gray-500">
-                            {entry.mealType} • {entry.servingSize}
-                          </p>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <p className="font-semibold text-gray-900">
-                          {entry.calories} cal
-                        </p>
-                        <p className="text-xs text-gray-500">
-                          P:{entry.protein}g C:{entry.carbs}g F:{entry.fat}g
-                        </p>
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-                {todayEntries.length > 3 && (
-                  <button
-                    onClick={() => router.push("/diary")}
-                    className="w-full text-center text-sm text-emerald-600 font-medium py-2"
-                  >
-                    View {todayEntries.length - 3} more entries
-                  </button>
-                )}
-              </div>
-            )}
           </motion.div>
         </motion.div>
       </PageContent>
 
-      <FloatingNutri interval={25} duration={5} position="bottom-left" />
-
+      <FloatingNutri />
       <BottomNav />
     </PageContainer>
   );

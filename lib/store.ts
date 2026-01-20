@@ -51,6 +51,7 @@ export interface DailyGoals {
   carbs: number;
   fat: number;
   water: number; // daily water goal in ml (default 2000ml = ~8 cups)
+  exerciseCalories: number; // daily exercise calorie burn goal (default 300)
 }
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
@@ -326,6 +327,7 @@ export const useAppStore = create<AppState>()(
         carbs: 250,
         fat: 65,
         water: 2000, // 2000ml = ~8 cups
+        exerciseCalories: 300, // default 300 cal burn goal
       },
       dailyLogs: [],
       weightHistory: [],
