@@ -4,7 +4,8 @@
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -276,7 +277,7 @@ export default function ApiSettingsPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="API Settings" showLogo />
+      <PageHeader icon={Key} title="API Settings" subtitle="Configure your integrations" />
 
       {/* Nutri Celebration Overlay */}
       <NutriCelebration show={showCelebration} />

@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAppStore, Recipe, RecipeIngredient } from "@/lib/store";
@@ -15,6 +16,7 @@ import {
   Scale,
   BookOpen,
   Target,
+  Database,
 } from "lucide-react";
 
 const fadeUp = {
@@ -288,7 +290,7 @@ export default function ExportDataPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Export Data" showLogo />
+      <PageHeader icon={Database} title="Export Data" subtitle="Download your information" />
 
       <PageContent>
         <motion.div

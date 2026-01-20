@@ -1,6 +1,7 @@
 "use client";
 
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { BottomNav } from "@/components/ui/BottomNav";
 
 import { useState, useEffect } from "react";
@@ -94,16 +95,16 @@ export default function WaterPage() {
 
   return (
     <PageContainer>
-      <Header 
-        variant="green" 
-        title="Water Tracker" 
-        showLogo 
+      <PageHeader
+        icon={Droplets}
+        title="Hydration"
+        subtitle="Stay refreshed"
         rightAction={
           <button
             onClick={() => setShowGoalEdit(true)}
-            className="p-2 hover:bg-white/20 rounded-full transition-colors"
+            className="p-2 hover:bg-emerald-100 rounded-full transition-colors"
           >
-            <Target className="w-6 h-6 text-white" />
+            <Target className="w-6 h-6 text-emerald-600" />
           </button>
         }
       />

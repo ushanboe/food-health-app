@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import {
   Shield,
@@ -50,7 +51,7 @@ const PrivacyPoint = ({ text }: { text: string }) => (
 export default function PrivacyPage() {
   return (
     <PageContainer>
-      <Header variant="green" title="Privacy Policy" showLogo />
+      <PageHeader icon={Shield} title="Privacy Policy" subtitle="How we protect your data" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

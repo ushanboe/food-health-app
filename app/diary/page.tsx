@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { BottomSheet } from "@/components/ui/Modal";
@@ -28,6 +29,7 @@ import {
   Sparkles,
   Star,
   Flame,
+  Book,
   ChefHat,
 } from "lucide-react";
 
@@ -144,7 +146,7 @@ export default function DiaryPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Food Diary" showLogo />
+      <PageHeader icon={Book} title="Food Diary" subtitle="Fuel your body wisely" />
 
       <PageContent className="pb-32">
         <motion.div

@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -106,8 +107,10 @@ export default function GoalsPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" showLogo
-        title="Nutrition Goals"
+      <PageHeader
+        icon={Target}
+        title="Goals"
+        subtitle="Aim high, achieve more"
         rightAction={
           isEditing ? (
             <Button variant="ghost" size="sm" onClick={handleSave}>

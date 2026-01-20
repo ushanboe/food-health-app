@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore, Theme } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ListItem } from "@/components/ui/ListItem";
 import FitnessConnections from "@/components/fitness/FitnessConnections";
@@ -28,6 +29,7 @@ import {
   Info,
   Check,
   X,
+  Settings,
 } from "lucide-react";
 
 const stagger = {
@@ -71,7 +73,7 @@ export default function SettingsPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Settings" showLogo />
+      <PageHeader icon={Settings} title="Settings" subtitle="Customize your experience" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

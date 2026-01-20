@@ -8,7 +8,8 @@ import { useAppStore } from "@/lib/store";
 import { getSyncHistory, SyncRecord, saveSyncRecord } from "@/lib/syncStatus";
 import { fullSync } from "@/lib/supabase/sync-service";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -350,7 +351,7 @@ export default function CloudSyncPage() {
   if (loading) {
     return (
       <PageContainer>
-        <Header variant="green" title="Cloud Backup" showLogo />
+        <PageHeader icon={Cloud} title="Cloud Backup" subtitle="Sync your data securely" />
         <PageContent>
           <div className="flex items-center justify-center h-64">
             <RefreshCw size={32} className="animate-spin text-emerald-500" />
@@ -363,7 +364,7 @@ export default function CloudSyncPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Cloud Backup" showLogo />
+      <PageHeader icon={Cloud} title="Cloud Backup" subtitle="Sync your data securely" />
 
       {/* Nutri Celebration */}
       <NutriSyncSuccess

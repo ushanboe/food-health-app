@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { FileText, Shield, AlertTriangle, Scale, Globe, Mail } from "lucide-react";
 
@@ -32,7 +33,7 @@ const Section = ({ title, icon: Icon, iconColor, children }: { title: string; ic
 export default function TermsPage() {
   return (
     <PageContainer>
-      <Header variant="green" title="Terms of Service" showLogo />
+      <PageHeader icon={FileText} title="Terms of Service" subtitle="Our terms and conditions" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

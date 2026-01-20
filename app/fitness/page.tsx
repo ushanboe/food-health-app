@@ -5,7 +5,8 @@ import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore, EXERCISE_TYPES, ExerciseCategory } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -19,6 +20,7 @@ import {
   Timer,
   Plus,
   X,
+  Dumbbell,
 } from "lucide-react";
 
 const stagger = {
@@ -110,7 +112,7 @@ export default function FitnessPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Fitness" showLogo />
+      <PageHeader icon={Dumbbell} title="Fitness" subtitle="Every step counts" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

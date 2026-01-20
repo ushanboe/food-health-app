@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { useAppStore } from "@/lib/store";
@@ -105,7 +106,7 @@ export default function DevicesPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Connected Devices" showLogo />
+      <PageHeader icon={Smartphone} title="Devices" subtitle="Manage your connections" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

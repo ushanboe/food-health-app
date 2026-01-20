@@ -1,7 +1,8 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import {
   Info,
@@ -37,7 +38,7 @@ const features = [
 export default function AboutPage() {
   return (
     <PageContainer>
-      <Header variant="green" title="About" showLogo />
+      <PageHeader icon={Info} title="About" subtitle="Learn about FitFork" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">

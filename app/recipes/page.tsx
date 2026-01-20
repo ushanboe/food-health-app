@@ -5,7 +5,8 @@ import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore, Recipe } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
@@ -457,7 +458,7 @@ export default function RecipesPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="My Recipes" showLogo />
+      <PageHeader icon={ChefHat} title="Recipes" subtitle="Cook something amazing" />
 
       <PageContent>
         <motion.div

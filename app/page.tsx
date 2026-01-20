@@ -5,7 +5,8 @@ import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
 import { BottomNav } from "@/components/ui/BottomNav";
-import { PageContainer, PageContent, Header } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { UnifiedProgressRing, UnifiedProgressLegend } from "@/components/ui/UnifiedProgressRing";
 import { Badge } from "@/components/ui/Badge";
@@ -267,7 +268,7 @@ export default function HomePage() {
 
   return (
     <PageContainer>
-      <Header variant="green" showGreeting showLogo />
+      <PageHeader useLogo title="FitFork" subtitle="Version 1.0.0" />
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">
           {/* Swipeable Progress Card */}

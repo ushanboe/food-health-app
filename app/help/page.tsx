@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Header, PageContainer, PageContent } from "@/components/ui/Header";
+import { PageContainer, PageContent } from "@/components/ui/Header";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import {
   HelpCircle,
@@ -118,7 +119,7 @@ export default function HelpCenterPage() {
 
   return (
     <PageContainer>
-      <Header variant="green" title="Help Center" showLogo />
+      <PageHeader icon={HelpCircle} title="Help Center" subtitle="Get answers to your questions" />
 
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">
