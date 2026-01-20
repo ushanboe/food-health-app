@@ -10,6 +10,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ListItem } from "@/components/ui/ListItem";
 import FitnessConnections from "@/components/fitness/FitnessConnections";
+import { usePremium } from "@/lib/subscription";
+import { PremiumGate } from "@/components/PremiumGate";
 import {
   Key,
   Bell,
@@ -81,7 +83,9 @@ export default function SettingsPage() {
           {/* Fitness Connections */}
           <motion.div variants={fadeUp} className="mb-6">
             <p className="text-sm text-gray-500 font-medium mb-3 px-1">Fitness Connections</p>
-            <FitnessConnections />
+            <PremiumGate feature="stravaSync">
+              <FitnessConnections />
+            </PremiumGate>
           </motion.div>
 
           {/* API Configuration */}
