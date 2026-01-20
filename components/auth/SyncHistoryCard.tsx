@@ -100,11 +100,11 @@ export default function SyncHistoryCard() {
   const getStatusColor = (status: SyncRecord['status']) => {
     switch (status) {
       case 'success':
-        return 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400';
+        return 'bg-green-100 text-green-700';
       case 'failed':
-        return 'bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400';
+        return 'bg-red-100 text-red-700';
       case 'partial':
-        return 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-700 dark:text-yellow-400';
+        return 'bg-yellow-100 text-yellow-700';
     }
   };
 
@@ -151,25 +151,25 @@ export default function SyncHistoryCard() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg"
+        className="bg-white rounded-2xl p-6 shadow-lg"
       >
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-gray-100 dark:bg-gray-700 rounded-xl">
+          <div className="p-2 bg-gray-100 rounded-xl">
             <History className="w-5 h-5 text-gray-500" />
           </div>
-          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Sync History</h2>
+          <h2 className="text-lg font-bold text-gray-900">Sync History</h2>
         </div>
         <div className="text-center py-6">
-          <RefreshCw className="w-10 h-10 text-gray-300 dark:text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-500 dark:text-gray-400 text-sm">
+          <RefreshCw className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-500 text-sm">
             No sync history yet.
           </p>
-          <p className="text-gray-400 dark:text-gray-500 text-xs mt-1">
+          <p className="text-gray-400 text-xs mt-1">
             Click "Sync Now" above to sync your data!
           </p>
         </div>
         {/* Debug info */}
-        <div className="mt-4 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-700 dark:text-yellow-400">
+        <div className="mt-4 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
           <strong>🐛 Debug:</strong> {debugInfo || 'Loading...'}
           <br />
           <button 
@@ -189,24 +189,24 @@ export default function SyncHistoryCard() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg"
+      className="bg-white rounded-2xl p-6 shadow-lg"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-xl">
-            <History className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+          <div className="p-2 bg-blue-100 rounded-xl">
+            <History className="w-5 h-5 text-blue-600" />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-gray-900 dark:text-white">Sync History</h2>
-            <p className="text-xs text-gray-500 dark:text-gray-400">
+            <h2 className="text-lg font-bold text-gray-900">Sync History</h2>
+            <p className="text-xs text-gray-500">
               {history.length} sync{history.length !== 1 ? 's' : ''} recorded
             </p>
           </div>
         </div>
         <button
           onClick={handleClearHistory}
-          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+          className="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
           title="Clear history"
         >
           <Trash2 className="w-4 h-4" />
@@ -214,7 +214,7 @@ export default function SyncHistoryCard() {
       </div>
 
       {/* Debug info */}
-      <div className="mb-3 p-2 bg-yellow-50 dark:bg-yellow-900/20 rounded text-xs text-yellow-700 dark:text-yellow-400">
+      <div className="mb-3 p-2 bg-yellow-50 rounded text-xs text-yellow-700">
         <strong>🐛 Debug:</strong> {debugInfo}
       </div>
 
@@ -228,12 +228,12 @@ export default function SyncHistoryCard() {
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: 20 }}
               transition={{ delay: index * 0.05 }}
-              className="border border-gray-100 dark:border-gray-700 rounded-xl overflow-hidden"
+              className="border border-gray-100 rounded-xl overflow-hidden"
             >
               {/* Record Header */}
               <button
                 onClick={() => setExpanded(expanded === record.id ? false : record.id)}
-                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors"
+                className="w-full p-3 flex items-center justify-between hover:bg-gray-50 transition-colors"
               >
                 <div className="flex items-center gap-3">
                   {getStatusIcon(record.status)}
@@ -246,7 +246,7 @@ export default function SyncHistoryCard() {
                         {record.duration}ms
                       </span>
                     </div>
-                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       {formatRelativeTime(record.timestamp)}
                     </p>
                   </div>
@@ -283,14 +283,14 @@ export default function SyncHistoryCard() {
                     initial={{ height: 0, opacity: 0 }}
                     animate={{ height: 'auto', opacity: 1 }}
                     exit={{ height: 0, opacity: 0 }}
-                    className="border-t border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700/30"
+                    className="border-t border-gray-100 bg-gray-50"
                   >
                     <div className="p-3 space-y-2">
                       {Object.entries(record.details).map(([category, data]) => {
                         if (category === 'profile') {
                           return (
                             <div key={category} className="flex items-center justify-between text-xs">
-                              <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                              <div className="flex items-center gap-2 text-gray-600">
                                 {getCategoryIcon(category)}
                                 <span>{getCategoryLabel(category)}</span>
                               </div>
@@ -303,15 +303,15 @@ export default function SyncHistoryCard() {
                         const typedData = data as { uploaded: number; downloaded: number };
                         return (
                           <div key={category} className="flex items-center justify-between text-xs">
-                            <div className="flex items-center gap-2 text-gray-600 dark:text-gray-300">
+                            <div className="flex items-center gap-2 text-gray-600">
                               {getCategoryIcon(category)}
                               <span>{getCategoryLabel(category)}</span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-green-600 dark:text-green-400 flex items-center gap-1">
+                              <span className="text-green-600 flex items-center gap-1">
                                 <Upload className="w-3 h-3" /> {typedData.uploaded}
                               </span>
-                              <span className="text-blue-600 dark:text-blue-400 flex items-center gap-1">
+                              <span className="text-blue-600 flex items-center gap-1">
                                 <Download className="w-3 h-3" /> {typedData.downloaded}
                               </span>
                             </div>
@@ -319,8 +319,8 @@ export default function SyncHistoryCard() {
                         );
                       })}
                       {record.error && (
-                        <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 rounded-lg">
-                          <p className="text-xs text-red-600 dark:text-red-400">
+                        <div className="mt-2 p-2 bg-red-50 rounded-lg">
+                          <p className="text-xs text-red-600">
                             Error: {record.error}
                           </p>
                         </div>
@@ -338,7 +338,7 @@ export default function SyncHistoryCard() {
       {history.length > 3 && (
         <button
           onClick={() => setShowAll(!showAll)}
-          className="w-full mt-3 py-2 text-sm text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/20 rounded-lg transition-colors"
+          className="w-full mt-3 py-2 text-sm text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
         >
           {showAll ? 'Show Less' : `Show ${history.length - 3} More`}
         </button>

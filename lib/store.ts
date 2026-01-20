@@ -204,7 +204,6 @@ export const calculateCaloriesBurned = (
 
 // ============ STORE INTERFACE ============
 
-export type Theme = "light" | "dark" | "system";
 interface AppState {
   currentImage: string | null;
   scannedBarcode: string | null;
@@ -271,8 +270,6 @@ interface AppState {
   isFitnessSyncing: boolean;
   fitnessSyncError: string | null;
 
-  // Theme
-  theme: Theme;
 
   // Fitness Sync Actions
   setFitnessConnection: (provider: FitnessProvider, connection: FitnessConnection | null) => void;
@@ -285,8 +282,6 @@ interface AppState {
   getConnectedFitnessProviders: () => FitnessProvider[];
   isFitnessProviderConnected: (provider: FitnessProvider) => boolean;
 
-  // Theme action
-  setTheme: (theme: Theme) => void;
 }
 
 export const getTodayString = () => new Date().toISOString().split("T")[0];
@@ -369,7 +364,6 @@ export const useAppStore = create<AppState>()(
       lastFitnessSyncAt: null,
       isFitnessSyncing: false,
       fitnessSyncError: null,
-      theme: "light" as Theme,
 
       setCurrentImage: (image) => set({ currentImage: image }),
       setScannedBarcode: (barcode) => set({ scannedBarcode: barcode }),
@@ -633,7 +627,6 @@ export const useAppStore = create<AppState>()(
         return state.fitnessConnections[provider]?.isConnected ?? false;
       },
 
-      setTheme: (theme) => set({ theme }),
     }),
     {
       name: "nutriscan-storage",

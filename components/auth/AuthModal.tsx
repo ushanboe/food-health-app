@@ -138,7 +138,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
           animate={{ scale: 1, opacity: 1 }}
           exit={{ scale: 0.9, opacity: 0 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-          className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
+          className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Header */}
@@ -197,7 +197,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="mb-4 p-3 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-lg flex items-center gap-2 text-red-700 dark:text-red-300 text-sm"
+                    className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg flex items-center gap-2 text-red-700 text-sm"
                   >
                     <AlertCircle size={18} />
                     {error}
@@ -208,7 +208,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 {mode === 'login' && (
                   <form onSubmit={handleLogin} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Email
                       </label>
                       <div className="relative">
@@ -217,7 +217,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           placeholder="your@email.com"
                           required
                         />
@@ -225,7 +225,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Password
                       </label>
                       <div className="relative">
@@ -234,7 +234,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           placeholder="••••••••"
                           required
                         />
@@ -251,7 +251,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     <button
                       type="button"
                       onClick={() => setMode('forgot')}
-                      className="text-sm text-green-600 hover:text-green-700 dark:text-green-400"
+                      className="text-sm text-green-600 hover:text-green-700"
                     >
                       Forgot password?
                     </button>
@@ -266,10 +266,10 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
                     <div className="relative my-6">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-gray-300 dark:border-gray-600"></div>
+                        <div className="w-full border-t border-gray-300"></div>
                       </div>
                       <div className="relative flex justify-center text-sm">
-                        <span className="px-2 bg-white dark:bg-gray-800 text-gray-500">or</span>
+                        <span className="px-2 bg-white text-gray-500">or</span>
                       </div>
                     </div>
 
@@ -277,7 +277,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       type="button"
                       onClick={handleGoogleSignIn}
                       disabled={loading}
-                      className="w-full py-3 border border-gray-300 dark:border-gray-600 rounded-xl font-medium hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
+                      className="w-full py-3 border border-gray-300 rounded-xl font-medium hover:bg-gray-50 transition-colors flex items-center justify-center gap-2 disabled:opacity-50"
                     >
                       <svg className="w-5 h-5" viewBox="0 0 24 24">
                         <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -288,12 +288,12 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       Continue with Google
                     </button>
 
-                    <p className="text-center text-sm text-gray-600 dark:text-gray-400 mt-4">
+                    <p className="text-center text-sm text-gray-600 mt-4">
                       Don't have an account?{' '}
                       <button
                         type="button"
                         onClick={() => { setMode('signup'); resetForm(); }}
-                        className="text-green-600 hover:text-green-700 dark:text-green-400 font-medium"
+                        className="text-green-600 hover:text-green-700 font-medium"
                       >
                         Sign up
                       </button>
@@ -305,7 +305,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 {mode === 'signup' && (
                   <form onSubmit={handleSignUp} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Email
                       </label>
                       <div className="relative">
@@ -314,7 +314,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           placeholder="your@email.com"
                           required
                         />
@@ -322,7 +322,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Password
                       </label>
                       <div className="relative">
@@ -331,7 +331,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           type={showPassword ? 'text' : 'password'}
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          className="w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full pl-10 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           placeholder="At least 6 characters"
                           required
                           minLength={6}
@@ -347,7 +347,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                     </div>
 
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Confirm Password
                       </label>
                       <div className="relative">
@@ -356,7 +356,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           type={showPassword ? 'text' : 'password'}
                           value={confirmPassword}
                           onChange={(e) => setConfirmPassword(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           placeholder="Confirm your password"
                           required
                         />
@@ -371,7 +371,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                       {loading ? 'Creating account...' : 'Create Account'}
                     </button>
 
-                    <p className="text-center text-xs text-gray-500 dark:text-gray-400 mt-4">
+                    <p className="text-center text-xs text-gray-500 mt-4">
                       By signing up, you agree to our Terms of Service and Privacy Policy
                     </p>
                   </form>
@@ -381,7 +381,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 {mode === 'forgot' && (
                   <form onSubmit={handleForgotPassword} className="space-y-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
                         Email
                       </label>
                       <div className="relative">
@@ -390,7 +390,7 @@ export default function AuthModal({ isOpen, onClose }: AuthModalProps) {
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 dark:border-gray-600 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-green-500 focus:border-transparent"
                           placeholder="your@email.com"
                           required
                         />

@@ -442,7 +442,7 @@ export default function AnalysisPage() {
                   <motion.div
                     initial={{ opacity: 0, y: -10 }}
                     animate={{ opacity: 1, y: 0 }}
-                    className="absolute bottom-full left-0 right-0 mb-2 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-2 grid grid-cols-2 gap-2"
+                    className="absolute bottom-full left-0 right-0 mb-2 bg-white rounded-xl shadow-lg p-2 grid grid-cols-2 gap-2"
                   >
                     {(["breakfast", "lunch", "dinner", "snacks"] as MealType[]).map((meal) => (
                       <button
@@ -464,7 +464,7 @@ export default function AnalysisPage() {
                           setShowMealPicker(false);
                           setAddedToDiary(true);
                         }}
-                        className="py-3 px-4 bg-gray-100 dark:bg-gray-700 hover:bg-green-100 dark:hover:bg-green-900 rounded-lg text-sm font-medium capitalize transition-colors"
+                        className="py-3 px-4 bg-gray-100 hover:bg-green-100 rounded-lg text-sm font-medium capitalize transition-colors"
                       >
                         {meal === "breakfast" ? "🌅" : meal === "lunch" ? "☀️" : meal === "dinner" ? "🌙" : "🍿"} {meal}
                       </button>
@@ -480,7 +480,7 @@ export default function AnalysisPage() {
 
             <button
               onClick={() => router.push("/camera")}
-              className="w-full py-4 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 font-semibold rounded-2xl btn-press"
+              className="w-full py-4 bg-gray-200 text-gray-700 font-semibold rounded-2xl btn-press"
             >
               Scan Another Food
             </button>

@@ -87,7 +87,7 @@ export default function WaterPage() {
 
   if (!mounted) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-cyan-50 to-teal-50 flex items-center justify-center">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
       </div>
     );
@@ -114,7 +114,7 @@ export default function WaterPage() {
         <motion.div
           initial={{ opacity: 0, scale: 0.9 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg"
+          className="bg-white rounded-3xl p-6 shadow-lg"
         >
           <div className="flex flex-col items-center">
             {/* Animated Water Glass */}
@@ -175,7 +175,7 @@ export default function WaterPage() {
                     key={totalWater}
                     initial={{ scale: 1.2 }}
                     animate={{ scale: 1 }}
-                    className="text-3xl font-bold text-blue-600 dark:text-blue-400"
+                    className="text-3xl font-bold text-blue-600"
                   >
                     {Math.round(progress)}%
                   </motion.span>
@@ -189,11 +189,11 @@ export default function WaterPage() {
                 key={totalWater}
                 initial={{ scale: 1.1 }}
                 animate={{ scale: 1 }}
-                className="text-2xl font-bold text-gray-900 dark:text-white"
+                className="text-2xl font-bold text-gray-900"
               >
                 {totalWater} ml
               </motion.p>
-              <p className="text-gray-500 dark:text-gray-400">
+              <p className="text-gray-500">
                 of {waterGoal} ml goal
               </p>
               {remaining > 0 && (
@@ -220,9 +220,9 @@ export default function WaterPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.1 }}
-          className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg"
+          className="bg-white rounded-3xl p-6 shadow-lg"
         >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Plus className="w-5 h-5 text-blue-500" />
             Quick Add
           </h2>
@@ -233,11 +233,11 @@ export default function WaterPage() {
                 whileHover={{ scale: 1.05 }}
                 whileTap={{ scale: 0.95 }}
                 onClick={() => handleAddWater(item.amount)}
-                className="flex flex-col items-center p-3 bg-blue-50 dark:bg-blue-900/30 rounded-2xl hover:bg-blue-100 dark:hover:bg-blue-900/50 transition-colors"
+                className="flex flex-col items-center p-3 bg-blue-50 rounded-2xl hover:bg-blue-100 transition-colors"
               >
                 <item.icon className="w-6 h-6 text-blue-500 mb-1" />
-                <span className="text-xs text-gray-600 dark:text-gray-400">{item.label}</span>
-                <span className="text-sm font-semibold text-blue-600 dark:text-blue-400">
+                <span className="text-xs text-gray-600">{item.label}</span>
+                <span className="text-sm font-semibold text-blue-600">
                   {item.amount}ml
                 </span>
               </motion.button>
@@ -250,9 +250,9 @@ export default function WaterPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg"
+          className="bg-white rounded-3xl p-6 shadow-lg"
         >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4">
             Custom Amount
           </h2>
           <div className="flex items-center justify-center gap-4">
@@ -260,26 +260,26 @@ export default function WaterPage() {
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setCustomAmount(Math.max(50, customAmount - 50))}
-              className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
             >
-              <Minus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Minus className="w-6 h-6 text-gray-600" />
             </motion.button>
             <div className="text-center min-w-[120px]">
               <input
                 type="number"
                 value={customAmount}
                 onChange={(e) => setCustomAmount(Math.max(0, parseInt(e.target.value) || 0))}
-                className="w-24 text-center text-2xl font-bold text-gray-900 dark:text-white bg-transparent border-b-2 border-blue-500 focus:outline-none"
+                className="w-24 text-center text-2xl font-bold text-gray-900 bg-transparent border-b-2 border-blue-500 focus:outline-none"
               />
-              <p className="text-sm text-gray-500 dark:text-gray-400">ml</p>
+              <p className="text-sm text-gray-500">ml</p>
             </div>
             <motion.button
               whileHover={{ scale: 1.1 }}
               whileTap={{ scale: 0.9 }}
               onClick={() => setCustomAmount(customAmount + 50)}
-              className="p-3 bg-gray-100 dark:bg-gray-700 rounded-full hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+              className="p-3 bg-gray-100 rounded-full hover:bg-gray-200 transition-colors"
             >
-              <Plus className="w-6 h-6 text-gray-600 dark:text-gray-300" />
+              <Plus className="w-6 h-6 text-gray-600" />
             </motion.button>
           </div>
           <motion.button
@@ -297,9 +297,9 @@ export default function WaterPage() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3 }}
-          className="bg-white dark:bg-gray-800 rounded-3xl p-6 shadow-lg"
+          className="bg-white rounded-3xl p-6 shadow-lg"
         >
-          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
             <Clock className="w-5 h-5 text-blue-500" />
             Today's Log
           </h2>
@@ -312,24 +312,24 @@ export default function WaterPage() {
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
                     exit={{ opacity: 0, x: 20 }}
-                    className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-700/50 rounded-xl"
+                    className="flex items-center justify-between p-3 bg-gray-50 rounded-xl"
                   >
                     <div className="flex items-center gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/50 rounded-full">
+                      <div className="p-2 bg-blue-100 rounded-full">
                         <Droplets className="w-4 h-4 text-blue-500" />
                       </div>
                       <div>
-                        <p className="font-medium text-gray-900 dark:text-white">
+                        <p className="font-medium text-gray-900">
                           {entry.amount}ml
                         </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">
+                        <p className="text-xs text-gray-500">
                           {formatTime(entry.timestamp)}
                         </p>
                       </div>
                     </div>
                     <button
                       onClick={() => handleRemoveEntry(entry.id)}
-                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-full transition-colors"
+                      className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
                     >
                       <Trash2 className="w-4 h-4" />
                     </button>
@@ -338,7 +338,7 @@ export default function WaterPage() {
               </AnimatePresence>
             </div>
           ) : (
-            <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <div className="text-center py-8 text-gray-500">
               <Droplets className="w-12 h-12 mx-auto mb-2 opacity-30" />
               <p>No water logged yet today</p>
               <p className="text-sm">Start by adding your first glass!</p>
@@ -377,20 +377,20 @@ export default function WaterPage() {
               animate={{ scale: 1, opacity: 1 }}
               exit={{ scale: 0.9, opacity: 0 }}
               onClick={(e) => e.stopPropagation()}
-              className="bg-white dark:bg-gray-800 rounded-3xl p-6 w-full max-w-sm shadow-2xl"
+              className="bg-white rounded-3xl p-6 w-full max-w-sm shadow-2xl"
             >
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+              <h3 className="text-xl font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <Target className="w-6 h-6 text-blue-500" />
                 Set Daily Goal
               </h3>
               <div className="space-y-4">
                 <div>
-                  <label className="text-sm text-gray-500 dark:text-gray-400">Daily water goal (ml)</label>
+                  <label className="text-sm text-gray-500">Daily water goal (ml)</label>
                   <input
                     type="number"
                     value={newGoal}
                     onChange={(e) => setNewGoal(Math.max(500, parseInt(e.target.value) || 2000))}
-                    className="w-full mt-1 p-3 text-lg font-semibold bg-gray-100 dark:bg-gray-700 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full mt-1 p-3 text-lg font-semibold bg-gray-100 rounded-xl text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
                   />
                 </div>
                 <div className="flex gap-2 text-sm">
@@ -401,20 +401,20 @@ export default function WaterPage() {
                       className={`flex-1 py-2 rounded-lg transition-colors ${
                         newGoal === preset
                           ? "bg-blue-500 text-white"
-                          : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600"
+                          : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                       }`}
                     >
                       {preset / 1000}L
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                <p className="text-xs text-gray-500 text-center">
                   Recommended: 2000-2500ml (8-10 cups) per day
                 </p>
                 <div className="flex gap-3 mt-6">
                   <button
                     onClick={() => setShowGoalEdit(false)}
-                    className="flex-1 py-3 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 font-semibold rounded-xl hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                    className="flex-1 py-3 bg-gray-100 text-gray-700 font-semibold rounded-xl hover:bg-gray-200 transition-colors"
                   >
                     Cancel
                   </button>

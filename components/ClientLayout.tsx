@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 import { SplashScreen } from "@/components/SplashScreen";
 import { AuthProvider } from "@/contexts/AuthContext";
-import { ThemeProvider } from "@/components/ThemeProvider";
 
 export function ClientLayout({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(false);
@@ -37,10 +36,8 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthProvider>
-      <ThemeProvider>
-        {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
-        {children}
-      </ThemeProvider>
+      {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
+      {children}
     </AuthProvider>
   );
 }

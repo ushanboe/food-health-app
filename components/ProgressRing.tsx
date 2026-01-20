@@ -48,7 +48,7 @@ export function ProgressRing({
           fill="none"
           stroke="currentColor"
           strokeWidth={strokeWidth}
-          className="text-gray-200 dark:text-gray-700"
+          className="text-gray-200"
         />
         {/* Progress circle */}
         <motion.circle
@@ -70,10 +70,10 @@ export function ProgressRing({
         <span className="text-3xl font-bold" style={{ color: getColor() }}>
           {isOver ? "+" : ""}{Math.abs(remaining).toLocaleString()}
         </span>
-        <span className="text-sm text-gray-500 dark:text-gray-400">
+        <span className="text-sm text-gray-500">
           {isOver ? "over" : "remaining"}
         </span>
-        <span className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+        <span className="text-xs text-gray-400 mt-1">
           {current.toLocaleString()} / {goal.toLocaleString()} {unit}
         </span>
       </div>
@@ -113,7 +113,7 @@ export function MiniProgressRing({
             fill="none"
             stroke="currentColor"
             strokeWidth={strokeWidth}
-            className="text-gray-200 dark:text-gray-700"
+            className="text-gray-200"
           />
           <motion.circle
             cx={size / 2}

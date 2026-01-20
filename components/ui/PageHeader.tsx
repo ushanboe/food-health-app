@@ -23,7 +23,7 @@ export function PageHeader({
   rightAction
 }: PageHeaderProps) {
   return (
-    <div className="bg-white dark:bg-gray-900">
+    <div className="bg-white">
       <div className="max-w-lg mx-auto px-5 pt-12 pb-6">
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -44,10 +44,10 @@ export function PageHeader({
             ) : null}
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h1 className="text-xl font-bold text-gray-900">
               {title}
             </h1>
-            <p className="text-sm text-gray-500 dark:text-gray-400">
+            <p className="text-sm text-gray-500">
               {subtitle}
             </p>
           </div>
