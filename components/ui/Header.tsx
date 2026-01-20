@@ -45,35 +45,35 @@ export function Header({
         animate={{ opacity: 1, y: 0 }}
         className="sticky top-0 z-40 bg-gradient-to-br from-emerald-500 to-emerald-600"
       >
-        <div className="max-w-lg mx-auto px-5 pt-10 pb-5">
+        <div className="max-w-lg mx-auto px-5 pt-8 pb-5">
           <div className="flex flex-col items-center text-center">
-            {/* Greeting - only on home page */}
-            {showGreeting && (
-              <motion.p
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                className="text-emerald-100 text-sm mb-2"
-              >
-                {greeting} 👋
-              </motion.p>
-            )}
-            
-            {/* Logo */}
+            {/* Logo - now above greeting */}
             {showLogo && (
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
                 transition={{ type: "spring", stiffness: 200, damping: 15 }}
-                className="mb-2"
+                className="mb-3"
               >
                 <Image
                   src="/logo-icon.png"
                   alt="FitFork"
-                  width={60}
-                  height={60}
-                  className="rounded-2xl shadow-lg"
+                  width={120}
+                  height={120}
+                  className="rounded-3xl shadow-xl"
                 />
               </motion.div>
+            )}
+            
+            {/* Greeting - only on home page, now below logo */}
+            {showGreeting && (
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="text-white text-lg font-medium"
+              >
+                {greeting} 👋
+              </motion.p>
             )}
             
             {/* Page Title - shown on non-home pages */}
@@ -94,7 +94,7 @@ export function Header({
           
           {/* Right action if provided */}
           {rightAction && (
-            <div className="absolute right-5 top-10">
+            <div className="absolute right-5 top-8">
               {rightAction}
             </div>
           )}
