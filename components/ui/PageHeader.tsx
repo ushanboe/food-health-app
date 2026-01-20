@@ -30,14 +30,14 @@ export function PageHeader({
           animate={{ opacity: 1, y: 0 }}
           className="flex items-center gap-4"
         >
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center overflow-hidden">
             {useLogo ? (
               <Image
-                src="/icons/icon.svg"
+                src="/icons/home-logo.png"
                 alt="FitFork"
-                width={40}
-                height={40}
-                className="w-10 h-10"
+                width={64}
+                height={64}
+                className="w-full h-full object-cover"
               />
             ) : Icon ? (
               <Icon size={32} className={iconColor} />
