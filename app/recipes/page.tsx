@@ -10,9 +10,13 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { usePremium } from "@/lib/subscription";
+import { UpgradeModal } from "@/components/PremiumGate";
 import {
   Search,
   Plus,
+  Crown,
+  Lock,
   ChefHat,
   Clock,
   Users,
@@ -64,6 +68,13 @@ type MealResult = MealDBMeal | MealDBMealSimple;
 export default function RecipesPage() {
   const router = useRouter();
   const { recipes, removeRecipe, updateRecipe, addRecipe, aiSettings } = useAppStore();
+  const { isPremium } = usePremium();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // Free user recipe limit
+  const FREE_RECIPE_LIMIT = 5;
+  const canAddRecipe = isPremium || (recipes?.length || 0) < FREE_RECIPE_LIMIT;
+  const recipesRemaining = FREE_RECIPE_LIMIT - (recipes?.length || 0);
   const [searchQuery, setSearchQuery] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [showRatingModal, setShowRatingModal] = useState<string | null>(null);
@@ -1220,6 +1231,13 @@ export default function RecipesPage() {
         <Plus size={28} />
       </motion.button>
 
+      {/* Premium Upgrade Modal */}
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        feature="unlimitedRecipes" 
+      />
+      
       <BottomNav />
     </PageContainer>
   );
