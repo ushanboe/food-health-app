@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Search, Trash2, Calendar, ChevronRight, Barcode, ArrowLeft } from "lucide-react";
+import { Search, Trash2, Calendar, ChevronRight, Barcode, ArrowLeft, Crown, Lock } from "lucide-react";
+import { usePremium } from "@/lib/subscription";
+import { UpgradeModal } from "@/components/PremiumGate";
 import { useAppStore } from "@/lib/store";
 import BottomNav from "@/components/BottomNav";
 
@@ -11,10 +13,24 @@ export default function HistoryPage() {
   const router = useRouter();
   const { analysisHistory, clearHistory, setCurrentAnalysis } = useAppStore();
   const [searchQuery, setSearchQuery] = useState("");
+  const { isPremium } = usePremium();
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  
+  // Calculate 7 days ago for free user limit
+  const sevenDaysAgo = new Date();
+  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-  const filteredHistory = analysisHistory?.filter((item) =>
+  const allFilteredHistory = analysisHistory?.filter((item) =>
     item.foodName.toLowerCase().includes(searchQuery.toLowerCase())
   ) || [];
+  
+  // For free users, only show last 7 days
+  const filteredHistory = isPremium 
+    ? allFilteredHistory 
+    : allFilteredHistory.filter((item) => new Date(item.timestamp) >= sevenDaysAgo);
+  
+  // Check if there's older history being hidden
+  const hasHiddenHistory = !isPremium && allFilteredHistory.length > filteredHistory.length;
 
   const handleItemClick = (item: typeof filteredHistory[0]) => {
     setCurrentAnalysis(item);
@@ -166,6 +182,36 @@ export default function HistoryPage() {
                   </div>
                 </motion.div>
               ))}
+              
+              {/* Premium Prompt for Hidden History */}
+              {hasHiddenHistory && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-6"
+                >
+                  <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 bg-amber-100 rounded-full flex items-center justify-center flex-shrink-0">
+                        <Lock className="w-5 h-5 text-amber-600" />
+                      </div>
+                      <div className="flex-1">
+                        <h3 className="font-semibold text-amber-800">Older History Available</h3>
+                        <p className="text-sm text-amber-700 mt-1">
+                          Upgrade to Premium to access your complete scan history beyond 7 days.
+                        </p>
+                        <button
+                          onClick={() => setShowUpgradeModal(true)}
+                          className="mt-3 flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white text-sm font-medium rounded-xl"
+                        >
+                          <Crown className="w-4 h-4" />
+                          Unlock Full History
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
             </div>
           ) : (
             <motion.div
@@ -190,6 +236,13 @@ export default function HistoryPage() {
       </div>
 
       {/* Fixed Bottom Nav */}
+      {/* Premium Upgrade Modal */}
+      <UpgradeModal 
+        isOpen={showUpgradeModal} 
+        onClose={() => setShowUpgradeModal(false)} 
+        feature="unlimitedHistory" 
+      />
+      
       <BottomNav />
     </div>
   );
