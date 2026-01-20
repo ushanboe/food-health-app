@@ -8,6 +8,7 @@ import { Header, PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { usePremium } from "@/lib/subscription";
 import {
   User,
   Save,
@@ -51,11 +52,11 @@ export default function EditProfilePage() {
   const [allergies, setAllergies] = useState<string[]>([]);
   const [healthGoals, setHealthGoals] = useState<string[]>([]);
   const [customAllergy, setCustomAllergy] = useState("");
-  const [isPremium, setIsPremium] = useState(false);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { isPremium } = usePremium();
 
   useEffect(() => {
     if (userProfile) {
@@ -65,11 +66,6 @@ export default function EditProfilePage() {
       setHealthGoals(userProfile.healthGoals || []);
     }
   }, [userProfile]);
-
-  useEffect(() => {
-    const devPremium = localStorage.getItem("fitfork_dev_premium");
-    if (devPremium === "true") setIsPremium(true);
-  }, []);
 
   const handlePhotoClick = () => {
     if (isPremium) {

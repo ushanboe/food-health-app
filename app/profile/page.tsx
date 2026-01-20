@@ -10,6 +10,8 @@ import { Card } from "@/components/ui/Card";
 import { ListItem, ListGroup } from "@/components/ui/ListItem";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/contexts/AuthContext";
+import { usePremium } from "@/lib/subscription";
+import { UpgradeModal } from "@/components/PremiumGate";
 import {
   User,
   ChefHat,
@@ -43,6 +45,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { userProfile, dailyGoals, getDailyTotals, updateUserProfile } = useAppStore();
   const { user, isConfigured } = useAuth();
+  const { isPremium, devModeEnabled, setDevMode } = usePremium();
   const [streak, setStreak] = useState(0);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -52,14 +55,7 @@ export default function ProfilePage() {
   const todayStr = new Date().toISOString().split('T')[0];
   const dailyTotals = getDailyTotals(todayStr);
 
-  // For now, premium is simulated - in production, check actual subscription
-  const [isPremium, setIsPremium] = useState(false);
 
-  useEffect(() => {
-    // Load dev premium status
-    const devPremium = localStorage.getItem("fitfork_dev_premium");
-    if (devPremium === "true") setIsPremium(true);
-  }, []);
 
   useEffect(() => {
     // Calculate streak (simplified)
@@ -76,9 +72,7 @@ export default function ProfilePage() {
   ];
 
   const toggleDevPremium = () => {
-    const newValue = !isPremium;
-    setIsPremium(newValue);
-    localStorage.setItem("fitfork_dev_premium", newValue.toString());
+    setDevMode(!devModeEnabled);
   };
 
   const handlePhotoClick = () => {
