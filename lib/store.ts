@@ -50,6 +50,7 @@ export interface DailyGoals {
   protein: number;
   carbs: number;
   fat: number;
+  water: number; // daily water goal in ml (default 2000ml = ~8 cups)
 }
 
 export type MealType = "breakfast" | "lunch" | "dinner" | "snacks";
@@ -80,6 +81,19 @@ export interface WeightEntry {
   date: string;
   weight: number;
   note?: string;
+}
+
+// ============ WATER TRACKING ============
+export interface WaterEntry {
+  id: string;
+  date: string;
+  amount: number; // in ml
+  timestamp: Date;
+}
+
+export interface DailyWaterLog {
+  date: string;
+  entries: WaterEntry[];
 }
 
 export interface UserStats {
@@ -203,6 +217,7 @@ interface AppState {
   userStats: UserStats;
   recipes: Recipe[];
   fitnessLogs: DailyFitnessLog[];
+  waterLogs: DailyWaterLog[];
 
   setCurrentImage: (image: string | null) => void;
   setScannedBarcode: (barcode: string | null) => void;
@@ -233,6 +248,12 @@ interface AppState {
   getDailyFitnessLog: (date: string) => DailyFitnessLog | undefined;
   getDailyCaloriesBurned: (date: string) => number;
   getNetCalories: (date: string) => number;
+
+  // Water tracking actions
+  addWaterEntry: (entry: WaterEntry) => void;
+  removeWaterEntry: (date: string, entryId: string) => void;
+  getDailyWaterLog: (date: string) => DailyWaterLog | undefined;
+  getDailyWaterTotal: (date: string) => number;
 
   // Fitness Sync State (External Providers)
   fitnessConnections: Record<FitnessProvider, FitnessConnection | null>;
@@ -304,6 +325,7 @@ export const useAppStore = create<AppState>()(
         protein: 50,
         carbs: 250,
         fat: 65,
+        water: 2000, // 2000ml = ~8 cups
       },
       dailyLogs: [],
       weightHistory: [],
@@ -318,6 +340,7 @@ export const useAppStore = create<AppState>()(
       },
       recipes: [],
       fitnessLogs: [],
+      waterLogs: [],
 
       // Fitness Sync State
       fitnessConnections: {
@@ -518,6 +541,41 @@ export const useAppStore = create<AppState>()(
         const consumed = get().getDailyTotals(date).calories;
         const burned = get().getDailyCaloriesBurned(date);
         return consumed - burned;
+      },
+
+      // Water tracking actions
+      addWaterEntry: (entry) =>
+        set((state) => {
+          const existingLog = state.waterLogs.find((l) => l.date === entry.date);
+          if (existingLog) {
+            return {
+              waterLogs: state.waterLogs.map((l) =>
+                l.date === entry.date
+                  ? { ...l, entries: [...l.entries, entry] }
+                  : l
+              ),
+            };
+          }
+          return {
+            waterLogs: [...state.waterLogs, { date: entry.date, entries: [entry] }],
+          };
+        }),
+
+      removeWaterEntry: (date, entryId) =>
+        set((state) => ({
+          waterLogs: state.waterLogs.map((l) =>
+            l.date === date
+              ? { ...l, entries: l.entries.filter((e) => e.id !== entryId) }
+              : l
+          ),
+        })),
+
+      getDailyWaterLog: (date) => get().waterLogs.find((l) => l.date === date),
+
+      getDailyWaterTotal: (date) => {
+        const log = get().waterLogs.find((l) => l.date === date);
+        if (!log) return 0;
+        return log.entries.reduce((sum, e) => sum + e.amount, 0);
       },
 
       // Fitness Sync Actions

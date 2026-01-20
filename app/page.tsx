@@ -21,6 +21,7 @@ import {
   Cloud,
   Flame,
   Dumbbell,
+  Droplets,
 } from "lucide-react";
 
 const stagger = {
@@ -109,7 +110,7 @@ function formatDateLabel(dateStr: string): string {
 
 export default function HomePage() {
   const router = useRouter();
-  const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog, syncedFitnessData } = useAppStore();
+  const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog, syncedFitnessData, getDailyWaterTotal } = useAppStore();
 
   // Swipeable days state
   const days = useMemo(() => getLastNDays(7), []);
@@ -258,12 +259,12 @@ export default function HomePage() {
       route: "/goals",
     },
     {
-      icon: Cloud,
-      label: "Cloud Backup",
-      description: "Sync data",
-      color: "bg-sky-100",
-      iconColor: "text-sky-600",
-      route: "/cloud-sync",
+      icon: Droplets,
+      label: "Water",
+      description: "Track hydration",
+      color: "bg-cyan-100",
+      iconColor: "text-cyan-600",
+      route: "/water",
     },
   ];
 
@@ -493,6 +494,70 @@ export default function HomePage() {
                 );
               })}
             </div>
+          </motion.div>
+
+          {/* Water Progress Widget */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <div className="flex items-center justify-between mb-3 px-1">
+              <p className="text-sm text-gray-500 font-medium">Hydration</p>
+              <button
+                onClick={() => router.push("/water")}
+                className="text-sm text-cyan-600 font-medium flex items-center gap-1"
+              >
+                Log water <ChevronRight size={16} />
+              </button>
+            </div>
+            <Card
+              onClick={() => router.push("/water")}
+              className="cursor-pointer hover:shadow-md transition-shadow bg-gradient-to-r from-cyan-50 to-blue-50"
+            >
+              <div className="flex items-center gap-4">
+                <div className="relative w-16 h-16">
+                  <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15"
+                      fill="none"
+                      stroke="#e5e7eb"
+                      strokeWidth="3"
+                    />
+                    <circle
+                      cx="18"
+                      cy="18"
+                      r="15"
+                      fill="none"
+                      stroke="#06b6d4"
+                      strokeWidth="3"
+                      strokeLinecap="round"
+                      strokeDasharray={`${Math.min((getDailyWaterTotal(currentDate) / (dailyGoals.water || 2000)) * 94.2, 94.2)} 94.2`}
+                    />
+                  </svg>
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Droplets className="w-6 h-6 text-cyan-500" />
+                  </div>
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-900">
+                    {getDailyWaterTotal(currentDate)} ml
+                  </p>
+                  <p className="text-sm text-gray-500">
+                    of {dailyGoals.water || 2000} ml goal
+                  </p>
+                  <div className="mt-1 h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-400 to-blue-500 rounded-full transition-all duration-500"
+                      style={{ width: `${Math.min((getDailyWaterTotal(currentDate) / (dailyGoals.water || 2000)) * 100, 100)}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-cyan-600">
+                    {Math.round((getDailyWaterTotal(currentDate) / (dailyGoals.water || 2000)) * 100)}%
+                  </p>
+                </div>
+              </div>
+            </Card>
           </motion.div>
 
           {/* Recent Meals */}

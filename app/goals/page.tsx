@@ -18,6 +18,8 @@ import {
   Droplets,
   Check,
   Edit3,
+  GlassWater,
+  CircleDot,
 } from "lucide-react";
 
 const stagger = {
@@ -32,7 +34,7 @@ const fadeUp = {
 
 export default function GoalsPage() {
   const router = useRouter();
-  const { dailyGoals, getDailyTotals, updateDailyGoals } = useAppStore();
+  const { dailyGoals, getDailyTotals, updateDailyGoals, getDailyWaterTotal } = useAppStore();
   const [isEditing, setIsEditing] = useState(false);
   const [editedGoals, setEditedGoals] = useState(dailyGoals);
 
@@ -81,13 +83,24 @@ export default function GoalsPage() {
     {
       key: "fat",
       label: "Fat",
-      icon: Droplets,
+      icon: CircleDot,
       color: "#EF4444",
       bgColor: "bg-red-100",
       iconColor: "text-red-600",
       unit: "g",
       current: dailyTotals.fat,
       target: dailyGoals.fat,
+    },
+    {
+      key: "water",
+      label: "Water",
+      icon: GlassWater,
+      color: "#06B6D4",
+      bgColor: "bg-cyan-100",
+      iconColor: "text-cyan-600",
+      unit: "ml",
+      current: getDailyWaterTotal(todayStr),
+      target: dailyGoals.water || 2000,
     },
   ];
 
