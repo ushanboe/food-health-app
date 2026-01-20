@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ProgressRing } from "@/components/ui/ProgressRing";
 import SyncedActivities from "@/components/fitness/SyncedActivities";
+import { usePremium } from "@/lib/subscription";
+import { PremiumGate, PremiumBadge } from "@/components/PremiumGate";
 import { FloatingNutri } from "@/components/FloatingNutri";
 import {
   Activity,
@@ -42,6 +44,8 @@ export default function FitnessPage() {
     removeExerciseEntry,
     userStats,
   } = useAppStore();
+  
+  const { isPremium } = usePremium();
 
   const [showAddSheet, setShowAddSheet] = useState(false);
   const [selectedExercise, setSelectedExercise] = useState<string | null>(null);
@@ -193,7 +197,9 @@ export default function FitnessPage() {
 
           {/* Synced Activities */}
           <motion.div variants={fadeUp}>
-            <SyncedActivities date={todayStr} />
+            <PremiumGate feature="stravaSync">
+              <SyncedActivities date={todayStr} />
+            </PremiumGate>
           </motion.div>
         </motion.div>
       </PageContent>
