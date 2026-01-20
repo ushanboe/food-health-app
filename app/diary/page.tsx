@@ -187,7 +187,7 @@ export default function DiaryPage() {
 
           {/* Daily Summary */}
           <motion.div variants={fadeUp}>
-            <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white">
+            <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-emerald-100 text-sm">Daily Progress</p>

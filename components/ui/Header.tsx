@@ -37,17 +37,17 @@ export function Header({
   const router = useRouter();
   const greeting = getGreeting();
 
-  // Green variant - new unified design
+  // Green variant - new unified design with rounded bottom corners
   if (variant === "green") {
     return (
       <motion.header
         initial={{ opacity: 0, y: -10 }}
         animate={{ opacity: 1, y: 0 }}
-        className="sticky top-0 z-40 bg-gradient-to-br from-emerald-500 to-emerald-600"
+        className="sticky top-0 z-40 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-b-3xl"
       >
-        <div className="max-w-lg mx-auto px-5 pt-8 pb-5">
+        <div className="max-w-lg mx-auto px-5 pt-8 pb-6">
           <div className="flex flex-col items-center text-center">
-            {/* Logo - now above greeting */}
+            {/* Logo - above greeting, no shadow */}
             {showLogo && (
               <motion.div
                 initial={{ scale: 0.8, opacity: 0 }}
@@ -60,12 +60,12 @@ export function Header({
                   alt="FitFork"
                   width={120}
                   height={120}
-                  className="rounded-3xl shadow-xl"
+                  className="rounded-3xl"
                 />
               </motion.div>
             )}
             
-            {/* Greeting - only on home page, now below logo */}
+            {/* Greeting - only on home page, below logo */}
             {showGreeting && (
               <motion.p
                 initial={{ opacity: 0 }}
