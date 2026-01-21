@@ -53,118 +53,88 @@ const fadeUp = {
 };
 
 // Nutri celebration component
-const NutriSyncSuccess = ({ show, uploaded, downloaded }: { show: boolean; uploaded: number; downloaded: number }) => (
-  <AnimatePresence>
-    {show && (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm"
-      >
+
+// Nutri floating toast notification
+const NutriSyncToast = ({ show, uploaded, downloaded, onClose }: { 
+  show: boolean; 
+  uploaded: number; 
+  downloaded: number;
+  onClose: () => void;
+}) => {
+  // Auto-close after 4 seconds
+  useEffect(() => {
+    if (show) {
+      const timer = setTimeout(onClose, 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [show, onClose]);
+
+  return (
+    <AnimatePresence>
+      {show && (
         <motion.div
-          initial={{ scale: 0.5, y: 50 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.5, y: 50 }}
-          transition={{ type: "spring", damping: 15 }}
-          className="bg-white rounded-3xl shadow-2xl p-8 mx-4 max-w-sm w-full"
+          initial={{ opacity: 0, x: 100, y: 20 }}
+          animate={{ opacity: 1, x: 0, y: 0 }}
+          exit={{ opacity: 0, x: 100 }}
+          transition={{ type: "spring", damping: 20, stiffness: 300 }}
+          className="fixed bottom-24 right-4 z-50 flex items-end gap-2"
         >
-          {/* Nutri Face */}
+          {/* Speech bubble */}
           <motion.div
-            className="relative w-24 h-24 mx-auto mb-4"
-            animate={{ y: [0, -8, 0] }}
-            transition={{ duration: 1, repeat: 2 }}
+            initial={{ scale: 0.8, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            transition={{ delay: 0.1 }}
+            className="relative bg-white rounded-2xl shadow-lg border border-emerald-100 p-3 max-w-[200px]"
+          >
+            {/* Bubble tail */}
+            <div className="absolute -right-2 bottom-4 w-4 h-4 bg-white border-r border-b border-emerald-100 transform rotate-[-45deg]" />
+            
+            <div className="flex items-center gap-2 mb-1">
+              <Cloud size={16} className="text-emerald-500" />
+              <span className="text-sm font-semibold text-gray-800">Sync Complete!</span>
+            </div>
+            
+            <div className="flex gap-3 text-xs text-gray-600">
+              <span className="flex items-center gap-1">
+                <Upload size={12} className="text-emerald-500" />
+                {uploaded}
+              </span>
+              <span className="flex items-center gap-1">
+                <Download size={12} className="text-blue-500" />
+                {downloaded}
+              </span>
+            </div>
+          </motion.div>
+
+          {/* Nutri mascot */}
+          <motion.div
+            className="relative w-14 h-14 flex-shrink-0"
+            animate={{ y: [0, -4, 0] }}
+            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
           >
             <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full shadow-lg" />
-            {/* Eyes */}
-            <motion.div
-              className="absolute top-6 left-4 w-4 h-4 bg-white rounded-full"
-              animate={{ scaleY: [1, 0.1, 1] }}
-              transition={{ duration: 0.3, delay: 0.5, repeat: 1, repeatDelay: 1 }}
-            >
-              <div className="absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-gray-800 rounded-full" />
-            </motion.div>
-            <motion.div
-              className="absolute top-6 right-4 w-4 h-4 bg-white rounded-full"
-              animate={{ scaleY: [1, 0.1, 1] }}
-              transition={{ duration: 0.3, delay: 0.5, repeat: 1, repeatDelay: 1 }}
-            >
-              <div className="absolute top-0.5 left-0.5 w-2.5 h-2.5 bg-gray-800 rounded-full" />
-            </motion.div>
-            {/* Happy mouth */}
-            <div className="absolute bottom-5 left-1/2 -translate-x-1/2 w-10 h-5 border-b-4 border-white rounded-b-full" />
+            {/* Eyes - happy closed */}
+            <div className="absolute top-4 left-2.5 w-2.5 h-1 bg-gray-800 rounded-full transform rotate-12" />
+            <div className="absolute top-4 right-2.5 w-2.5 h-1 bg-gray-800 rounded-full transform -rotate-12" />
+            {/* Big smile */}
+            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-7 h-3.5 border-b-[3px] border-white rounded-b-full" />
             {/* Blush */}
-            <div className="absolute top-11 left-2 w-3 h-1.5 bg-pink-300 rounded-full opacity-60" />
-            <div className="absolute top-11 right-2 w-3 h-1.5 bg-pink-300 rounded-full opacity-60" />
+            <div className="absolute top-6 left-1.5 w-2 h-1 bg-pink-300 rounded-full opacity-60" />
+            <div className="absolute top-6 right-1.5 w-2 h-1 bg-pink-300 rounded-full opacity-60" />
             {/* Leaf */}
             <motion.div
-              className="absolute -top-2 left-1/2 -translate-x-1/2"
-              animate={{ rotate: [0, 10, -10, 0] }}
+              className="absolute -top-1 left-1/2 -translate-x-1/2"
+              animate={{ rotate: [0, 15, -15, 0] }}
               transition={{ duration: 2, repeat: Infinity }}
             >
-              <div className="w-3 h-5 bg-gradient-to-t from-green-600 to-emerald-400 rounded-full transform rotate-45" />
+              <div className="w-2 h-3 bg-gradient-to-t from-green-600 to-emerald-400 rounded-full transform rotate-45" />
             </motion.div>
           </motion.div>
-
-          {/* Cloud icon with checkmark */}
-          <motion.div
-            initial={{ scale: 0 }}
-            animate={{ scale: 1 }}
-            transition={{ delay: 0.2, type: "spring" }}
-            className="flex justify-center mb-4"
-          >
-            <div className="relative">
-              <Cloud size={48} className="text-emerald-500" />
-              <motion.div
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                transition={{ delay: 0.4, type: "spring" }}
-                className="absolute -bottom-1 -right-1 w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center"
-              >
-                <Check size={14} className="text-white" />
-              </motion.div>
-            </div>
-          </motion.div>
-
-          <motion.h3
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.3 }}
-            className="text-xl font-bold text-center text-gray-900 mb-2"
-          >
-            Sync Complete! 🎉
-          </motion.h3>
-
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="flex justify-center gap-6 text-sm"
-          >
-            <div className="flex items-center gap-2 text-emerald-600">
-              <Upload size={16} />
-              <span>{uploaded} uploaded</span>
-            </div>
-            <div className="flex items-center gap-2 text-blue-600">
-              <Download size={16} />
-              <span>{downloaded} downloaded</span>
-            </div>
-          </motion.div>
-
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-center text-gray-500 text-sm mt-3"
-          >
-            Your data is safe in the cloud! ☁️
-          </motion.p>
         </motion.div>
-      </motion.div>
-    )}
-  </AnimatePresence>
-);
-
+      )}
+    </AnimatePresence>
+  );
+};
 export default function CloudSyncPage() {
   const router = useRouter();
   const { user, isConfigured, signIn, signUp, signOut, loading } = useAuth();
@@ -405,10 +375,11 @@ export default function CloudSyncPage() {
       <PageHeader icon={Cloud} title="Cloud Backup" subtitle="Sync your data securely" />
 
       {/* Nutri Celebration */}
-      <NutriSyncSuccess
+      <NutriSyncToast
         show={showCelebration}
         uploaded={lastSyncResult.uploaded}
         downloaded={lastSyncResult.downloaded}
+        onClose={() => setShowCelebration(false)}
       />
 
       <PageContent>
