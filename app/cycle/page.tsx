@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useCycleStore, FlowIntensity, CycleMood, CycleSymptom, CyclePhase } from "@/lib/cycle-store";
@@ -99,6 +99,13 @@ export default function CyclePage() {
     getPhaseLabel,
     getCycleHistory,
   } = useCycleStore();
+
+  // Hydration state - wait for store to load from localStorage
+  const [isHydrated, setIsHydrated] = useState(false);
+
+  useEffect(() => {
+    setIsHydrated(true);
+  }, []);
 
   // Calendar state
   const [currentMonth, setCurrentMonth] = useState(new Date());
@@ -472,7 +479,11 @@ export default function CyclePage() {
                     The app will learn your patterns and provide predictions.
                   </p>
                   <button
-                    onClick={() => setSelectedDate(todayStr)}
+                    onClick={() => {
+                      setSelectedDate(todayStr);
+                      // Scroll to the logging section
+                      document.getElementById('log-section')?.scrollIntoView({ behavior: 'smooth' });
+                    }}
                     className="text-sm font-medium text-pink-600 hover:text-pink-700"
                   >
                     Log today's data →
