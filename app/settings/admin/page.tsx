@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { motion } from "framer-motion";
+import { useState, useEffect, useRef } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { PageContainer, PageContent } from "@/components/ui/Header";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -20,6 +20,8 @@ import {
   Cloud,
   Key,
   ArrowLeft,
+  Lock,
+  KeyRound,
 } from "lucide-react";
 
 const fadeUp = {
@@ -33,7 +35,225 @@ interface AdminConfig {
   supabaseAnonKey: string;
 }
 
-export default function AdminSettingsPage() {
+const PIN_STORAGE_KEY = "fitfork_admin_pin";
+const PIN_LENGTH = 6;
+
+// PIN Entry Component
+function PinEntry({ 
+  onSuccess, 
+  isSettingPin 
+}: { 
+  onSuccess: () => void; 
+  isSettingPin: boolean;
+}) {
+  const router = useRouter();
+  const [pin, setPin] = useState<string[]>(Array(PIN_LENGTH).fill(""));
+  const [confirmPin, setConfirmPin] = useState<string[]>(Array(PIN_LENGTH).fill(""));
+  const [isConfirming, setIsConfirming] = useState(false);
+  const [error, setError] = useState("");
+  const [shake, setShake] = useState(false);
+  const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const confirmInputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  useEffect(() => {
+    // Focus first input on mount
+    inputRefs.current[0]?.focus();
+  }, []);
+
+  const handlePinChange = (index: number, value: string, isConfirmField: boolean = false) => {
+    if (!/^\d*$/.test(value)) return; // Only allow digits
+
+    const newValue = value.slice(-1); // Take only last character
+    const currentPin = isConfirmField ? [...confirmPin] : [...pin];
+    currentPin[index] = newValue;
+
+    if (isConfirmField) {
+      setConfirmPin(currentPin);
+    } else {
+      setPin(currentPin);
+    }
+    setError("");
+
+    // Auto-focus next input
+    if (newValue && index < PIN_LENGTH - 1) {
+      const refs = isConfirmField ? confirmInputRefs : inputRefs;
+      refs.current[index + 1]?.focus();
+    }
+
+    // Check if PIN is complete
+    if (index === PIN_LENGTH - 1 && newValue) {
+      const enteredPin = currentPin.join("");
+
+      if (isSettingPin) {
+        if (!isConfirming && !isConfirmField) {
+          // First entry complete, move to confirm
+          setTimeout(() => {
+            setIsConfirming(true);
+            setTimeout(() => confirmInputRefs.current[0]?.focus(), 100);
+          }, 200);
+        } else if (isConfirmField) {
+          // Confirm entry complete, check match
+          const originalPin = pin.join("");
+          if (enteredPin === originalPin) {
+            localStorage.setItem(PIN_STORAGE_KEY, enteredPin);
+            onSuccess();
+          } else {
+            setError("PINs don't match. Try again.");
+            setShake(true);
+            setTimeout(() => {
+              setShake(false);
+              setConfirmPin(Array(PIN_LENGTH).fill(""));
+              confirmInputRefs.current[0]?.focus();
+            }, 500);
+          }
+        }
+      } else {
+        // Verifying existing PIN
+        const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
+        if (enteredPin === storedPin) {
+          onSuccess();
+        } else {
+          setError("Incorrect PIN");
+          setShake(true);
+          setTimeout(() => {
+            setShake(false);
+            setPin(Array(PIN_LENGTH).fill(""));
+            inputRefs.current[0]?.focus();
+          }, 500);
+        }
+      }
+    }
+  };
+
+  const handleKeyDown = (index: number, e: React.KeyboardEvent, isConfirmField: boolean = false) => {
+    if (e.key === "Backspace") {
+      const currentPin = isConfirmField ? confirmPin : pin;
+      const refs = isConfirmField ? confirmInputRefs : inputRefs;
+
+      if (!currentPin[index] && index > 0) {
+        refs.current[index - 1]?.focus();
+      }
+    }
+  };
+
+  const renderPinInputs = (pinArray: string[], refs: React.MutableRefObject<(HTMLInputElement | null)[]>, isConfirmField: boolean = false) => (
+    <motion.div 
+      className="flex gap-3 justify-center"
+      animate={shake && ((isConfirmField && isConfirming) || (!isConfirmField && !isConfirming)) ? { x: [-10, 10, -10, 10, 0] } : {}}
+      transition={{ duration: 0.4 }}
+    >
+      {pinArray.map((digit, index) => (
+        <input
+          key={index}
+          ref={(el) => { refs.current[index] = el; }}
+          type="password"
+          inputMode="numeric"
+          maxLength={1}
+          value={digit}
+          onChange={(e) => handlePinChange(index, e.target.value, isConfirmField)}
+          onKeyDown={(e) => handleKeyDown(index, e, isConfirmField)}
+          className="w-12 h-14 text-center text-2xl font-bold bg-white border-2 border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all"
+        />
+      ))}
+    </motion.div>
+  );
+
+  return (
+    <PageContainer>
+      <div className="min-h-screen flex flex-col items-center justify-center p-6">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.9 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-sm"
+        >
+          <Card className="text-center p-8">
+            {/* Lock Icon */}
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
+              <Lock size={40} className="text-amber-600" />
+            </div>
+
+            {/* Title */}
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">
+              {isSettingPin 
+                ? (isConfirming ? "Confirm PIN" : "Set Admin PIN") 
+                : "Enter Admin PIN"}
+            </h1>
+            <p className="text-gray-500 mb-8">
+              {isSettingPin 
+                ? (isConfirming 
+                    ? "Re-enter your 6-digit PIN to confirm" 
+                    : "Create a 6-digit PIN to protect admin settings")
+                : "Enter your 6-digit PIN to access admin settings"}
+            </p>
+
+            {/* PIN Input */}
+            <AnimatePresence mode="wait">
+              {isSettingPin && isConfirming ? (
+                <motion.div
+                  key="confirm"
+                  initial={{ opacity: 0, x: 20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: -20 }}
+                >
+                  {renderPinInputs(confirmPin, confirmInputRefs, true)}
+                </motion.div>
+              ) : (
+                <motion.div
+                  key="enter"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                >
+                  {renderPinInputs(pin, inputRefs)}
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Error Message */}
+            <AnimatePresence>
+              {error && (
+                <motion.p
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="text-red-500 text-sm mt-4"
+                >
+                  {error}
+                </motion.p>
+              )}
+            </AnimatePresence>
+
+            {/* Progress Dots for Setting PIN */}
+            {isSettingPin && (
+              <div className="flex justify-center gap-2 mt-6">
+                <div className={`w-2 h-2 rounded-full transition-colors ${!isConfirming ? "bg-amber-500" : "bg-gray-300"}`} />
+                <div className={`w-2 h-2 rounded-full transition-colors ${isConfirming ? "bg-amber-500" : "bg-gray-300"}`} />
+              </div>
+            )}
+
+            {/* Back Button */}
+            <Button
+              variant="outline"
+              onClick={() => router.push("/settings")}
+              className="w-full mt-8"
+            >
+              <ArrowLeft size={18} className="mr-2" />
+              Back to Settings
+            </Button>
+          </Card>
+
+          {/* Security Note */}
+          <p className="text-center text-xs text-gray-400 mt-4">
+            🔒 PIN is stored locally on your device
+          </p>
+        </motion.div>
+      </div>
+    </PageContainer>
+  );
+}
+
+// Main Admin Page Component
+function AdminSettingsContent() {
   const router = useRouter();
   const { aiSettings, updateAISettings } = useAppStore();
   const [saving, setSaving] = useState(false);
@@ -49,19 +269,14 @@ export default function AdminSettingsPage() {
   });
 
   useEffect(() => {
-    // Load from app store
     setConfig({
       supabaseUrl: aiSettings.supabaseUrl || "",
       supabaseAnonKey: aiSettings.supabaseAnonKey || "",
     });
-
-    // Update status based on existing values
     setStatus({
       supabaseUrl: aiSettings.supabaseUrl ? "valid" : "unchecked",
       supabaseAnonKey: aiSettings.supabaseAnonKey ? "valid" : "unchecked",
     });
-
-    // Check if already saved
     if (aiSettings.supabaseUrl || aiSettings.supabaseAnonKey) {
       setSaved(true);
     }
@@ -70,18 +285,14 @@ export default function AdminSettingsPage() {
   const handleSave = async () => {
     setSaving(true);
     try {
-      // Update the app store
       updateAISettings({
         supabaseUrl: config.supabaseUrl,
         supabaseAnonKey: config.supabaseAnonKey,
       });
-
-      // Update status
       setStatus({
         supabaseUrl: config.supabaseUrl ? "valid" : "unchecked",
         supabaseAnonKey: config.supabaseAnonKey ? "valid" : "unchecked",
       });
-
       await new Promise(resolve => setTimeout(resolve, 300));
       setSaved(true);
     } finally {
@@ -93,7 +304,12 @@ export default function AdminSettingsPage() {
     setShowKeys(prev => ({ ...prev, [key]: !prev[key] }));
   };
 
-  const isConfigured = config.supabaseUrl && config.supabaseAnonKey;
+  const handleResetPin = () => {
+    if (confirm("Are you sure you want to reset your admin PIN? You will need to set a new one.")) {
+      localStorage.removeItem(PIN_STORAGE_KEY);
+      window.location.reload();
+    }
+  };
 
   const AdminKeyInput = ({
     id,
@@ -129,7 +345,6 @@ export default function AdminSettingsPage() {
           <p className="text-sm text-gray-500">{description}</p>
         </div>
       </div>
-
       <div className="relative">
         <input
           type={showKeys[id] ? "text" : "password"}
@@ -149,7 +364,6 @@ export default function AdminSettingsPage() {
           {showKeys[id] ? <EyeOff size={18} /> : <Eye size={18} />}
         </button>
       </div>
-
       {helpUrl && (
         <a
           href={helpUrl}
@@ -166,9 +380,9 @@ export default function AdminSettingsPage() {
 
   return (
     <PageContainer>
-      <PageHeader 
-        icon={Shield} 
-        title="Admin Settings" 
+      <PageHeader
+        icon={Shield}
+        title="Admin Settings"
         subtitle="Developer configuration"
         iconColor="text-amber-500"
       />
@@ -218,11 +432,7 @@ export default function AdminSettingsPage() {
             <Button
               onClick={handleSave}
               disabled={saving}
-              className={`w-full transition-all duration-300 ${
-                saved
-                  ? "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-                  : "bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-              }`}
+              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
             >
               {saving ? (
                 <span className="flex items-center justify-center gap-2">
@@ -245,6 +455,18 @@ export default function AdminSettingsPage() {
                   Save Admin Settings
                 </span>
               )}
+            </Button>
+          </motion.div>
+
+          {/* Reset PIN */}
+          <motion.div variants={fadeUp} className="mt-4">
+            <Button
+              variant="outline"
+              onClick={handleResetPin}
+              className="w-full text-red-600 border-red-200 hover:bg-red-50"
+            >
+              <KeyRound size={18} className="mr-2" />
+              Reset Admin PIN
             </Button>
           </motion.div>
 
@@ -278,4 +500,41 @@ export default function AdminSettingsPage() {
       </PageContent>
     </PageContainer>
   );
+}
+
+// Main Export with PIN Gate
+export default function AdminSettingsPage() {
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isSettingPin, setIsSettingPin] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Check if PIN exists
+    const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
+    if (!storedPin) {
+      setIsSettingPin(true);
+    }
+    setIsLoading(false);
+  }, []);
+
+  if (isLoading) {
+    return (
+      <PageContainer>
+        <div className="min-h-screen flex items-center justify-center">
+          <div className="w-8 h-8 border-4 border-amber-500 border-t-transparent rounded-full animate-spin" />
+        </div>
+      </PageContainer>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return (
+      <PinEntry 
+        onSuccess={() => setIsAuthenticated(true)} 
+        isSettingPin={isSettingPin}
+      />
+    );
+  }
+
+  return <AdminSettingsContent />;
 }
