@@ -95,7 +95,7 @@ export default function SettingsPage() {
               <ListItem
                 icon={<Key size={20} className="text-purple-500" />}
                 title="API Settings"
-                subtitle="Configure API keys for AI & sync"
+                subtitle="Configure API keys for AI features"
                 showArrow
                 onClick={() => router.push("/settings/api")}
               />
@@ -153,6 +153,13 @@ export default function SettingsPage() {
                 title="Terms of Service"
                 showArrow
                 onClick={() => router.push("/terms")}
+              />
+              <ListItem
+                icon={<Shield size={20} className="text-amber-500" />}
+                title="Admin"
+                subtitle="Developer settings"
+                showArrow
+                onClick={() => router.push("/settings/admin")}
               />
               <ListItem
                 icon={<Info size={20} className="text-gray-500" />}

@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,7 +19,6 @@ import {
   ExternalLink,
   Sparkles,
   Utensils,
-  Cloud,
   ThumbsUp,
 } from "lucide-react";
 
@@ -33,8 +31,6 @@ const fadeUp = {
 interface ApiConfig {
   openaiKey: string;
   spoonacularKey: string;
-  supabaseUrl: string;
-  supabaseAnonKey: string;
 }
 
 // Floating Nutri mascot that floats past when saving
@@ -122,14 +118,10 @@ export default function ApiSettingsPage() {
   const [config, setConfig] = useState<ApiConfig>({
     openaiKey: "",
     spoonacularKey: "",
-    supabaseUrl: "",
-    supabaseAnonKey: "",
   });
   const [status, setStatus] = useState<Record<string, "valid" | "invalid" | "unchecked">>({
     openaiKey: "unchecked",
     spoonacularKey: "unchecked",
-    supabaseUrl: "unchecked",
-    supabaseAnonKey: "unchecked",
   });
 
   useEffect(() => {
@@ -137,21 +129,16 @@ export default function ApiSettingsPage() {
     setConfig({
       openaiKey: aiSettings.openaiApiKey || "",
       spoonacularKey: aiSettings.spoonacularApiKey || "",
-      supabaseUrl: aiSettings.supabaseUrl || "",
-      supabaseAnonKey: aiSettings.supabaseAnonKey || "",
     });
 
     // Update status based on existing values
     setStatus({
       openaiKey: aiSettings.openaiApiKey ? "valid" : "unchecked",
       spoonacularKey: aiSettings.spoonacularApiKey ? "valid" : "unchecked",
-      supabaseUrl: aiSettings.supabaseUrl ? "valid" : "unchecked",
-      supabaseAnonKey: aiSettings.supabaseAnonKey ? "valid" : "unchecked",
     });
 
     // Check if any APIs are already saved
-    const hasAnySaved = aiSettings.openaiApiKey || aiSettings.spoonacularApiKey || 
-                        aiSettings.supabaseUrl || aiSettings.supabaseAnonKey;
+    const hasAnySaved = aiSettings.openaiApiKey || aiSettings.spoonacularApiKey;
     if (hasAnySaved) {
       setSaved(true);
     }
@@ -164,8 +151,6 @@ export default function ApiSettingsPage() {
       updateAISettings({
         openaiApiKey: config.openaiKey,
         spoonacularApiKey: config.spoonacularKey,
-        supabaseUrl: config.supabaseUrl,
-        supabaseAnonKey: config.supabaseAnonKey,
       });
 
       // Also save to legacy localStorage for backward compatibility
@@ -175,8 +160,6 @@ export default function ApiSettingsPage() {
       const newStatus: Record<string, "valid" | "invalid" | "unchecked"> = {
         openaiKey: config.openaiKey ? "valid" : "unchecked",
         spoonacularKey: config.spoonacularKey ? "valid" : "unchecked",
-        supabaseUrl: config.supabaseUrl ? "valid" : "unchecked",
-        supabaseAnonKey: config.supabaseAnonKey ? "valid" : "unchecked",
       };
       setStatus(newStatus);
 
@@ -203,7 +186,6 @@ export default function ApiSettingsPage() {
   const configuredCount = [
     config.openaiKey,
     config.spoonacularKey,
-    config.supabaseUrl && config.supabaseAnonKey,
   ].filter(Boolean).length;
 
   const ApiKeyInput = ({
@@ -298,9 +280,9 @@ export default function ApiSettingsPage() {
                     {saved ? `${configuredCount} API(s) Configured! ✨` : "API Keys Required"}
                   </p>
                   <p className={`text-sm mt-1 ${saved ? "text-emerald-600" : "text-blue-600"}`}>
-                    {saved 
+                    {saved
                       ? "Your API keys are saved and ready to use."
-                      : "Configure your API keys to enable AI food analysis, nutrition data, and cloud sync features."
+                      : "Configure your API keys to enable AI food analysis and nutrition data features."
                     }
                   </p>
                 </div>
@@ -338,37 +320,14 @@ export default function ApiSettingsPage() {
             />
           </motion.div>
 
-          {/* Cloud Sync */}
-          <motion.div variants={fadeUp}>
-            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Cloud Sync (Supabase)</p>
-            <ApiKeyInput
-              id="supabaseUrl"
-              label="Supabase URL"
-              description="Your Supabase project URL"
-              icon={Cloud}
-              iconColor="bg-gradient-to-br from-emerald-500 to-teal-500"
-              placeholder="https://xxxxx.supabase.co"
-              helpUrl="https://supabase.com/dashboard"
-              helpText="Get Supabase Credentials"
-            />
-            <ApiKeyInput
-              id="supabaseAnonKey"
-              label="Supabase Anon Key"
-              description="Public anonymous key for client access"
-              icon={Key}
-              iconColor="bg-gradient-to-br from-emerald-500 to-teal-500"
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-            />
-          </motion.div>
-
           {/* Save Button */}
           <motion.div variants={fadeUp} className="mt-6">
             <Button
               onClick={handleSave}
               disabled={saving}
               className={`w-full transition-all duration-300 ${
-                saved 
-                  ? "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600" 
+                saved
+                  ? "bg-gradient-to-r from-emerald-500 to-green-500 hover:from-emerald-600 hover:to-green-600"
                   : ""
               }`}
             >
@@ -378,7 +337,7 @@ export default function ApiSettingsPage() {
                   Saving...
                 </span>
               ) : saved ? (
-                <motion.span 
+                <motion.span
                   className="flex items-center justify-center gap-2"
                   initial={{ scale: 0.9 }}
                   animate={{ scale: 1 }}
@@ -399,10 +358,15 @@ export default function ApiSettingsPage() {
           {/* Help Text */}
           <motion.div variants={fadeUp} className="mt-6">
             <Card className="bg-gray-50">
-              <p className="text-sm text-gray-600">
-                <strong>Note:</strong> API keys are stored locally on your device and are never sent to our servers.
-                Each service may have its own pricing and usage limits.
-              </p>
+              <div className="flex gap-3">
+                <ThumbsUp size={20} className="text-gray-400 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Your keys are stored locally</p>
+                  <p className="text-sm text-gray-500 mt-1">
+                    API keys are saved securely on your device and never sent to our servers.
+                  </p>
+                </div>
+              </div>
             </Card>
           </motion.div>
         </motion.div>
