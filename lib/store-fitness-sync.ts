@@ -154,12 +154,12 @@ export const createFitnessSyncSlice = (
   getConnectedFitnessProviders: () => {
     const state = get();
     return Object.entries(state.fitnessConnections)
-      .filter(([_, conn]) => (conn as FitnessConnection | null)?.isConnected)
+      .filter(([_, conn]) => (conn as FitnessConnection | null)?.connected)
       .map(([provider]) => provider as FitnessProvider);
   },
 
   isFitnessProviderConnected: (provider) => {
     const state = get();
-    return state.fitnessConnections[provider]?.isConnected ?? false;
+    return state.fitnessConnections[provider]?.connected ?? false;
   },
 });

@@ -615,13 +615,13 @@ export const useAppStore = create<AppState>()(
       getConnectedFitnessProviders: () => {
         const state = get();
         return (Object.entries(state.fitnessConnections) as [FitnessProvider, FitnessConnection | null][])
-          .filter(([_, conn]) => conn?.isConnected)
+          .filter(([_, conn]) => conn?.connected)
           .map(([provider]) => provider);
       },
 
       isFitnessProviderConnected: (provider) => {
         const state = get();
-        return state.fitnessConnections[provider]?.isConnected ?? false;
+        return state.fitnessConnections[provider]?.connected ?? false;
       },
 
     }),

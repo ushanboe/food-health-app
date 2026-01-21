@@ -107,7 +107,7 @@ function formatDateLabel(dateStr: string): string {
 
 export default function HomePage() {
   const router = useRouter();
-  const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog, syncedFitnessData, getDailyWaterTotal } = useAppStore();
+  const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog, getDailyWaterTotal } = useAppStore();
 
   // Swipeable days state
   const days = useMemo(() => getLastNDays(7), []);
@@ -122,14 +122,7 @@ export default function HomePage() {
   const manualExercises = fitnessLog?.exercises || [];
   const waterTotal = getDailyWaterTotal(currentDate);
 
-  // Get synced activities for the current date from Strava/Fitbit/etc
-  const syncedActivitiesForDate = useMemo(() => {
-    if (!syncedFitnessData?.activities) return [];
-    return syncedFitnessData.activities.filter(activity => {
-      const activityDate = formatLocalDate(new Date(activity.startTime));
-      return activityDate === currentDate;
-    });
-  }, [syncedFitnessData, currentDate]);
+  // Synced activities disabled - coming soon
 
   // Combine manual exercises and synced activities
   const allActivities = useMemo(() => {
@@ -152,19 +145,10 @@ export default function HomePage() {
       });
     });
     
-    syncedActivitiesForDate.forEach(a => {
-      activities.push({
-        id: a.id,
-        name: a.name,
-        calories: a.calories || 0,
-        duration: a.duration,
-        source: 'synced',
-        type: a.type,
-      });
-    });
+    // Synced activities disabled - coming soon
     
     return activities;
-  }, [manualExercises, syncedActivitiesForDate]);
+  }, [manualExercises]);
 
   // Handle swipe
   const handleDragEnd = (event: MouseEvent | TouchEvent | PointerEvent, info: PanInfo) => {
