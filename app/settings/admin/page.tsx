@@ -8,24 +8,19 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { useAppStore } from "@/lib/store";
 import { usePremium } from "@/lib/subscription";
 import {
   Shield,
-  Eye,
-  EyeOff,
-  Save,
   AlertTriangle,
-  CheckCircle,
-  ExternalLink,
-  Cloud,
-  Key,
   ArrowLeft,
   Lock,
   KeyRound,
   Crown,
   ToggleLeft,
   ToggleRight,
+  Database,
+  CheckCircle,
+  Users,
 } from "lucide-react";
 
 const fadeUp = {
@@ -34,20 +29,15 @@ const fadeUp = {
   transition: { duration: 0.3 },
 };
 
-interface AdminConfig {
-  supabaseUrl: string;
-  supabaseAnonKey: string;
-}
-
 const PIN_STORAGE_KEY = "fitfork_admin_pin";
 const PIN_LENGTH = 6;
 
 // PIN Entry Component
-function PinEntry({ 
-  onSuccess, 
-  isSettingPin 
-}: { 
-  onSuccess: () => void; 
+function PinEntry({
+  onSuccess,
+  isSettingPin
+}: {
+  onSuccess: () => void;
   isSettingPin: boolean;
 }) {
   const router = useRouter();
@@ -60,14 +50,13 @@ function PinEntry({
   const confirmInputRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    // Focus first input on mount
     inputRefs.current[0]?.focus();
   }, []);
 
   const handlePinChange = (index: number, value: string, isConfirmField: boolean = false) => {
-    if (!/^\d*$/.test(value)) return; // Only allow digits
+    if (!/^\d*$/.test(value)) return;
 
-    const newValue = value.slice(-1); // Take only last character
+    const newValue = value.slice(-1);
     const currentPin = isConfirmField ? [...confirmPin] : [...pin];
     currentPin[index] = newValue;
 
@@ -78,25 +67,21 @@ function PinEntry({
     }
     setError("");
 
-    // Auto-focus next input
     if (newValue && index < PIN_LENGTH - 1) {
       const refs = isConfirmField ? confirmInputRefs : inputRefs;
       refs.current[index + 1]?.focus();
     }
 
-    // Check if PIN is complete
     if (index === PIN_LENGTH - 1 && newValue) {
       const enteredPin = currentPin.join("");
 
       if (isSettingPin) {
         if (!isConfirming && !isConfirmField) {
-          // First entry complete, move to confirm
           setTimeout(() => {
             setIsConfirming(true);
             setTimeout(() => confirmInputRefs.current[0]?.focus(), 100);
           }, 200);
         } else if (isConfirmField) {
-          // Confirm entry complete, check match
           const originalPin = pin.join("");
           if (enteredPin === originalPin) {
             localStorage.setItem(PIN_STORAGE_KEY, enteredPin);
@@ -112,7 +97,6 @@ function PinEntry({
           }
         }
       } else {
-        // Verifying existing PIN
         const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
         if (enteredPin === storedPin) {
           onSuccess();
@@ -141,7 +125,7 @@ function PinEntry({
   };
 
   const renderPinInputs = (pinArray: string[], refs: React.MutableRefObject<(HTMLInputElement | null)[]>, isConfirmField: boolean = false) => (
-    <motion.div 
+    <motion.div
       className="flex gap-3 justify-center"
       animate={shake && ((isConfirmField && isConfirming) || (!isConfirmField && !isConfirming)) ? { x: [-10, 10, -10, 10, 0] } : {}}
       transition={{ duration: 0.4 }}
@@ -171,26 +155,23 @@ function PinEntry({
           className="w-full max-w-sm"
         >
           <Card className="text-center p-8">
-            {/* Lock Icon */}
             <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-gradient-to-br from-amber-100 to-orange-100 flex items-center justify-center">
               <Lock size={40} className="text-amber-600" />
             </div>
 
-            {/* Title */}
             <h1 className="text-2xl font-bold text-gray-900 mb-2">
-              {isSettingPin 
-                ? (isConfirming ? "Confirm PIN" : "Set Admin PIN") 
+              {isSettingPin
+                ? (isConfirming ? "Confirm PIN" : "Set Admin PIN")
                 : "Enter Admin PIN"}
             </h1>
             <p className="text-gray-500 mb-8">
-              {isSettingPin 
-                ? (isConfirming 
-                    ? "Re-enter your 6-digit PIN to confirm" 
+              {isSettingPin
+                ? (isConfirming
+                    ? "Re-enter your 6-digit PIN to confirm"
                     : "Create a 6-digit PIN to protect admin settings")
                 : "Enter your 6-digit PIN to access admin settings"}
             </p>
 
-            {/* PIN Input */}
             <AnimatePresence mode="wait">
               {isSettingPin && isConfirming ? (
                 <motion.div
@@ -213,7 +194,6 @@ function PinEntry({
               )}
             </AnimatePresence>
 
-            {/* Error Message */}
             <AnimatePresence>
               {error && (
                 <motion.p
@@ -227,7 +207,6 @@ function PinEntry({
               )}
             </AnimatePresence>
 
-            {/* Progress Dots for Setting PIN */}
             {isSettingPin && (
               <div className="flex justify-center gap-2 mt-6">
                 <div className={`w-2 h-2 rounded-full transition-colors ${!isConfirming ? "bg-amber-500" : "bg-gray-300"}`} />
@@ -235,7 +214,6 @@ function PinEntry({
               </div>
             )}
 
-            {/* Back Button */}
             <Button
               variant="outline"
               onClick={() => router.push("/settings")}
@@ -246,7 +224,6 @@ function PinEntry({
             </Button>
           </Card>
 
-          {/* Security Note */}
           <p className="text-center text-xs text-gray-400 mt-4">
             🔒 PIN is stored locally on your device
           </p>
@@ -259,55 +236,7 @@ function PinEntry({
 // Main Admin Page Component
 function AdminSettingsContent() {
   const router = useRouter();
-  const { aiSettings, updateAISettings } = useAppStore();
   const { isPremium, devModeEnabled, setDevMode } = usePremium();
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
-  const [config, setConfig] = useState<AdminConfig>({
-    supabaseUrl: "",
-    supabaseAnonKey: "",
-  });
-  const [status, setStatus] = useState<Record<string, "valid" | "invalid" | "unchecked">>({
-    supabaseUrl: "unchecked",
-    supabaseAnonKey: "unchecked",
-  });
-
-  useEffect(() => {
-    setConfig({
-      supabaseUrl: aiSettings.supabaseUrl || "",
-      supabaseAnonKey: aiSettings.supabaseAnonKey || "",
-    });
-    setStatus({
-      supabaseUrl: aiSettings.supabaseUrl ? "valid" : "unchecked",
-      supabaseAnonKey: aiSettings.supabaseAnonKey ? "valid" : "unchecked",
-    });
-    if (aiSettings.supabaseUrl || aiSettings.supabaseAnonKey) {
-      setSaved(true);
-    }
-  }, [aiSettings]);
-
-  const handleSave = async () => {
-    setSaving(true);
-    try {
-      updateAISettings({
-        supabaseUrl: config.supabaseUrl,
-        supabaseAnonKey: config.supabaseAnonKey,
-      });
-      setStatus({
-        supabaseUrl: config.supabaseUrl ? "valid" : "unchecked",
-        supabaseAnonKey: config.supabaseAnonKey ? "valid" : "unchecked",
-      });
-      await new Promise(resolve => setTimeout(resolve, 300));
-      setSaved(true);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const toggleShowKey = (key: string) => {
-    setShowKeys(prev => ({ ...prev, [key]: !prev[key] }));
-  };
 
   const handleResetPin = () => {
     if (confirm("Are you sure you want to reset your admin PIN? You will need to set a new one.")) {
@@ -319,73 +248,6 @@ function AdminSettingsContent() {
   const toggleDevPremium = () => {
     setDevMode(!devModeEnabled);
   };
-
-  const AdminKeyInput = ({
-    id,
-    label,
-    description,
-    icon: Icon,
-    iconColor,
-    placeholder,
-    helpUrl,
-    helpText,
-  }: {
-    id: keyof AdminConfig;
-    label: string;
-    description: string;
-    icon: any;
-    iconColor: string;
-    placeholder: string;
-    helpUrl?: string;
-    helpText?: string;
-  }) => (
-    <Card className="mb-4">
-      <div className="flex items-start gap-3 mb-3">
-        <div className={`w-10 h-10 rounded-xl ${iconColor} flex items-center justify-center flex-shrink-0`}>
-          <Icon size={20} className="text-white" />
-        </div>
-        <div className="flex-1">
-          <div className="flex items-center gap-2">
-            <p className="font-medium text-gray-900">{label}</p>
-            <Badge variant={status[id] === "valid" ? "success" : status[id] === "invalid" ? "error" : "default"}>
-              {status[id] === "valid" ? "Configured" : status[id] === "invalid" ? "Invalid" : "Not Set"}
-            </Badge>
-          </div>
-          <p className="text-sm text-gray-500">{description}</p>
-        </div>
-      </div>
-      <div className="relative">
-        <input
-          type={showKeys[id] ? "text" : "password"}
-          value={config[id]}
-          onChange={(e) => {
-            setConfig({ ...config, [id]: e.target.value });
-            setSaved(false);
-          }}
-          placeholder={placeholder}
-          className="w-full px-4 py-3 pr-12 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent transition-all font-mono text-sm"
-        />
-        <button
-          type="button"
-          onClick={() => toggleShowKey(id)}
-          className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-        >
-          {showKeys[id] ? <EyeOff size={18} /> : <Eye size={18} />}
-        </button>
-      </div>
-      {helpUrl && (
-        <a
-          href={helpUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center gap-1 text-sm text-amber-600 mt-2 hover:underline"
-        >
-          <ExternalLink size={14} />
-          {helpText || "Get Credentials"}
-        </a>
-      )}
-    </Card>
-  );
 
   return (
     <PageContainer>
@@ -406,7 +268,7 @@ function AdminSettingsContent() {
                 <div>
                   <p className="text-sm font-medium text-amber-800">⚠️ Developer Settings</p>
                   <p className="text-sm mt-1 text-amber-600">
-                    These settings are for app administrators only. Incorrect configuration may affect app functionality.
+                    These settings are for app administrators only. Changes here affect testing and development.
                   </p>
                 </div>
               </div>
@@ -415,7 +277,7 @@ function AdminSettingsContent() {
 
           {/* Dev Premium Toggle */}
           <motion.div variants={fadeUp} className="mb-6">
-            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Testing Mode</p>
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">🧪 Testing Mode</p>
             <Card
               className={`flex items-center gap-3 cursor-pointer transition-all ${devModeEnabled ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}
               onClick={toggleDevPremium}
@@ -444,62 +306,56 @@ function AdminSettingsContent() {
             </Card>
           </motion.div>
 
-          {/* Cloud Sync Section */}
-          <motion.div variants={fadeUp}>
-            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Cloud Sync (Supabase)</p>
-            <AdminKeyInput
-              id="supabaseUrl"
-              label="Supabase URL"
-              description="Your Supabase project URL"
-              icon={Cloud}
-              iconColor="bg-gradient-to-br from-emerald-500 to-teal-500"
-              placeholder="https://xxxxx.supabase.co"
-              helpUrl="https://supabase.com/dashboard"
-              helpText="Get Supabase Credentials"
-            />
-            <AdminKeyInput
-              id="supabaseAnonKey"
-              label="Supabase Anon Key"
-              description="Public anonymous key for client access"
-              icon={Key}
-              iconColor="bg-gradient-to-br from-emerald-500 to-teal-500"
-              placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-            />
+          {/* Environment Status */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">🔧 Environment Status</p>
+            <Card className="bg-gray-50">
+              <div className="space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Database size={16} className="text-emerald-500" />
+                    <span className="text-sm text-gray-700">Supabase</span>
+                  </div>
+                  <Badge variant="success">
+                    <CheckCircle size={12} className="mr-1" />
+                    Connected via Vercel
+                  </Badge>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Users size={16} className="text-blue-500" />
+                    <span className="text-sm text-gray-700">Premium Status</span>
+                  </div>
+                  <Badge variant={isPremium ? 'success' : 'default'}>
+                    {isPremium ? 'Premium' : 'Free'}
+                    {devModeEnabled && ' (Dev)'}
+                  </Badge>
+                </div>
+              </div>
+            </Card>
+            <p className="text-xs text-gray-400 mt-2 px-1">
+              💡 Supabase & Stripe keys are configured in Vercel environment variables
+            </p>
           </motion.div>
 
-          {/* Save Button */}
-          <motion.div variants={fadeUp} className="mt-6">
-            <Button
-              onClick={handleSave}
-              disabled={saving}
-              className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600"
-            >
-              {saving ? (
-                <span className="flex items-center justify-center gap-2">
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Saving...
-                </span>
-              ) : saved ? (
-                <motion.span
-                  className="flex items-center justify-center gap-2"
-                  initial={{ scale: 0.9 }}
-                  animate={{ scale: 1 }}
-                  transition={{ type: "spring" }}
-                >
-                  <CheckCircle size={18} />
-                  Settings Saved
-                </motion.span>
-              ) : (
-                <span className="flex items-center justify-center gap-2">
-                  <Save size={18} />
-                  Save Admin Settings
-                </span>
-              )}
-            </Button>
+          {/* Testing Premium Users Section */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">👥 Testing Premium Users</p>
+            <Card className="bg-blue-50 border border-blue-200">
+              <div className="space-y-3">
+                <p className="text-sm text-blue-800 font-medium">How to test premium features:</p>
+                <ol className="text-sm text-blue-700 space-y-2 list-decimal list-inside">
+                  <li><strong>Dev Toggle (above)</strong> - Quick local testing</li>
+                  <li><strong>Supabase Dashboard</strong> - Set user's subscription status directly in the database</li>
+                  <li><strong>Stripe Test Mode</strong> - Use test cards for payment flow testing</li>
+                </ol>
+              </div>
+            </Card>
           </motion.div>
 
-          {/* Reset PIN */}
-          <motion.div variants={fadeUp} className="mt-4">
+          {/* Security Section */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">🔐 Security</p>
             <Button
               variant="outline"
               onClick={handleResetPin}
@@ -511,7 +367,7 @@ function AdminSettingsContent() {
           </motion.div>
 
           {/* Back to Settings */}
-          <motion.div variants={fadeUp} className="mt-4">
+          <motion.div variants={fadeUp}>
             <Button
               variant="outline"
               onClick={() => router.push("/settings")}
@@ -528,9 +384,9 @@ function AdminSettingsContent() {
               <div className="flex gap-3">
                 <Shield size={20} className="text-gray-400 flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Secure Storage</p>
+                  <p className="text-sm font-medium text-gray-700">Production Architecture</p>
                   <p className="text-sm text-gray-500 mt-1">
-                    Admin credentials are stored locally on your device. For production apps, use environment variables instead.
+                    API keys are stored as environment variables in Vercel, not in the app. This ensures all users connect to your Supabase instance automatically.
                   </p>
                 </div>
               </div>
@@ -549,7 +405,6 @@ export default function AdminSettingsPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check if PIN exists
     const storedPin = localStorage.getItem(PIN_STORAGE_KEY);
     if (!storedPin) {
       setIsSettingPin(true);
@@ -569,8 +424,8 @@ export default function AdminSettingsPage() {
 
   if (!isAuthenticated) {
     return (
-      <PinEntry 
-        onSuccess={() => setIsAuthenticated(true)} 
+      <PinEntry
+        onSuccess={() => setIsAuthenticated(true)}
         isSettingPin={isSettingPin}
       />
     );

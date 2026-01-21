@@ -41,8 +41,6 @@ export interface AISettings {
   geminiApiKey: string;
   openaiApiKey: string;
   spoonacularApiKey: string;
-  supabaseUrl: string;
-  supabaseAnonKey: string;
   supabaseLastSync?: string;
 }
 
@@ -321,8 +319,6 @@ export const useAppStore = create<AppState>()(
         geminiApiKey: "",
         openaiApiKey: "",
         spoonacularApiKey: "",
-        supabaseUrl: "",
-        supabaseAnonKey: "",
       },
       dailyGoals: {
         calories: 2000,
