@@ -159,10 +159,10 @@ export default function HelpCenterPage() {
                 </div>
               </div>
               <a
-                href="mailto:support@fitfork.app"
+                href="mailto:help@fitfork.app"
                 className="mt-4 w-full py-3 bg-gray-100 hover:bg-gray-200 rounded-xl text-center font-medium text-gray-700 transition-colors block"
               >
-                support@fitfork.app
+                help@fitfork.app
               </a>
             </Card>
           </motion.div>

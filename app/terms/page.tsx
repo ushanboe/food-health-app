@@ -157,7 +157,7 @@ export default function TermsPage() {
               
               <h3 className="font-medium text-gray-800 mt-4 mb-2">5.3 How to Request a Refund</h3>
               <p className="text-sm text-gray-600 leading-relaxed">
-                Contact us at <span className="text-emerald-600 font-medium">support@fitfork.app</span> with 
+                Contact us at <span className="text-emerald-600 font-medium">help@fitfork.app</span> with 
                 your account email and reason for the refund request. Refunds are processed within 5-10 
                 business days.
               </p>
@@ -237,7 +237,7 @@ export default function TermsPage() {
                 If you have questions about these Terms of Service, please contact us:
               </p>
               <div className="bg-gray-50 rounded-xl p-4">
-                <p className="text-sm text-gray-700"><strong>Email:</strong> support@fitfork.app</p>
+                <p className="text-sm text-gray-700"><strong>Email:</strong> help@fitfork.app</p>
                 <p className="text-sm text-gray-700"><strong>Website:</strong> https://fitfork.app</p>
               </div>
             </Card>

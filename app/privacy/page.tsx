@@ -165,7 +165,7 @@ export default function PrivacyPage() {
                 <li><strong>Withdraw Consent:</strong> Revoke permissions for third-party integrations</li>
               </ul>
               <p className="text-sm text-gray-600 leading-relaxed mt-3">
-                To exercise these rights, contact us at <span className="text-emerald-600 font-medium">privacy@fitfork.app</span>
+                To exercise these rights, contact us at <span className="text-emerald-600 font-medium">help@fitfork.app</span>
               </p>
             </Card>
           </motion.div>
@@ -198,7 +198,7 @@ export default function PrivacyPage() {
                 FitFork is not intended for children under 13 years of age. We do not knowingly 
                 collect personal information from children under 13. If you are a parent or guardian 
                 and believe your child has provided us with personal information, please contact us 
-                immediately at <span className="text-emerald-600 font-medium">privacy@fitfork.app</span>. 
+                immediately at <span className="text-emerald-600 font-medium">help@fitfork.app</span>. 
                 We will take steps to delete such information.
               </p>
             </Card>
@@ -263,8 +263,8 @@ export default function PrivacyPage() {
                 If you have questions or concerns about this Privacy Policy or our data practices:
               </p>
               <div className="bg-gray-50 rounded-xl p-4 space-y-1">
-                <p className="text-sm text-gray-700"><strong>Email:</strong> privacy@fitfork.app</p>
-                <p className="text-sm text-gray-700"><strong>Support:</strong> support@fitfork.app</p>
+                <p className="text-sm text-gray-700"><strong>Email:</strong> help@fitfork.app</p>
+                <p className="text-sm text-gray-700"><strong>Support:</strong> help@fitfork.app</p>
                 <p className="text-sm text-gray-700"><strong>Website:</strong> https://fitfork.app</p>
               </div>
             </Card>
