@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { User, Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase-client';
 import { syncSubscription, useSubscriptionStore } from '@/lib/subscription';
@@ -26,6 +26,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  
+  // Track if initial sync has been done to avoid duplicate syncs
+  const initialSyncDone = useRef(false);
+  const lastSyncEvent = useRef<string | null>(null);
   
   // Get subscription store actions
   const clearSubscription = useSubscriptionStore((state) => state.clearSubscription);
@@ -53,10 +57,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(session?.user ?? null);
       setLoading(false);
       
-      // Sync subscription if user is logged in
-      if (session?.user) {
+      // Sync subscription if user is logged in (initial load only)
+      if (session?.user && !initialSyncDone.current) {
+        initialSyncDone.current = true;
         console.log('[Auth] Initial session found, syncing subscription...');
-        await syncSubscription();
+        // Small delay to ensure everything is initialized
+        setTimeout(() => {
+          syncSubscription().catch(err => {
+            console.log('[Auth] Initial subscription sync error (non-fatal):', err?.message || err);
+          });
+        }, 100);
       }
     });
 
@@ -68,17 +78,37 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         setLoading(false);
         
+        // Prevent duplicate syncs for the same event type in quick succession
+        const eventKey = `${event}-${session?.user?.id || 'none'}`;
+        if (lastSyncEvent.current === eventKey) {
+          console.log('[Auth] Skipping duplicate sync for:', event);
+          return;
+        }
+        lastSyncEvent.current = eventKey;
+        
+        // Clear the event key after a short delay to allow future syncs
+        setTimeout(() => {
+          if (lastSyncEvent.current === eventKey) {
+            lastSyncEvent.current = null;
+          }
+        }, 2000);
+        
         // Handle subscription sync based on auth event
         if (event === 'SIGNED_IN' && session?.user) {
           console.log('[Auth] User signed in, syncing subscription...');
-          await syncSubscription();
+          // Use debounced sync to handle rapid auth state changes
+          syncSubscription().catch(err => {
+            // Only log non-abort errors
+            if (!err?.message?.includes('aborted') && !err?.message?.includes('signal')) {
+              console.log('[Auth] Subscription sync error (non-fatal):', err?.message || err);
+            }
+          });
         } else if (event === 'SIGNED_OUT') {
           console.log('[Auth] User signed out, clearing subscription...');
           clearSubscription();
         } else if (event === 'TOKEN_REFRESHED' && session?.user) {
-          // Optionally re-sync on token refresh to catch any subscription changes
-          console.log('[Auth] Token refreshed, syncing subscription...');
-          await syncSubscription();
+          // Skip sync on token refresh to reduce API calls - subscription rarely changes
+          console.log('[Auth] Token refreshed, skipping subscription sync');
         }
       }
     );

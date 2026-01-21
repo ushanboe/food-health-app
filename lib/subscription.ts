@@ -177,6 +177,10 @@ const initialState = {
   devModeEnabled: false,
 };
 
+// Debounce helper to prevent rapid-fire sync calls
+let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+let currentSyncAbortController: AbortController | null = null;
+
 export const useSubscriptionStore = create<SubscriptionState>()(
   persist(
     (set, get) => ({
@@ -184,14 +188,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       
       setSubscription: (data) => set((state) => ({ ...state, ...data })),
       
-      clearSubscription: () => set({ 
-        ...initialState, 
+      clearSubscription: () => set({
+        ...initialState,
         devModeEnabled: get().devModeEnabled // Preserve dev mode on clear
       }),
       
       setDevMode: (enabled) => set({ devModeEnabled: enabled }),
       
-      // Sync subscription from Supabase
+      // Sync subscription from Supabase with debouncing and abort handling
       syncFromSupabase: async (): Promise<boolean> => {
         const supabase = getSupabaseClient();
         if (!supabase) {
@@ -199,14 +203,35 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           return false;
         }
         
+        // Cancel any pending sync
+        if (currentSyncAbortController) {
+          currentSyncAbortController.abort();
+        }
+        
+        // Create new abort controller for this sync
+        currentSyncAbortController = new AbortController();
+        const abortSignal = currentSyncAbortController.signal;
+        
         try {
           set({ isSyncing: true, syncError: null });
           
+          // Check if aborted before starting
+          if (abortSignal.aborted) {
+            return false;
+          }
+          
           // Get current user
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) {
+          const { data: { user }, error: userError } = await supabase.auth.getUser();
+          
+          // Check if aborted after user fetch
+          if (abortSignal.aborted) {
+            console.log('[Subscription] Sync aborted after user fetch');
+            return false;
+          }
+          
+          if (userError || !user) {
             console.log('[Subscription] No user logged in, using free tier');
-            set({ 
+            set({
               tier: 'free',
               status: 'none',
               currentPeriodStart: null,
@@ -227,6 +252,12 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             .select('*')
             .eq('user_id', user.id)
             .single();
+          
+          // Check if aborted after subscription fetch
+          if (abortSignal.aborted) {
+            console.log('[Subscription] Sync aborted after subscription fetch');
+            return false;
+          }
           
           if (error) {
             // No subscription found - user might be new
@@ -268,14 +299,30 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           console.log('[Subscription] Synced from Supabase:', sub.plan, sub.status);
           return true;
           
-        } catch (error) {
+        } catch (error: unknown) {
+          // Handle abort errors gracefully - these are expected
+          if (error instanceof Error) {
+            if (error.name === 'AbortError' || 
+                error.message.includes('aborted') ||
+                error.message.includes('signal')) {
+              console.log('[Subscription] Sync was cancelled (new sync started)');
+              // Don't update state for aborted requests
+              return false;
+            }
+          }
+          
           const errorMessage = error instanceof Error ? error.message : 'Failed to sync subscription';
           console.error('[Subscription] Sync error:', errorMessage);
-          set({ 
-            isSyncing: false, 
-            syncError: errorMessage 
+          set({
+            isSyncing: false,
+            syncError: errorMessage
           });
           return false;
+        } finally {
+          // Clear the abort controller if this is the current one
+          if (currentSyncAbortController?.signal === abortSignal) {
+            currentSyncAbortController = null;
+          }
         }
       },
       
@@ -374,7 +421,18 @@ export function useFeatureAccess(feature: PremiumFeature) {
   };
 }
 
-// Utility function to sync subscription (can be called from anywhere)
+// Debounced sync function to prevent rapid-fire calls
 export async function syncSubscription(): Promise<boolean> {
-  return useSubscriptionStore.getState().syncFromSupabase();
+  // Clear any pending debounce timer
+  if (syncDebounceTimer) {
+    clearTimeout(syncDebounceTimer);
+  }
+  
+  // Return a promise that resolves after debounce
+  return new Promise((resolve) => {
+    syncDebounceTimer = setTimeout(async () => {
+      const result = await useSubscriptionStore.getState().syncFromSupabase();
+      resolve(result);
+    }, 300); // 300ms debounce
+  });
 }
