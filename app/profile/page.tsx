@@ -11,6 +11,7 @@ import { ListItem, ListGroup } from "@/components/ui/ListItem";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePremium } from "@/lib/subscription";
+import AuthModal from "@/components/auth/AuthModal";
 import {
   User,
   ChefHat,
@@ -28,6 +29,8 @@ import {
   X,
   Crown,
   Lock,
+  LogIn,
+  LogOut,
 } from "lucide-react";
 
 const stagger = {
@@ -43,11 +46,12 @@ const fadeUp = {
 export default function ProfilePage() {
   const router = useRouter();
   const { userProfile, dailyGoals, getDailyTotals, updateUserProfile } = useAppStore();
-  const { user, isConfigured } = useAuth();
+  const { user, isConfigured, signOut } = useAuth();
   const { isPremium } = usePremium();
   const [streak, setStreak] = useState(0);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -145,6 +149,14 @@ export default function ProfilePage() {
     setShowUploadModal(false);
   };
 
+  const handleSignOut = async () => {
+    try {
+      await signOut();
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
+  };
+
   return (
     <PageContainer>
       {/* Profile Header */}
@@ -221,24 +233,59 @@ export default function ProfilePage() {
             </div>
           </motion.div>
 
-          {/* Cloud Status */}
+          {/* Account / Cloud Status - Now Clickable */}
           <motion.div variants={fadeUp} className="mb-6">
-            <Card className={`flex items-center gap-3 ${isCloudConnected ? 'bg-emerald-50' : 'bg-gray-50'}`}>
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isCloudConnected ? 'bg-emerald-100' : 'bg-gray-200'}`}>
-                <Cloud size={20} className={isCloudConnected ? 'text-emerald-600' : 'text-gray-400'} />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">
-                  {isCloudConnected ? 'Cloud Sync Active' : 'Cloud Sync Disabled'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {isCloudConnected ? 'Your data is backed up' : 'Enable in settings'}
-                </p>
-              </div>
-              {isCloudConnected && (
-                <Badge variant="success">Connected</Badge>
-              )}
-            </Card>
+            {isCloudConnected ? (
+              // Logged in state
+              <Card className="bg-emerald-50">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 flex items-center justify-center">
+                    <Cloud size={20} className="text-emerald-600" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-medium text-gray-900">Cloud Sync Active</p>
+                    <p className="text-xs text-gray-500">{user?.email}</p>
+                  </div>
+                  <Badge variant="success">Connected</Badge>
+                </div>
+                <div className="mt-3 pt-3 border-t border-emerald-100 flex gap-2">
+                  <button
+                    onClick={() => router.push('/cloud-sync')}
+                    className="flex-1 py-2 px-3 bg-emerald-100 text-emerald-700 rounded-xl text-sm font-medium hover:bg-emerald-200 transition-colors"
+                  >
+                    Manage Backup
+                  </button>
+                  <button
+                    onClick={handleSignOut}
+                    className="py-2 px-3 bg-gray-100 text-gray-600 rounded-xl text-sm font-medium hover:bg-gray-200 transition-colors flex items-center gap-1"
+                  >
+                    <LogOut size={16} />
+                    Sign Out
+                  </button>
+                </div>
+              </Card>
+            ) : (
+              // Logged out state - Prominent login button
+              <motion.button
+                whileHover={{ scale: 1.01 }}
+                whileTap={{ scale: 0.99 }}
+                onClick={() => setShowAuthModal(true)}
+                className="w-full"
+              >
+                <Card className="bg-gradient-to-r from-blue-50 to-indigo-50 border-2 border-blue-200 hover:border-blue-300 transition-colors">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center">
+                      <LogIn size={24} className="text-white" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <p className="font-semibold text-gray-900">Sign In to Backup</p>
+                      <p className="text-sm text-gray-500">Sync your data across devices</p>
+                    </div>
+                    <ChevronRight size={20} className="text-blue-400" />
+                  </div>
+                </Card>
+              </motion.button>
+            )}
           </motion.div>
 
           {/* Quick Actions */}
@@ -312,6 +359,9 @@ export default function ProfilePage() {
         onChange={handleFileSelect}
         className="hidden"
       />
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
 
       {/* Upload Modal */}
       <AnimatePresence>

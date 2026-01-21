@@ -9,9 +9,11 @@ import { PageContainer, PageContent } from "@/components/ui/Header";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { Card } from "@/components/ui/Card";
 import { ListItem } from "@/components/ui/ListItem";
+import { Badge } from "@/components/ui/Badge";
 import FitnessConnections from "@/components/fitness/FitnessConnections";
 import { usePremium } from "@/lib/subscription";
 import { PremiumGate } from "@/components/PremiumGate";
+import { useAuth } from "@/contexts/AuthContext";
 import {
   Key,
   Bell,
@@ -25,6 +27,8 @@ import {
   Smartphone,
   Info,
   Settings,
+  Cloud,
+  Crown,
 } from "lucide-react";
 
 const stagger = {
@@ -40,7 +44,10 @@ const fadeUp = {
 export default function SettingsPage() {
   const router = useRouter();
   const { userProfile } = useAppStore();
+  const { user, isConfigured } = useAuth();
   const [notifications, setNotifications] = useState(true);
+
+  const isCloudConnected = user && isConfigured;
 
   const Toggle = ({ checked, onChange }: { checked: boolean; onChange: () => void }) => (
     <label className="relative inline-flex items-center cursor-pointer">
@@ -107,6 +114,14 @@ export default function SettingsPage() {
             <p className="text-sm text-gray-500 font-medium mb-3 px-1">Data & Privacy</p>
             <Card padding="none">
               <ListItem
+                icon={<Cloud size={20} className={isCloudConnected ? "text-emerald-500" : "text-blue-500"} />}
+                title="Cloud Backup"
+                subtitle={isCloudConnected ? "Connected & syncing" : "Sign in to backup your data"}
+                showArrow
+                onClick={() => router.push("/cloud-sync")}
+                value={isCloudConnected ? <Badge variant="success">Active</Badge> : null}
+              />
+              <ListItem
                 icon={<Database size={20} className="text-amber-500" />}
                 title="Export Data"
                 subtitle="Download your data"
@@ -155,32 +170,19 @@ export default function SettingsPage() {
                 onClick={() => router.push("/terms")}
               />
               <ListItem
-                icon={<Shield size={20} className="text-amber-500" />}
+                icon={<Crown size={20} className="text-amber-500" />}
                 title="Admin"
                 subtitle="Developer settings"
                 showArrow
                 onClick={() => router.push("/settings/admin")}
               />
               <ListItem
-                icon={<Info size={20} className="text-gray-500" />}
+                icon={<Info size={20} className="text-gray-400" />}
                 title="About"
                 subtitle="Version 2.1.0"
                 showArrow
                 onClick={() => router.push("/about")}
               />
-            </Card>
-          </motion.div>
-
-          {/* Sign Out */}
-          <motion.div variants={fadeUp}>
-            <Card
-              onClick={() => {}}
-              className="cursor-pointer"
-            >
-              <div className="flex items-center justify-center gap-2 text-red-500">
-                <LogOut size={20} />
-                <span className="font-medium">Sign Out</span>
-              </div>
             </Card>
           </motion.div>
         </motion.div>
