@@ -14,6 +14,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { BottomSheet } from "@/components/ui/Modal";
+import { Nutri } from "@/components/Nutri";
 import {
   Cloud,
   CloudOff,
@@ -55,16 +56,18 @@ const fadeUp = {
 // Nutri celebration component
 
 // Nutri floating toast notification
+
+// Nutri floating across screen with speech bubble for sync success
 const NutriSyncToast = ({ show, uploaded, downloaded, onClose }: { 
   show: boolean; 
   uploaded: number; 
   downloaded: number;
   onClose: () => void;
 }) => {
-  // Auto-close after 4 seconds
+  // Auto-close after animation completes (5 seconds)
   useEffect(() => {
     if (show) {
-      const timer = setTimeout(onClose, 4000);
+      const timer = setTimeout(onClose, 5000);
       return () => clearTimeout(timer);
     }
   }, [show, onClose]);
@@ -73,63 +76,47 @@ const NutriSyncToast = ({ show, uploaded, downloaded, onClose }: {
     <AnimatePresence>
       {show && (
         <motion.div
-          initial={{ opacity: 0, x: 100, y: 20 }}
-          animate={{ opacity: 1, x: 0, y: 0 }}
-          exit={{ opacity: 0, x: 100 }}
-          transition={{ type: "spring", damping: 20, stiffness: 300 }}
-          className="fixed bottom-24 right-4 z-50 flex items-end gap-2"
+          initial={{ x: "100vw" }}
+          animate={{ x: "-150px" }}
+          exit={{ x: "-150px", opacity: 0 }}
+          transition={{ 
+            duration: 4,
+            ease: "linear"
+          }}
+          className="fixed top-[200px] z-50 flex items-center gap-2 pointer-events-none"
         >
-          {/* Speech bubble */}
+          {/* Speech bubble - positioned to the left of Nutri */}
           <motion.div
-            initial={{ scale: 0.8, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            transition={{ delay: 0.1 }}
-            className="relative bg-white rounded-2xl shadow-lg border border-emerald-100 p-3 max-w-[200px]"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.3 }}
+            className="relative bg-white rounded-2xl shadow-lg border border-emerald-200 px-4 py-2"
           >
-            {/* Bubble tail */}
-            <div className="absolute -right-2 bottom-4 w-4 h-4 bg-white border-r border-b border-emerald-100 transform rotate-[-45deg]" />
+            {/* Bubble tail pointing right */}
+            <div className="absolute -right-2 top-1/2 -translate-y-1/2 w-0 h-0 border-t-8 border-b-8 border-l-8 border-transparent border-l-white" />
             
-            <div className="flex items-center gap-2 mb-1">
-              <Cloud size={16} className="text-emerald-500" />
-              <span className="text-sm font-semibold text-gray-800">Sync Complete!</span>
+            <div className="flex items-center gap-2">
+              <Check size={16} className="text-emerald-500" />
+              <span className="text-sm font-medium text-gray-800 whitespace-nowrap">Sync Complete!</span>
             </div>
             
-            <div className="flex gap-3 text-xs text-gray-600">
+            <div className="flex gap-3 text-xs text-gray-500 mt-0.5">
               <span className="flex items-center gap-1">
-                <Upload size={12} className="text-emerald-500" />
+                <Upload size={10} className="text-emerald-500" />
                 {uploaded}
               </span>
               <span className="flex items-center gap-1">
-                <Download size={12} className="text-blue-500" />
+                <Download size={10} className="text-blue-500" />
                 {downloaded}
               </span>
             </div>
           </motion.div>
 
           {/* Nutri mascot */}
-          <motion.div
-            className="relative w-14 h-14 flex-shrink-0"
-            animate={{ y: [0, -4, 0] }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "easeInOut" }}
-          >
-            <div className="absolute inset-0 bg-gradient-to-br from-emerald-400 to-green-500 rounded-full shadow-lg" />
-            {/* Eyes - happy closed */}
-            <div className="absolute top-4 left-2.5 w-2.5 h-1 bg-gray-800 rounded-full transform rotate-12" />
-            <div className="absolute top-4 right-2.5 w-2.5 h-1 bg-gray-800 rounded-full transform -rotate-12" />
-            {/* Big smile */}
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 w-7 h-3.5 border-b-[3px] border-white rounded-b-full" />
-            {/* Blush */}
-            <div className="absolute top-6 left-1.5 w-2 h-1 bg-pink-300 rounded-full opacity-60" />
-            <div className="absolute top-6 right-1.5 w-2 h-1 bg-pink-300 rounded-full opacity-60" />
-            {/* Leaf */}
-            <motion.div
-              className="absolute -top-1 left-1/2 -translate-x-1/2"
-              animate={{ rotate: [0, 15, -15, 0] }}
-              transition={{ duration: 2, repeat: Infinity }}
-            >
-              <div className="w-2 h-3 bg-gradient-to-t from-green-600 to-emerald-400 rounded-full transform rotate-45" />
-            </motion.div>
-          </motion.div>
+          <div className="relative">
+            <div className="absolute inset-0 bg-green-400/20 rounded-full blur-xl" />
+            <Nutri state="walking" size={70} />
+          </div>
         </motion.div>
       )}
     </AnimatePresence>
