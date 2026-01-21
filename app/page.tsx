@@ -67,22 +67,19 @@ const activityColors = [
   "#06B6D4", // cyan
 ];
 
-// Format date to YYYY-MM-DD in LOCAL timezone (not UTC)
-function formatLocalDate(date: Date): string {
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
+// Format date to YYYY-MM-DD in UTC (matching store's date format)
+function formatDateKey(date: Date): string {
+  return date.toISOString().split('T')[0];
 }
 
-// Get array of last N days using LOCAL dates
+// Get array of last N days using UTC dates (matching store format)
 function getLastNDays(n: number): string[] {
   const days: string[] = [];
   const now = new Date();
   for (let i = 0; i < n; i++) {
     const date = new Date(now);
     date.setDate(now.getDate() - i);
-    days.push(formatLocalDate(date));
+    days.push(formatDateKey(date));
   }
   return days;
 }
@@ -93,11 +90,11 @@ function formatDateLabel(dateStr: string): string {
   const date = new Date(year, month - 1, day);
   
   const today = new Date();
-  const todayStr = formatLocalDate(today);
+  const todayStr = formatDateKey(today);
   
   const yesterday = new Date(today);
   yesterday.setDate(today.getDate() - 1);
-  const yesterdayStr = formatLocalDate(yesterday);
+  const yesterdayStr = formatDateKey(yesterday);
 
   if (dateStr === todayStr) return "Today";
   if (dateStr === yesterdayStr) return "Yesterday";
@@ -252,7 +249,7 @@ export default function HomePage() {
 
   return (
     <PageContainer>
-      <PageHeader useLogo title="FitFork" subtitle="Version 1.0.0" />
+      <PageHeader useLogo title="FitFork" subtitle="Version 1.1.0" />
       <PageContent>
         <motion.div variants={stagger} initial="initial" animate="animate">
           {/* Swipeable Progress Card */}
