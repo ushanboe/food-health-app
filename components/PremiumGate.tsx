@@ -2,9 +2,10 @@
 
 import { ReactNode, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Crown, Lock, X, Check, Sparkles } from 'lucide-react';
+import { Crown, Lock, X, Check, Sparkles, Loader2 } from 'lucide-react';
 import { usePremium, SUBSCRIPTION_PLANS, PremiumFeature, PREMIUM_FEATURES } from '@/lib/subscription';
 import { Button } from '@/components/ui/Button';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface PremiumGateProps {
   feature: PremiumFeature;
@@ -14,11 +15,11 @@ interface PremiumGateProps {
 }
 
 // Component to wrap premium-only content
-export function PremiumGate({ 
-  feature, 
-  children, 
+export function PremiumGate({
+  feature,
+  children,
   fallback,
-  showLockIcon = true 
+  showLockIcon = true
 }: PremiumGateProps) {
   const { hasFeature, isPremium } = usePremium();
   const [showModal, setShowModal] = useState(false);
@@ -53,8 +54,8 @@ export function PremiumGate({
         )}
       </button>
       
-      <UpgradeModal 
-        isOpen={showModal} 
+      <UpgradeModal
+        isOpen={showModal}
         onClose={() => setShowModal(false)}
         feature={featureInfo.name}
       />
@@ -80,15 +81,52 @@ interface UpgradeModalProps {
 }
 
 export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
+  const { user } = useAuth();
   const monthlyPlan = SUBSCRIPTION_PLANS.monthly;
   const annualPlan = SUBSCRIPTION_PLANS.annual;
   const [selectedPlan, setSelectedPlan] = useState<'monthly' | 'annual'>('annual');
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   
-  const handleUpgrade = () => {
-    // TODO: Integrate with Stripe Checkout
-    // For now, just close the modal
-    alert('Stripe integration coming soon! Use Dev Mode to test premium features.');
-    onClose();
+  const handleUpgrade = async () => {
+    if (!user) {
+      setError('Please sign in to upgrade to Premium');
+      return;
+    }
+    
+    setIsLoading(true);
+    setError(null);
+    
+    try {
+      const response = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          plan: selectedPlan,
+          userId: user.id,
+          userEmail: user.email,
+        }),
+      });
+      
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create checkout session');
+      }
+      
+      // Redirect to Stripe Checkout
+      if (data.url) {
+        window.location.href = data.url;
+      } else {
+        throw new Error('No checkout URL received');
+      }
+    } catch (err) {
+      console.error('Checkout error:', err);
+      setError(err instanceof Error ? err.message : 'Something went wrong');
+      setIsLoading(false);
+    }
   };
   
   return (
@@ -114,7 +152,7 @@ export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
             {/* Close button */}
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors"
+              className="absolute top-4 right-4 p-2 text-gray-400 hover:text-gray-600 transition-colors z-10"
             >
               <X size={20} />
             </button>
@@ -134,6 +172,22 @@ export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
             
             {/* Plan selection */}
             <div className="p-6">
+              {/* Sign in prompt if not logged in */}
+              {!user && (
+                <div className="mb-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-center">
+                  <p className="text-amber-800 text-sm">
+                    Please <a href="/cloud-sync" className="font-semibold underline">sign in</a> first to upgrade to Premium
+                  </p>
+                </div>
+              )}
+              
+              {/* Error message */}
+              {error && (
+                <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-xl">
+                  <p className="text-red-700 text-sm">{error}</p>
+                </div>
+              )}
+              
               <div className="space-y-3 mb-6">
                 {/* Annual Plan */}
                 <button
@@ -199,10 +253,20 @@ export function UpgradeModal({ isOpen, onClose, feature }: UpgradeModalProps) {
               {/* CTA Button */}
               <Button
                 onClick={handleUpgrade}
-                className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2"
+                disabled={isLoading || !user}
+                className="w-full bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-500 hover:to-amber-600 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <Sparkles size={18} />
-                Continue with {selectedPlan === 'annual' ? 'Annual' : 'Monthly'}
+                {isLoading ? (
+                  <>
+                    <Loader2 size={18} className="animate-spin" />
+                    Redirecting to checkout...
+                  </>
+                ) : (
+                  <>
+                    <Sparkles size={18} />
+                    Continue with {selectedPlan === 'annual' ? 'Annual' : 'Monthly'}
+                  </>
+                )}
               </Button>
               
               {/* Terms */}
