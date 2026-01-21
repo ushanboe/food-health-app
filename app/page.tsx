@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { motion, AnimatePresence, PanInfo } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
+import { useCycleStore } from "@/lib/cycle-store";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { PageContainer, PageContent } from "@/components/ui/Header";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -105,6 +106,25 @@ function formatDateLabel(dateStr: string): string {
 export default function HomePage() {
   const router = useRouter();
   const { dailyGoals, getDailyTotals, getDailyLog, getDailyFitnessLog, getDailyWaterTotal } = useAppStore();
+  
+  // Cycle tracking data
+  const { settings: cycleSettings, getCurrentCycleDay, getCurrentPhase, getPhaseColor, getPhaseLabel } = useCycleStore();
+  
+  // Prepare cycle data for the progress ring
+  const cycleData = useMemo(() => {
+    if (!cycleSettings.enabled || !cycleSettings.showOnHomePage) {
+      return undefined;
+    }
+    const phase = getCurrentPhase();
+    const cycleDay = getCurrentCycleDay();
+    return {
+      enabled: true,
+      phase,
+      cycleDay,
+      phaseColor: getPhaseColor(phase),
+      phaseLabel: getPhaseLabel(phase),
+    };
+  }, [cycleSettings.enabled, cycleSettings.showOnHomePage, getCurrentCycleDay, getCurrentPhase, getPhaseColor, getPhaseLabel]);
 
   // Swipeable days state
   const days = useMemo(() => getLastNDays(7), []);
@@ -344,6 +364,7 @@ export default function HomePage() {
                         waterMl={waterTotal}
                         waterGoal={dailyGoals.water || 2000}
                         size={260}
+                        cycleData={cycleData}
                       />
                       
                       {/* Legend */}
@@ -358,6 +379,7 @@ export default function HomePage() {
                         protein={Math.round(dailyTotals.protein)}
                         carbs={Math.round(dailyTotals.carbs)}
                         fat={Math.round(dailyTotals.fat)}
+                        cycleData={cycleData}
                       />
                     </div>
 

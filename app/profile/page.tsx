@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { useAppStore } from "@/lib/store";
+import { useCycleStore } from "@/lib/cycle-store";
 import { BottomNav } from "@/components/ui/BottomNav";
 import { PageContainer, PageContent } from "@/components/ui/Header";
 import { Card } from "@/components/ui/Card";
@@ -48,6 +49,7 @@ export default function ProfilePage() {
   const { userProfile, dailyGoals, getDailyTotals, updateUserProfile } = useAppStore();
   const { user, isConfigured, signOut } = useAuth();
   const { isPremium } = usePremium();
+  const { settings: cycleSettings, updateSettings: updateCycleSettings } = useCycleStore();
   const [streak, setStreak] = useState(0);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -286,6 +288,72 @@ export default function ProfilePage() {
                 </Card>
               </motion.button>
             )}
+          </motion.div>
+
+
+          {/* Cycle Tracking */}
+          <motion.div variants={fadeUp}>
+            <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">
+              Cycle Tracking
+            </h2>
+            <Card className="bg-gradient-to-r from-pink-50 to-purple-50 border border-pink-100">
+              <div className="flex items-start gap-4">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-pink-400 to-purple-500 flex items-center justify-center flex-shrink-0">
+                  <Calendar size={24} className="text-white" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="font-semibold text-gray-900">Menstrual Cycle</h3>
+                    <button
+                      onClick={() => updateCycleSettings({ enabled: !cycleSettings.enabled })}
+                      className={`relative w-12 h-6 rounded-full transition-colors ${
+                        cycleSettings.enabled ? "bg-pink-500" : "bg-gray-300"
+                      }`}
+                    >
+                      <span
+                        className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                          cycleSettings.enabled ? "translate-x-7" : "translate-x-1"
+                        }`}
+                      />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-600 mb-3">
+                    Track your cycle, symptoms, and moods
+                  </p>
+                  
+                  {cycleSettings.enabled && (
+                    <>
+                      {/* Show on Home Page Toggle */}
+                      <div className="flex items-center justify-between py-2 border-t border-pink-100">
+                        <span className="text-sm text-gray-700">Show on Home Page</span>
+                        <button
+                          onClick={() => updateCycleSettings({ showOnHomePage: !cycleSettings.showOnHomePage })}
+                          className={`relative w-10 h-5 rounded-full transition-colors ${
+                            cycleSettings.showOnHomePage ? "bg-purple-500" : "bg-gray-300"
+                          }`}
+                        >
+                          <span
+                            className={`absolute top-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+                              cycleSettings.showOnHomePage ? "translate-x-5" : "translate-x-0.5"
+                            }`}
+                          />
+                        </button>
+                      </div>
+                      
+                      {/* Open Cycle Tracking Button */}
+                      <button
+                        onClick={() => router.push("/cycle")}
+                        className="w-full mt-2 py-2 px-4 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-sm font-medium rounded-lg hover:from-pink-600 hover:to-purple-600 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Calendar size={16} />
+                        Open Cycle Tracking
+                        <ChevronRight size={16} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            </Card>
           </motion.div>
 
           {/* Quick Actions */}

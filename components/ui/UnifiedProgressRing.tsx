@@ -2,6 +2,15 @@
 
 import { motion, useAnimation } from "framer-motion";
 import { useEffect, useMemo } from "react";
+import type { CyclePhase } from "@/lib/cycle-store";
+
+interface CycleRingData {
+  enabled: boolean;
+  phase: CyclePhase | null;
+  cycleDay: number | null;
+  phaseColor: string;
+  phaseLabel: string;
+}
 
 interface UnifiedProgressRingProps {
   // Nutrition data
@@ -20,6 +29,9 @@ interface UnifiedProgressRingProps {
   waterMl: number;
   waterGoal: number;
   
+  // Cycle data (optional)
+  cycleData?: CycleRingData;
+  
   size?: number;
   className?: string;
 }
@@ -35,6 +47,7 @@ export function UnifiedProgressRing({
   exerciseMinutes,
   waterMl,
   waterGoal,
+  cycleData,
   size = 280,
   className = "",
 }: UnifiedProgressRingProps) {
@@ -45,13 +58,19 @@ export function UnifiedProgressRing({
   const fitnessPercent = Math.min((exerciseCalories / exerciseGoal) * 100, 100);
   const waterPercent = Math.min((waterMl / waterGoal) * 100, 100);
   
-  // Ring dimensions
-  const center = size / 2;
-  const outerRadius = (size - 20) / 2; // Nutrition ring
+  // Adjust size if cycle ring is shown
+  const showCycleRing = cycleData?.enabled && cycleData?.phase;
+  const effectiveSize = showCycleRing ? size + 24 : size;
+  
+  // Ring dimensions - adjusted for cycle ring
+  const center = effectiveSize / 2;
+  const cycleRadius = showCycleRing ? (effectiveSize - 8) / 2 : 0; // Outermost cycle ring
+  const outerRadius = showCycleRing ? cycleRadius - 14 : (effectiveSize - 20) / 2; // Nutrition ring
   const middleRadius = outerRadius - 18; // Fitness ring
   const innerRadius = middleRadius - 18; // Water container
   const waterRadius = innerRadius - 4; // Actual water area
   
+  const cycleCircumference = 2 * Math.PI * cycleRadius;
   const outerCircumference = 2 * Math.PI * outerRadius;
   const middleCircumference = 2 * Math.PI * middleRadius;
   
@@ -104,11 +123,11 @@ export function UnifiedProgressRing({
   const waterLevel = waterRadius * 2 * (1 - waterPercent / 100);
   
   return (
-    <div className={`relative ${className}`} style={{ width: size, height: size }}>
+    <div className={`relative ${className}`} style={{ width: effectiveSize, height: effectiveSize }}>
       <svg
-        width={size}
-        height={size}
-        viewBox={`0 0 ${size} ${size}`}
+        width={effectiveSize}
+        height={effectiveSize}
+        viewBox={`0 0 ${effectiveSize} ${effectiveSize}`}
         className="transform -rotate-90"
       >
         {/* Definitions for gradients and clips */}
@@ -137,7 +156,44 @@ export function UnifiedProgressRing({
             <stop offset="50%" stopColor="#fb923c" />
             <stop offset="100%" stopColor="#fdba74" />
           </linearGradient>
+          
+          {/* Cycle phase gradient - dynamic based on phase */}
+          {showCycleRing && (
+            <linearGradient id="cycleGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stopColor={cycleData.phaseColor} stopOpacity="0.9" />
+              <stop offset="100%" stopColor={cycleData.phaseColor} stopOpacity="0.6" />
+            </linearGradient>
+          )}
         </defs>
+        
+        {/* OUTERMOST RING - Cycle Tracking (only if enabled) */}
+        {showCycleRing && (
+          <>
+            {/* Background */}
+            <circle
+              cx={center}
+              cy={center}
+              r={cycleRadius}
+              fill="none"
+              stroke="#f3e8ff"
+              strokeWidth="8"
+              opacity="0.5"
+            />
+            {/* Full colored ring showing current phase */}
+            <motion.circle
+              cx={center}
+              cy={center}
+              r={cycleRadius}
+              fill="none"
+              stroke="url(#cycleGradient)"
+              strokeWidth="8"
+              strokeLinecap="round"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.5 }}
+            />
+          </>
+        )}
         
         {/* OUTER RING - Nutrition */}
         {/* Background */}
@@ -224,7 +280,7 @@ export function UnifiedProgressRing({
                 L ${center - waterRadius} ${center + waterRadius} Z`}
             fill="url(#waterGradient)"
             initial={{ y: waterRadius * 2 }}
-            animate={{ 
+            animate={{
               y: 0,
               d: [
                 `M ${center - waterRadius} ${center - waterRadius + waterLevel}
@@ -243,7 +299,7 @@ export function UnifiedProgressRing({
                   L ${center - waterRadius} ${center + waterRadius} Z`,
               ]
             }}
-            transition={{ 
+            transition={{
               y: { duration: 1, ease: "easeOut", delay: 0.4 },
               d: { duration: 2, repeat: Infinity, ease: "easeInOut" }
             }}
@@ -291,14 +347,14 @@ export function UnifiedProgressRing({
       </svg>
       
       {/* Goldfish - positioned in center, rotated back to normal */}
-      <div 
+      <div
         className="absolute inset-0 flex items-center justify-center"
         style={{ pointerEvents: 'none' }}
       >
         <motion.div
           animate={fishControls}
           className="relative"
-          style={{ 
+          style={{
             marginTop: waterPercent < 30 ? '20px' : '10px',
           }}
         >
@@ -392,7 +448,7 @@ export function UnifiedProgressRing({
           {fishMood === 'happy' && (
             <motion.span
               className="absolute -top-3 right-0 text-sm"
-              animate={{ 
+              animate={{
                 opacity: [0, 1, 0],
                 y: [0, -8, -16],
                 scale: [0.5, 1, 0.5]
@@ -407,7 +463,7 @@ export function UnifiedProgressRing({
       
       {/* Stats overlay - positioned around the ring */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <div className="text-center" style={{ marginTop: `${size * 0.35}px` }}>
+        <div className="text-center" style={{ marginTop: `${effectiveSize * 0.35}px` }}>
           <p className="text-[10px] text-cyan-600 font-medium">
             {waterMl} / {waterGoal} ml
           </p>
@@ -429,6 +485,7 @@ export function UnifiedProgressLegend({
   protein,
   carbs,
   fat,
+  cycleData,
 }: {
   calories: number;
   targetCalories: number;
@@ -440,9 +497,31 @@ export function UnifiedProgressLegend({
   protein: number;
   carbs: number;
   fat: number;
+  cycleData?: CycleRingData;
 }) {
+  const showCycle = cycleData?.enabled && cycleData?.phase;
+  
   return (
-    <div className="grid grid-cols-3 gap-2 mt-4">
+    <div className={`grid gap-2 mt-4 ${showCycle ? 'grid-cols-4' : 'grid-cols-3'}`}>
+      {/* Cycle (if enabled) */}
+      {showCycle && (
+        <div className="text-center p-2 rounded-xl" style={{ backgroundColor: `${cycleData.phaseColor}15` }}>
+          <div className="flex items-center justify-center gap-1 mb-1">
+            <div 
+              className="w-2 h-2 rounded-full" 
+              style={{ backgroundColor: cycleData.phaseColor }}
+            />
+            <span className="text-[10px] font-medium" style={{ color: cycleData.phaseColor }}>Cycle</span>
+          </div>
+          <p className="text-sm font-bold" style={{ color: cycleData.phaseColor }}>
+            Day {cycleData.cycleDay}
+          </p>
+          <p className="text-[9px]" style={{ color: cycleData.phaseColor }}>
+            {cycleData.phaseLabel}
+          </p>
+        </div>
+      )}
+      
       {/* Nutrition */}
       <div className="text-center p-2 rounded-xl bg-emerald-50">
         <div className="flex items-center justify-center gap-1 mb-1">
