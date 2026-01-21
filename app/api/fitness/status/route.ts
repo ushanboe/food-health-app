@@ -9,13 +9,21 @@ import { cookies } from 'next/headers';
 
 const ALL_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
 
-// Check which providers have server-side credentials configured
-const PROVIDER_CONFIGURED: Record<FitnessProvider, boolean> = {
-  google_fit: !!(process.env.GOOGLE_FIT_CLIENT_ID && process.env.GOOGLE_FIT_CLIENT_SECRET),
-  fitbit: !!(process.env.FITBIT_CLIENT_ID && process.env.FITBIT_CLIENT_SECRET),
-  strava: !!(process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET),
-  garmin: !!(process.env.GARMIN_CONSUMER_KEY && process.env.GARMIN_CONSUMER_SECRET),
-};
+// Function to check provider configuration at runtime (not module load time)
+function isProviderConfigured(provider: FitnessProvider): boolean {
+  switch (provider) {
+    case 'google_fit':
+      return !!(process.env.GOOGLE_FIT_CLIENT_ID && process.env.GOOGLE_FIT_CLIENT_SECRET);
+    case 'fitbit':
+      return !!(process.env.FITBIT_CLIENT_ID && process.env.FITBIT_CLIENT_SECRET);
+    case 'strava':
+      return !!(process.env.STRAVA_CLIENT_ID && process.env.STRAVA_CLIENT_SECRET);
+    case 'garmin':
+      return !!(process.env.GARMIN_CONSUMER_KEY && process.env.GARMIN_CONSUMER_SECRET);
+    default:
+      return false;
+  }
+}
 
 export interface ProviderStatus {
   provider: FitnessProvider;
@@ -41,9 +49,12 @@ export async function GET(request: NextRequest): Promise<NextResponse<FitnessSta
   const providers: ProviderStatus[] = [];
 
   for (const provider of ALL_PROVIDERS) {
+    // Check configuration at request time, not module load time
+    const configured = isProviderConfigured(provider);
+    
     const status: ProviderStatus = {
       provider,
-      configured: PROVIDER_CONFIGURED[provider],
+      configured,
       connected: false,
     };
 

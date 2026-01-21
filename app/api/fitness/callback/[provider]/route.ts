@@ -9,33 +9,41 @@ import { cookies } from 'next/headers';
 
 const VALID_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
 
-// Server-side only credentials
-const PROVIDER_CREDENTIALS: Record<FitnessProvider, {
+// Get provider credentials at runtime (not module load time)
+function getProviderCredentials(provider: FitnessProvider): {
   clientId: string;
   clientSecret: string;
   tokenUrl: string;
-}> = {
-  google_fit: {
-    clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
-    tokenUrl: 'https://oauth2.googleapis.com/token',
-  },
-  fitbit: {
-    clientId: process.env.FITBIT_CLIENT_ID || '',
-    clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
-    tokenUrl: 'https://api.fitbit.com/oauth2/token',
-  },
-  strava: {
-    clientId: process.env.STRAVA_CLIENT_ID || '',
-    clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
-    tokenUrl: 'https://www.strava.com/oauth/token',
-  },
-  garmin: {
-    clientId: process.env.GARMIN_CONSUMER_KEY || '',
-    clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
-    tokenUrl: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
-  },
-};
+} {
+  switch (provider) {
+    case 'google_fit':
+      return {
+        clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
+        clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+      };
+    case 'fitbit':
+      return {
+        clientId: process.env.FITBIT_CLIENT_ID || '',
+        clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
+        tokenUrl: 'https://api.fitbit.com/oauth2/token',
+      };
+    case 'strava':
+      return {
+        clientId: process.env.STRAVA_CLIENT_ID || '',
+        clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
+        tokenUrl: 'https://www.strava.com/oauth/token',
+      };
+    case 'garmin':
+      return {
+        clientId: process.env.GARMIN_CONSUMER_KEY || '',
+        clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
+        tokenUrl: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
+      };
+    default:
+      return { clientId: '', clientSecret: '', tokenUrl: '' };
+  }
+}
 
 /**
  * GET /api/fitness/callback/[provider]
@@ -94,7 +102,8 @@ export async function GET(
   cookieStore.delete(`oauth_verifier_${provider}`);
 
   try {
-    const credentials = PROVIDER_CREDENTIALS[providerKey];
+    // Get credentials at request time
+    const credentials = getProviderCredentials(providerKey);
     const redirectUri = `${baseUrl}/api/fitness/callback/${provider}`;
 
     // Exchange code for tokens

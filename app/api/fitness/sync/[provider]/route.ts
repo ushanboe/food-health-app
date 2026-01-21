@@ -9,38 +9,46 @@ import { cookies } from 'next/headers';
 
 const VALID_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
 
-// Provider API configurations
-const PROVIDER_CONFIG: Record<FitnessProvider, {
+// Get provider config at runtime (not module load time)
+function getProviderConfig(provider: FitnessProvider): {
   apiBaseUrl: string;
   tokenUrl: string;
   clientId: string;
   clientSecret: string;
-}> = {
-  google_fit: {
-    apiBaseUrl: 'https://www.googleapis.com/fitness/v1/users/me',
-    tokenUrl: 'https://oauth2.googleapis.com/token',
-    clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
-  },
-  fitbit: {
-    apiBaseUrl: 'https://api.fitbit.com/1/user/-',
-    tokenUrl: 'https://api.fitbit.com/oauth2/token',
-    clientId: process.env.FITBIT_CLIENT_ID || '',
-    clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
-  },
-  strava: {
-    apiBaseUrl: 'https://www.strava.com/api/v3',
-    tokenUrl: 'https://www.strava.com/oauth/token',
-    clientId: process.env.STRAVA_CLIENT_ID || '',
-    clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
-  },
-  garmin: {
-    apiBaseUrl: 'https://apis.garmin.com',
-    tokenUrl: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
-    clientId: process.env.GARMIN_CONSUMER_KEY || '',
-    clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
-  },
-};
+} {
+  switch (provider) {
+    case 'google_fit':
+      return {
+        apiBaseUrl: 'https://www.googleapis.com/fitness/v1/users/me',
+        tokenUrl: 'https://oauth2.googleapis.com/token',
+        clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
+        clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
+      };
+    case 'fitbit':
+      return {
+        apiBaseUrl: 'https://api.fitbit.com/1/user/-',
+        tokenUrl: 'https://api.fitbit.com/oauth2/token',
+        clientId: process.env.FITBIT_CLIENT_ID || '',
+        clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
+      };
+    case 'strava':
+      return {
+        apiBaseUrl: 'https://www.strava.com/api/v3',
+        tokenUrl: 'https://www.strava.com/oauth/token',
+        clientId: process.env.STRAVA_CLIENT_ID || '',
+        clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
+      };
+    case 'garmin':
+      return {
+        apiBaseUrl: 'https://apis.garmin.com',
+        tokenUrl: 'https://connectapi.garmin.com/oauth-service/oauth/access_token',
+        clientId: process.env.GARMIN_CONSUMER_KEY || '',
+        clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
+      };
+    default:
+      return { apiBaseUrl: '', tokenUrl: '', clientId: '', clientSecret: '' };
+  }
+}
 
 interface SyncRequest {
   startDate?: string;  // YYYY-MM-DD
@@ -96,12 +104,15 @@ export async function POST(
     );
   }
 
+  // Get config at request time
+  const config = getProviderConfig(providerKey);
+
   // Check if token needs refresh
   let accessToken = tokenData.accessToken;
   if (tokenData.expiresAt && tokenData.expiresAt < Date.now() + 60000) {
     // Token expires in less than 1 minute - refresh it
     try {
-      const newTokens = await refreshAccessToken(providerKey, tokenData.refreshToken);
+      const newTokens = await refreshAccessToken(providerKey, tokenData.refreshToken, config);
       accessToken = newTokens.accessToken;
 
       // Update stored tokens
@@ -112,7 +123,7 @@ export async function POST(
         expiresAt: newTokens.expiresAt,
       };
 
-      cookieStore.set(`fitness_tokens_${provider}`, 
+      cookieStore.set(`fitness_tokens_${provider}`,
         Buffer.from(JSON.stringify(updatedTokenData)).toString('base64'),
         {
           httpOnly: true,
@@ -148,7 +159,6 @@ export async function POST(
   // Fetch data from provider
   try {
     const results: Record<string, any[]> = {};
-    const config = PROVIDER_CONFIG[providerKey];
 
     for (const dataType of dataTypes) {
       try {
@@ -188,9 +198,9 @@ export async function POST(
 
 async function refreshAccessToken(
   provider: FitnessProvider,
-  refreshToken: string
+  refreshToken: string,
+  config: { clientId: string; clientSecret: string; tokenUrl: string }
 ): Promise<FitnessTokens> {
-  const config = PROVIDER_CONFIG[provider];
   let response: Response;
 
   switch (provider) {

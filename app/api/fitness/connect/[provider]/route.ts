@@ -10,43 +10,51 @@ import { cookies } from 'next/headers';
 
 const VALID_PROVIDERS: FitnessProvider[] = ['google_fit', 'fitbit', 'strava', 'garmin'];
 
-// Server-side only credentials (never exposed to client)
-const PROVIDER_CREDENTIALS: Record<FitnessProvider, {
+// Get provider credentials at runtime (not module load time)
+function getProviderCredentials(provider: FitnessProvider): {
   clientId: string;
   clientSecret: string;
   authUrl: string;
   scopes: string[];
-}> = {
-  google_fit: {
-    clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
-    clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
-    authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
-    scopes: [
-      'https://www.googleapis.com/auth/fitness.activity.read',
-      'https://www.googleapis.com/auth/fitness.body.read',
-      'https://www.googleapis.com/auth/fitness.heart_rate.read',
-      'https://www.googleapis.com/auth/fitness.sleep.read',
-    ],
-  },
-  fitbit: {
-    clientId: process.env.FITBIT_CLIENT_ID || '',
-    clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
-    authUrl: 'https://www.fitbit.com/oauth2/authorize',
-    scopes: ['activity', 'heartrate', 'sleep', 'weight', 'profile'],
-  },
-  strava: {
-    clientId: process.env.STRAVA_CLIENT_ID || '',
-    clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
-    authUrl: 'https://www.strava.com/oauth/authorize',
-    scopes: ['read', 'activity:read', 'activity:read_all'],
-  },
-  garmin: {
-    clientId: process.env.GARMIN_CONSUMER_KEY || '',
-    clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
-    authUrl: 'https://connect.garmin.com/oauthConfirm',
-    scopes: [],
-  },
-};
+} {
+  switch (provider) {
+    case 'google_fit':
+      return {
+        clientId: process.env.GOOGLE_FIT_CLIENT_ID || '',
+        clientSecret: process.env.GOOGLE_FIT_CLIENT_SECRET || '',
+        authUrl: 'https://accounts.google.com/o/oauth2/v2/auth',
+        scopes: [
+          'https://www.googleapis.com/auth/fitness.activity.read',
+          'https://www.googleapis.com/auth/fitness.body.read',
+          'https://www.googleapis.com/auth/fitness.heart_rate.read',
+          'https://www.googleapis.com/auth/fitness.sleep.read',
+        ],
+      };
+    case 'fitbit':
+      return {
+        clientId: process.env.FITBIT_CLIENT_ID || '',
+        clientSecret: process.env.FITBIT_CLIENT_SECRET || '',
+        authUrl: 'https://www.fitbit.com/oauth2/authorize',
+        scopes: ['activity', 'heartrate', 'sleep', 'weight', 'profile'],
+      };
+    case 'strava':
+      return {
+        clientId: process.env.STRAVA_CLIENT_ID || '',
+        clientSecret: process.env.STRAVA_CLIENT_SECRET || '',
+        authUrl: 'https://www.strava.com/oauth/authorize',
+        scopes: ['read', 'activity:read', 'activity:read_all'],
+      };
+    case 'garmin':
+      return {
+        clientId: process.env.GARMIN_CONSUMER_KEY || '',
+        clientSecret: process.env.GARMIN_CONSUMER_SECRET || '',
+        authUrl: 'https://connect.garmin.com/oauthConfirm',
+        scopes: [],
+      };
+    default:
+      return { clientId: '', clientSecret: '', authUrl: '', scopes: [] };
+  }
+}
 
 /**
  * GET /api/fitness/connect/[provider]
@@ -66,7 +74,8 @@ export async function GET(
   }
 
   const providerKey = provider as FitnessProvider;
-  const credentials = PROVIDER_CREDENTIALS[providerKey];
+  // Get credentials at request time
+  const credentials = getProviderCredentials(providerKey);
 
   // Check if provider is configured
   if (!credentials.clientId) {
