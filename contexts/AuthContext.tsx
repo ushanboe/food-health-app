@@ -11,7 +11,7 @@ interface AuthContextType {
   loading: boolean;
   isConfigured: boolean;
   supabase: SupabaseClient | null;
-  signUp: (email: string, password: string) => Promise<{ error: Error | null }>;
+  signUp: (email: string, password: string, fullName?: string) => Promise<{ error: Error | null }>;
   signIn: (email: string, password: string) => Promise<{ error: Error | null }>;
   signInWithGoogle: () => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
@@ -111,7 +111,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => subscription.unsubscribe();
   }, [clearSubscription]);
 
-  const signUp = useCallback(async (email: string, password: string) => {
+  const signUp = useCallback(async (email: string, password: string, fullName?: string) => {
     const client = getSupabaseClient();
     if (!client) return { error: new Error('Supabase not configured') };
     
@@ -122,6 +122,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         emailRedirectTo: typeof window !== 'undefined'
           ? `${window.location.origin}/auth/callback`
           : undefined,
+        data: {
+          full_name: fullName || '',
+        },
       },
     });
     return { error: error as Error | null };

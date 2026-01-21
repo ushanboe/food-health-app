@@ -134,6 +134,7 @@ export default function CloudSyncPage() {
   const [showCelebration, setShowCelebration] = useState(false);
   const [lastSyncResult, setLastSyncResult] = useState({ uploaded: 0, downloaded: 0 });
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
@@ -163,6 +164,12 @@ export default function CloudSyncPage() {
   const handleSync = async () => {
     if (!isConnected) {
       setShowLoginModal(true);
+      return;
+    }
+
+    // Check premium status before syncing
+    if (!isPremium) {
+      setShowUpgradeModal(true);
       return;
     }
 
@@ -229,6 +236,11 @@ export default function CloudSyncPage() {
   };
 
   const handleAuth = async () => {
+    if (isSignUp && !fullName.trim()) {
+      setAuthError("Please enter your full name");
+      return;
+    }
+    
     if (!email || !password) {
       setAuthError("Please enter both email and password");
       return;
@@ -245,12 +257,13 @@ export default function CloudSyncPage() {
     try {
       let result;
       if (isSignUp) {
-        result = await signUp(email, password);
+        result = await signUp(email, password, fullName);
         if (!result.error) {
           setAuthError(null);
           setShowLoginModal(false);
           setEmail("");
           setPassword("");
+          setFullName("");
           setIsSignUp(false);
           // Note: User may need to verify email depending on Supabase settings
           setSyncError("Account created! Please check your email to verify, then sign in.");
@@ -305,43 +318,13 @@ export default function CloudSyncPage() {
     setShowLoginModal(false);
     setEmail("");
     setPassword("");
+    setFullName("");
     setAuthError(null);
     setIsSignUp(false);
     setShowPassword(false);
   };
 
-  // Premium gate for cloud sync feature
-  if (!isPremium) {
-    return (
-      <PageContainer>
-        <PageHeader icon={Cloud} title="Cloud Backup" subtitle="Sync your data securely" />
-        <PageContent>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col items-center justify-center py-12 px-4"
-          >
-            <div className="w-20 h-20 bg-gradient-to-br from-amber-100 to-orange-100 rounded-full flex items-center justify-center mb-6">
-              <Lock className="w-10 h-10 text-amber-600" />
-            </div>
-            <h2 className="text-xl font-bold text-gray-900 mb-2 text-center">Premium Feature</h2>
-            <p className="text-gray-500 text-center mb-6 max-w-sm">
-              Cloud Backup keeps your data safe and synced across all your devices. Never lose your progress with automatic backups.
-            </p>
-            <button
-              onClick={() => setShowUpgradeModal(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-amber-500 to-orange-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all"
-            >
-              <Crown className="w-5 h-5" />
-              Upgrade to Premium
-            </button>
-          </motion.div>
-        </PageContent>
-        <UpgradeModal isOpen={showUpgradeModal} onClose={() => setShowUpgradeModal(false)} feature="cloudSync" />
-        <BottomNav />
-      </PageContainer>
-    );
-  }
+  // Premium check moved to sync button - login is free for everyone
 
   if (loading) {
     return (
@@ -665,6 +648,27 @@ export default function CloudSyncPage() {
               </motion.div>
             )}
           </AnimatePresence>
+
+          {/* Full Name Input - Only for Sign Up */}
+          {isSignUp && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
+              <div className="relative">
+                <UserPlus size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => {
+                    setFullName(e.target.value);
+                    setAuthError(null);
+                  }}
+                  placeholder="John Doe"
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500"
+                  autoComplete="name"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Email Input */}
           <div>
