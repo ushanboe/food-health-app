@@ -11,7 +11,6 @@ import { ListItem, ListGroup } from "@/components/ui/ListItem";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePremium } from "@/lib/subscription";
-import { UpgradeModal } from "@/components/PremiumGate";
 import {
   User,
   ChefHat,
@@ -45,7 +44,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const { userProfile, dailyGoals, getDailyTotals, updateUserProfile } = useAppStore();
   const { user, isConfigured } = useAuth();
-  const { isPremium, devModeEnabled, setDevMode } = usePremium();
+  const { isPremium } = usePremium();
   const [streak, setStreak] = useState(0);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -54,8 +53,6 @@ export default function ProfilePage() {
 
   const todayStr = new Date().toISOString().split('T')[0];
   const dailyTotals = getDailyTotals(todayStr);
-
-
 
   useEffect(() => {
     // Calculate streak (simplified)
@@ -70,10 +67,6 @@ export default function ProfilePage() {
     { label: "Calories Today", value: Math.round(dailyTotals.calories).toString(), icon: Zap, color: "text-emerald-500" },
     { label: "Goal Progress", value: `${Math.round((dailyTotals.calories / dailyGoals.calories) * 100)}%`, icon: Target, color: "text-blue-500" },
   ];
-
-  const toggleDevPremium = () => {
-    setDevMode(!devModeEnabled);
-  };
 
   const handlePhotoClick = () => {
     if (isPremium) {
@@ -106,7 +99,7 @@ export default function ProfilePage() {
       const reader = new FileReader();
       reader.onloadend = () => {
         const base64 = reader.result as string;
-        
+
         // Resize image to reduce storage size
         const img = new Image();
         img.onload = () => {
@@ -179,7 +172,7 @@ export default function ProfilePage() {
                 ) : (
                   <User size={32} className="text-white" />
                 )}
-                
+
                 {/* Camera overlay */}
                 <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                   {isPremium ? (
@@ -189,7 +182,7 @@ export default function ProfilePage() {
                   )}
                 </div>
               </motion.button>
-              
+
               {/* Premium badge */}
               {!isPremium && (
                 <div className="absolute -top-1 -right-1 w-5 h-5 bg-gradient-to-r from-amber-400 to-amber-500 rounded-full flex items-center justify-center">
@@ -197,7 +190,7 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-            
+
             <div>
               <h1 className="text-xl font-bold text-gray-900">
                 {userProfile.name || "Your Profile"}
@@ -247,29 +240,6 @@ export default function ProfilePage() {
               )}
             </Card>
           </motion.div>
-          {/* Dev Premium Toggle */}
-          <motion.div variants={fadeUp} className="mb-6">
-            <Card 
-              className={`flex items-center gap-3 cursor-pointer transition-colors ${isPremium ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}
-              onClick={toggleDevPremium}
-            >
-              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${isPremium ? 'bg-amber-100' : 'bg-gray-200'}`}>
-                <Crown size={20} className={isPremium ? 'text-amber-600' : 'text-gray-400'} />
-              </div>
-              <div className="flex-1">
-                <p className="font-medium text-gray-900">
-                  {isPremium ? 'Premium Mode (Dev)' : 'Free Mode (Dev)'}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Tap to toggle premium features for testing
-                </p>
-              </div>
-              <Badge variant={isPremium ? 'success' : 'default'}>
-                {isPremium ? 'ON' : 'OFF'}
-              </Badge>
-            </Card>
-          </motion.div>
-
 
           {/* Quick Actions */}
           <motion.div variants={fadeUp}>
@@ -431,7 +401,7 @@ export default function ProfilePage() {
               <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-amber-400 to-amber-500 rounded-2xl flex items-center justify-center">
                 <Crown size={32} className="text-white" />
               </div>
-              
+
               <h3 className="text-xl font-bold text-gray-900 mb-2">
                 Premium Feature
               </h3>

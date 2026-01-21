@@ -9,6 +9,7 @@ import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { useAppStore } from "@/lib/store";
+import { usePremium } from "@/lib/subscription";
 import {
   Shield,
   Eye,
@@ -22,6 +23,9 @@ import {
   ArrowLeft,
   Lock,
   KeyRound,
+  Crown,
+  ToggleLeft,
+  ToggleRight,
 } from "lucide-react";
 
 const fadeUp = {
@@ -256,6 +260,7 @@ function PinEntry({
 function AdminSettingsContent() {
   const router = useRouter();
   const { aiSettings, updateAISettings } = useAppStore();
+  const { isPremium, devModeEnabled, setDevMode } = usePremium();
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [showKeys, setShowKeys] = useState<Record<string, boolean>>({});
@@ -309,6 +314,10 @@ function AdminSettingsContent() {
       localStorage.removeItem(PIN_STORAGE_KEY);
       window.location.reload();
     }
+  };
+
+  const toggleDevPremium = () => {
+    setDevMode(!devModeEnabled);
   };
 
   const AdminKeyInput = ({
@@ -397,9 +406,40 @@ function AdminSettingsContent() {
                 <div>
                   <p className="text-sm font-medium text-amber-800">⚠️ Developer Settings</p>
                   <p className="text-sm mt-1 text-amber-600">
-                    These settings are for app administrators only. Incorrect configuration may affect cloud sync functionality.
+                    These settings are for app administrators only. Incorrect configuration may affect app functionality.
                   </p>
                 </div>
+              </div>
+            </Card>
+          </motion.div>
+
+          {/* Dev Premium Toggle */}
+          <motion.div variants={fadeUp} className="mb-6">
+            <p className="text-sm text-gray-500 font-medium mb-3 px-1">Testing Mode</p>
+            <Card
+              className={`flex items-center gap-3 cursor-pointer transition-all ${devModeEnabled ? 'bg-amber-50 border-amber-200' : 'bg-gray-50 border-gray-200'}`}
+              onClick={toggleDevPremium}
+            >
+              <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${devModeEnabled ? 'bg-gradient-to-br from-amber-400 to-amber-500' : 'bg-gray-200'}`}>
+                <Crown size={20} className={devModeEnabled ? 'text-white' : 'text-gray-400'} />
+              </div>
+              <div className="flex-1">
+                <p className="font-medium text-gray-900">
+                  {devModeEnabled ? 'Premium Mode Active' : 'Free Mode Active'}
+                </p>
+                <p className="text-xs text-gray-500">
+                  Toggle to test premium features without subscription
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <Badge variant={devModeEnabled ? 'success' : 'default'}>
+                  {devModeEnabled ? 'ON' : 'OFF'}
+                </Badge>
+                {devModeEnabled ? (
+                  <ToggleRight size={28} className="text-amber-500" />
+                ) : (
+                  <ToggleLeft size={28} className="text-gray-400" />
+                )}
               </div>
             </Card>
           </motion.div>
