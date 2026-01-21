@@ -177,9 +177,33 @@ const initialState = {
   devModeEnabled: false,
 };
 
-// Debounce helper to prevent rapid-fire sync calls
+// Helper to check if an error is an abort error (expected, not a real error)
+function isAbortError(error: unknown): boolean {
+  if (!error) return false;
+  if (error instanceof Error) {
+    const msg = error.message.toLowerCase();
+    const name = error.name.toLowerCase();
+    return (
+      name === 'aborterror' ||
+      msg.includes('abort') ||
+      msg.includes('signal') ||
+      msg.includes('cancelled') ||
+      msg.includes('canceled')
+    );
+  }
+  if (typeof error === 'object' && error !== null) {
+    const errObj = error as Record<string, unknown>;
+    if (typeof errObj.message === 'string') {
+      const msg = errObj.message.toLowerCase();
+      return msg.includes('abort') || msg.includes('signal');
+    }
+  }
+  return false;
+}
+
+// Sync state management
+let isSyncInProgress = false;
 let syncDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-let currentSyncAbortController: AbortController | null = null;
 
 export const useSubscriptionStore = create<SubscriptionState>()(
   persist(
@@ -195,41 +219,39 @@ export const useSubscriptionStore = create<SubscriptionState>()(
       
       setDevMode: (enabled) => set({ devModeEnabled: enabled }),
       
-      // Sync subscription from Supabase with debouncing and abort handling
+      // Sync subscription from Supabase with proper error handling
       syncFromSupabase: async (): Promise<boolean> => {
+        // Prevent concurrent syncs
+        if (isSyncInProgress) {
+          console.log('[Subscription] Sync already in progress, skipping');
+          return false;
+        }
+        
         const supabase = getSupabaseClient();
         if (!supabase) {
           console.log('[Subscription] Supabase not initialized, skipping sync');
           return false;
         }
         
-        // Cancel any pending sync
-        if (currentSyncAbortController) {
-          currentSyncAbortController.abort();
-        }
-        
-        // Create new abort controller for this sync
-        currentSyncAbortController = new AbortController();
-        const abortSignal = currentSyncAbortController.signal;
+        isSyncInProgress = true;
         
         try {
           set({ isSyncing: true, syncError: null });
           
-          // Check if aborted before starting
-          if (abortSignal.aborted) {
-            return false;
-          }
-          
           // Get current user
           const { data: { user }, error: userError } = await supabase.auth.getUser();
           
-          // Check if aborted after user fetch
-          if (abortSignal.aborted) {
-            console.log('[Subscription] Sync aborted after user fetch');
-            return false;
+          if (userError) {
+            // Check if it's an abort error - these are expected and not real errors
+            if (isAbortError(userError)) {
+              console.log('[Subscription] User fetch was cancelled (expected)');
+              set({ isSyncing: false });
+              return false;
+            }
+            throw userError;
           }
           
-          if (userError || !user) {
+          if (!user) {
             console.log('[Subscription] No user logged in, using free tier');
             set({
               tier: 'free',
@@ -253,13 +275,14 @@ export const useSubscriptionStore = create<SubscriptionState>()(
             .eq('user_id', user.id)
             .single();
           
-          // Check if aborted after subscription fetch
-          if (abortSignal.aborted) {
-            console.log('[Subscription] Sync aborted after subscription fetch');
-            return false;
-          }
-          
           if (error) {
+            // Check if it's an abort error
+            if (isAbortError(error)) {
+              console.log('[Subscription] Subscription fetch was cancelled (expected)');
+              set({ isSyncing: false });
+              return false;
+            }
+            
             // No subscription found - user might be new
             if (error.code === 'PGRST116') {
               console.log('[Subscription] No subscription found, using free tier');
@@ -300,15 +323,11 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           return true;
           
         } catch (error: unknown) {
-          // Handle abort errors gracefully - these are expected
-          if (error instanceof Error) {
-            if (error.name === 'AbortError' || 
-                error.message.includes('aborted') ||
-                error.message.includes('signal')) {
-              console.log('[Subscription] Sync was cancelled (new sync started)');
-              // Don't update state for aborted requests
-              return false;
-            }
+          // Handle abort errors silently - they're expected during rapid navigation
+          if (isAbortError(error)) {
+            console.log('[Subscription] Sync was cancelled (expected)');
+            set({ isSyncing: false });
+            return false;
           }
           
           const errorMessage = error instanceof Error ? error.message : 'Failed to sync subscription';
@@ -319,10 +338,7 @@ export const useSubscriptionStore = create<SubscriptionState>()(
           });
           return false;
         } finally {
-          // Clear the abort controller if this is the current one
-          if (currentSyncAbortController?.signal === abortSignal) {
-            currentSyncAbortController = null;
-          }
+          isSyncInProgress = false;
         }
       },
       
@@ -426,13 +442,22 @@ export async function syncSubscription(): Promise<boolean> {
   // Clear any pending debounce timer
   if (syncDebounceTimer) {
     clearTimeout(syncDebounceTimer);
+    syncDebounceTimer = null;
   }
   
   // Return a promise that resolves after debounce
   return new Promise((resolve) => {
     syncDebounceTimer = setTimeout(async () => {
-      const result = await useSubscriptionStore.getState().syncFromSupabase();
-      resolve(result);
-    }, 300); // 300ms debounce
+      try {
+        const result = await useSubscriptionStore.getState().syncFromSupabase();
+        resolve(result);
+      } catch (error) {
+        // Silently handle any errors during sync
+        if (!isAbortError(error)) {
+          console.log('[Subscription] Sync error (non-fatal):', error);
+        }
+        resolve(false);
+      }
+    }, 500); // 500ms debounce - longer to prevent overlaps
   });
 }
