@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { User, Session, SupabaseClient } from '@supabase/supabase-js';
 import { getSupabaseClient, isSupabaseConfigured } from '@/lib/supabase-client';
+import { syncSubscription, useSubscriptionStore } from '@/lib/subscription';
 
 interface AuthContextType {
   user: User | null;
@@ -25,6 +26,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [isConfigured, setIsConfigured] = useState(false);
   const [supabase, setSupabase] = useState<SupabaseClient | null>(null);
+  
+  // Get subscription store actions
+  const clearSubscription = useSubscriptionStore((state) => state.clearSubscription);
 
   useEffect(() => {
     const configured = isSupabaseConfigured();
@@ -44,23 +48,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     // Get initial session
-    client.auth.getSession().then(({ data: { session } }) => {
+    client.auth.getSession().then(async ({ data: { session } }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
+      
+      // Sync subscription if user is logged in
+      if (session?.user) {
+        console.log('[Auth] Initial session found, syncing subscription...');
+        await syncSubscription();
+      }
     });
 
     // Listen for auth changes
     const { data: { subscription } } = client.auth.onAuthStateChange(
       async (event, session) => {
+        console.log('[Auth] Auth state changed:', event);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
+        
+        // Handle subscription sync based on auth event
+        if (event === 'SIGNED_IN' && session?.user) {
+          console.log('[Auth] User signed in, syncing subscription...');
+          await syncSubscription();
+        } else if (event === 'SIGNED_OUT') {
+          console.log('[Auth] User signed out, clearing subscription...');
+          clearSubscription();
+        } else if (event === 'TOKEN_REFRESHED' && session?.user) {
+          // Optionally re-sync on token refresh to catch any subscription changes
+          console.log('[Auth] Token refreshed, syncing subscription...');
+          await syncSubscription();
+        }
       }
     );
 
     return () => subscription.unsubscribe();
-  }, []);
+  }, [clearSubscription]);
 
   const signUp = useCallback(async (email: string, password: string) => {
     const client = getSupabaseClient();
@@ -111,6 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await client.auth.signOut();
     setUser(null);
     setSession(null);
+    // Subscription will be cleared by the onAuthStateChange handler
   }, []);
 
   const resetPassword = useCallback(async (email: string) => {
