@@ -12,6 +12,7 @@ import { ListItem, ListGroup } from "@/components/ui/ListItem";
 import { Badge } from "@/components/ui/Badge";
 import { useAuth } from "@/contexts/AuthContext";
 import { usePremium } from "@/lib/subscription";
+import { UpgradeModal } from "@/components/PremiumGate";
 import AuthModal from "@/components/auth/AuthModal";
 import {
   User,
@@ -500,54 +501,11 @@ export default function ProfilePage() {
       </AnimatePresence>
 
       {/* Premium Modal */}
-      <AnimatePresence>
-        {showPremiumModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4"
-            onClick={() => setShowPremiumModal(false)}
-          >
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              onClick={(e) => e.stopPropagation()}
-              className="bg-white rounded-3xl w-full max-w-sm p-6 text-center"
-            >
-              <div className="w-16 h-16 mx-auto mb-4 bg-gradient-to-r from-amber-400 to-amber-500 rounded-2xl flex items-center justify-center">
-                <Crown size={32} className="text-white" />
-              </div>
-
-              <h3 className="text-xl font-bold text-gray-900 mb-2">
-                Premium Feature
-              </h3>
-              <p className="text-gray-500 mb-6">
-                Custom profile photos are available with FitFork Premium. Upgrade to personalize your profile!
-              </p>
-
-              <div className="space-y-3">
-                <button
-                  onClick={() => {
-                    setShowPremiumModal(false);
-                    router.push('/settings'); // TODO: Link to premium upgrade page
-                  }}
-                  className="w-full py-4 bg-gradient-to-r from-amber-400 to-amber-500 text-white rounded-2xl font-semibold"
-                >
-                  Upgrade to Premium
-                </button>
-                <button
-                  onClick={() => setShowPremiumModal(false)}
-                  className="w-full py-4 bg-gray-100 text-gray-700 rounded-2xl font-semibold"
-                >
-                  Maybe Later
-                </button>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      <UpgradeModal
+        isOpen={showPremiumModal}
+        onClose={() => setShowPremiumModal(false)}
+        feature="Custom Profile Photo"
+      />
 
       <BottomNav />
     </PageContainer>
