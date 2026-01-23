@@ -75,12 +75,12 @@ export async function POST(request: NextRequest) {
 
         if (userId && plan && subscriptionId) {
           const stripe = getStripeClient();
-          const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
+          const subscriptionData = await stripe.subscriptions.retrieve(subscriptionId) as unknown as Record<string, unknown>;
           
-          console.log('Subscription response:', JSON.stringify(subscriptionResponse, null, 2));
+          console.log('Subscription data keys:', Object.keys(subscriptionData));
           
-          const currentPeriodStart = safeTimestamp(subscriptionResponse.current_period_start);
-          const currentPeriodEnd = safeTimestamp(subscriptionResponse.current_period_end);
+          const currentPeriodStart = safeTimestamp(subscriptionData.current_period_start);
+          const currentPeriodEnd = safeTimestamp(subscriptionData.current_period_end);
 
           console.log('Parsed timestamps:', { currentPeriodStart, currentPeriodEnd });
 
@@ -116,12 +116,12 @@ export async function POST(request: NextRequest) {
       }
 
       case 'customer.subscription.updated': {
-        const subscription = event.data.object as Stripe.Subscription;
-        const subStatus = subscription.status;
+        const subscription = event.data.object as unknown as Record<string, unknown>;
+        const subStatus = subscription.status as string;
         
         const currentPeriodStart = safeTimestamp(subscription.current_period_start);
         const currentPeriodEnd = safeTimestamp(subscription.current_period_end);
-        const cancelAtPeriodEnd = subscription.cancel_at_period_end;
+        const cancelAtPeriodEnd = subscription.cancel_at_period_end as boolean;
 
         const status = subStatus === 'active' ? 'active' :
                       subStatus === 'canceled' ? 'canceled' : 'inactive';
@@ -138,24 +138,24 @@ export async function POST(request: NextRequest) {
         const { error } = await supabase
           .from('subscriptions')
           .update(updateData)
-          .eq('stripe_subscription_id', subscription.id);
+          .eq('stripe_subscription_id', subscription.id as string);
 
         if (error) console.error('Error updating subscription:', error);
         break;
       }
 
       case 'customer.subscription.deleted': {
-        const subscription = event.data.object as Stripe.Subscription;
+        const subscription = event.data.object as unknown as Record<string, unknown>;
         const { error } = await supabase
           .from('subscriptions')
           .update({ status: 'canceled', plan: 'free', updated_at: new Date().toISOString() })
-          .eq('stripe_subscription_id', subscription.id);
+          .eq('stripe_subscription_id', subscription.id as string);
         if (error) console.error('Error canceling subscription:', error);
         break;
       }
 
       case 'invoice.payment_failed': {
-        const invoice = event.data.object as Stripe.Invoice;
+        const invoice = event.data.object as unknown as Record<string, unknown>;
         const subscriptionId = invoice.subscription as string | null;
         if (subscriptionId) {
           const { error } = await supabase
