@@ -14,15 +14,23 @@ const getSupabaseAdmin = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
-  console.log('Supabase URL exists:', !!url);
-  console.log('Service Key exists:', !!serviceKey);
-  console.log('Service Key length:', serviceKey?.length || 0);
-  
   if (!url || !serviceKey) {
     throw new Error(`Supabase configuration missing - URL: ${!!url}, ServiceKey: ${!!serviceKey}`);
   }
   
   return createClient(url, serviceKey);
+};
+
+// Safe timestamp conversion - handles null/undefined/invalid values
+const safeTimestamp = (timestamp: unknown): string | null => {
+  if (timestamp === null || timestamp === undefined) return null;
+  const num = Number(timestamp);
+  if (isNaN(num) || num <= 0) return null;
+  try {
+    return new Date(num * 1000).toISOString();
+  } catch {
+    return null;
+  }
 };
 
 export async function POST(request: NextRequest) {
@@ -54,7 +62,6 @@ export async function POST(request: NextRequest) {
 
   try {
     const supabase = getSupabaseAdmin();
-    console.log('Supabase client created');
 
     switch (event.type) {
       case 'checkout.session.completed': {
@@ -69,22 +76,26 @@ export async function POST(request: NextRequest) {
         if (userId && plan && subscriptionId) {
           const stripe = getStripeClient();
           const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
-          const subObj = subscriptionResponse as unknown as Record<string, unknown>;
-          const currentPeriodStart = subObj.current_period_start as number;
-          const currentPeriodEnd = subObj.current_period_end as number;
+          
+          console.log('Subscription response:', JSON.stringify(subscriptionResponse, null, 2));
+          
+          const currentPeriodStart = safeTimestamp(subscriptionResponse.current_period_start);
+          const currentPeriodEnd = safeTimestamp(subscriptionResponse.current_period_end);
 
-          console.log('Subscription details:', { currentPeriodStart, currentPeriodEnd });
+          console.log('Parsed timestamps:', { currentPeriodStart, currentPeriodEnd });
 
-          const upsertData = {
+          const upsertData: Record<string, unknown> = {
             user_id: userId,
             plan: plan,
             status: 'active',
             stripe_customer_id: customerId,
             stripe_subscription_id: subscriptionId,
-            current_period_start: new Date(currentPeriodStart * 1000).toISOString(),
-            current_period_end: new Date(currentPeriodEnd * 1000).toISOString(),
             updated_at: new Date().toISOString(),
           };
+          
+          // Only add timestamps if they're valid
+          if (currentPeriodStart) upsertData.current_period_start = currentPeriodStart;
+          if (currentPeriodEnd) upsertData.current_period_end = currentPeriodEnd;
           
           console.log('Upserting data:', JSON.stringify(upsertData));
 
@@ -106,31 +117,30 @@ export async function POST(request: NextRequest) {
 
       case 'customer.subscription.updated': {
         const subscription = event.data.object as Stripe.Subscription;
-        const userId = subscription.metadata?.userId;
-        const subObj = subscription as unknown as Record<string, unknown>;
-        const currentPeriodStart = subObj.current_period_start as number;
-        const currentPeriodEnd = subObj.current_period_end as number;
-        const cancelAtPeriodEnd = subObj.cancel_at_period_end as boolean;
-        const subStatus = subObj.status as string;
+        const subStatus = subscription.status;
+        
+        const currentPeriodStart = safeTimestamp(subscription.current_period_start);
+        const currentPeriodEnd = safeTimestamp(subscription.current_period_end);
+        const cancelAtPeriodEnd = subscription.cancel_at_period_end;
 
-        if (userId) {
-          const status = subStatus === 'active' ? 'active' :
-                        subStatus === 'past_due' ? 'inactive' :
-                        subStatus === 'canceled' ? 'canceled' : 'inactive';
+        const status = subStatus === 'active' ? 'active' :
+                      subStatus === 'canceled' ? 'canceled' : 'inactive';
 
-          const { error } = await supabase
-            .from('subscriptions')
-            .update({
-              status: status,
-              current_period_start: new Date(currentPeriodStart * 1000).toISOString(),
-              current_period_end: new Date(currentPeriodEnd * 1000).toISOString(),
-              cancel_at_period_end: cancelAtPeriodEnd,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('stripe_subscription_id', subscription.id);
+        const updateData: Record<string, unknown> = {
+          status: status,
+          cancel_at_period_end: cancelAtPeriodEnd,
+          updated_at: new Date().toISOString(),
+        };
+        
+        if (currentPeriodStart) updateData.current_period_start = currentPeriodStart;
+        if (currentPeriodEnd) updateData.current_period_end = currentPeriodEnd;
 
-          if (error) console.error('Error updating subscription:', error);
-        }
+        const { error } = await supabase
+          .from('subscriptions')
+          .update(updateData)
+          .eq('stripe_subscription_id', subscription.id);
+
+        if (error) console.error('Error updating subscription:', error);
         break;
       }
 
@@ -145,8 +155,8 @@ export async function POST(request: NextRequest) {
       }
 
       case 'invoice.payment_failed': {
-        const invoiceData = event.data.object as unknown as Record<string, unknown>;
-        const subscriptionId = invoiceData.subscription as string | null;
+        const invoice = event.data.object as Stripe.Invoice;
+        const subscriptionId = invoice.subscription as string | null;
         if (subscriptionId) {
           const { error } = await supabase
             .from('subscriptions')
