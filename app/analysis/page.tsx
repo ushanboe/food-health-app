@@ -159,11 +159,21 @@ export default function AnalysisPage() {
     }
 
     async function analyzeImage(imageData: string) {
-      setLoadingMessage(`Analyzing with ${aiSettings.provider === 'demo' ? 'Demo Mode' : aiSettings.provider === 'gemini' ? 'Google Gemini' : 'OpenAI GPT-4o'}...`);
+      // Auto-detect provider based on available API keys (safeguard for persisted state issues)
+      let effectiveProvider = aiSettings.provider;
+      if (effectiveProvider === 'demo') {
+        if (aiSettings.openaiApiKey) {
+          effectiveProvider = 'openai';
+        } else if (aiSettings.geminiApiKey) {
+          effectiveProvider = 'gemini';
+        }
+      }
+      
+      setLoadingMessage(`Analyzing with ${effectiveProvider === 'demo' ? 'Demo Mode' : effectiveProvider === 'gemini' ? 'Google Gemini' : 'OpenAI GPT-4o'}...`);
 
-      console.log("Starting AI analysis...");
+      console.log("Starting AI analysis with provider:", effectiveProvider);
       const aiResult = await analyzeFood(imageData, {
-        provider: aiSettings.provider,
+        provider: effectiveProvider,
         geminiApiKey: aiSettings.geminiApiKey,
         openaiApiKey: aiSettings.openaiApiKey,
       });
