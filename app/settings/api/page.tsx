@@ -149,6 +149,7 @@ export default function ApiSettingsPage() {
     try {
       // Update the app store - this is the main storage
       updateAISettings({
+        provider: config.openaiKey ? "openai" : "demo",
         openaiApiKey: config.openaiKey,
         spoonacularApiKey: config.spoonacularKey,
       });
