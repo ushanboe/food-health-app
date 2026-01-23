@@ -14,14 +14,20 @@ const getSupabaseAdmin = () => {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
   
+  console.log('Supabase URL exists:', !!url);
+  console.log('Service Key exists:', !!serviceKey);
+  console.log('Service Key length:', serviceKey?.length || 0);
+  
   if (!url || !serviceKey) {
-    throw new Error('Supabase configuration missing');
+    throw new Error(`Supabase configuration missing - URL: ${!!url}, ServiceKey: ${!!serviceKey}`);
   }
   
   return createClient(url, serviceKey);
 };
 
 export async function POST(request: NextRequest) {
+  console.log('Webhook received');
+  
   const body = await request.text();
   const signature = request.headers.get('stripe-signature');
 
@@ -40,14 +46,16 @@ export async function POST(request: NextRequest) {
   try {
     const stripe = getStripeClient();
     event = stripe.webhooks.constructEvent(body, signature, webhookSecret);
+    console.log('Event verified:', event.type);
   } catch (err) {
     console.error('Webhook signature verification failed:', err);
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 });
   }
 
-  const supabase = getSupabaseAdmin();
-
   try {
+    const supabase = getSupabaseAdmin();
+    console.log('Supabase client created');
+
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
@@ -56,6 +64,8 @@ export async function POST(request: NextRequest) {
         const subscriptionId = session.subscription as string;
         const customerId = session.customer as string;
 
+        console.log('Processing checkout.session.completed:', { userId, plan, subscriptionId, customerId });
+
         if (userId && plan && subscriptionId) {
           const stripe = getStripeClient();
           const subscriptionResponse = await stripe.subscriptions.retrieve(subscriptionId);
@@ -63,24 +73,33 @@ export async function POST(request: NextRequest) {
           const currentPeriodStart = subObj.current_period_start as number;
           const currentPeriodEnd = subObj.current_period_end as number;
 
-          const { error } = await supabase
+          console.log('Subscription details:', { currentPeriodStart, currentPeriodEnd });
+
+          const upsertData = {
+            user_id: userId,
+            plan: plan,
+            status: 'active',
+            stripe_customer_id: customerId,
+            stripe_subscription_id: subscriptionId,
+            current_period_start: new Date(currentPeriodStart * 1000).toISOString(),
+            current_period_end: new Date(currentPeriodEnd * 1000).toISOString(),
+            updated_at: new Date().toISOString(),
+          };
+          
+          console.log('Upserting data:', JSON.stringify(upsertData));
+
+          const { data, error } = await supabase
             .from('subscriptions')
-            .upsert({
-              user_id: userId,
-              plan: plan,
-              status: 'active',
-              stripe_customer_id: customerId,
-              stripe_subscription_id: subscriptionId,
-              current_period_start: new Date(currentPeriodStart * 1000).toISOString(),
-              current_period_end: new Date(currentPeriodEnd * 1000).toISOString(),
-              updated_at: new Date().toISOString(),
-            }, { onConflict: 'user_id' });
+            .upsert(upsertData, { onConflict: 'user_id' })
+            .select();
 
           if (error) {
-            console.error('Error updating subscription:', error);
+            console.error('Supabase upsert error:', JSON.stringify(error));
             throw error;
           }
-          console.log('Subscription activated for user ' + userId + ': ' + plan);
+          console.log('Subscription activated for user ' + userId + ': ' + plan, data);
+        } else {
+          console.log('Missing required fields:', { userId, plan, subscriptionId });
         }
         break;
       }
@@ -95,8 +114,8 @@ export async function POST(request: NextRequest) {
         const subStatus = subObj.status as string;
 
         if (userId) {
-          const status = subStatus === 'active' ? 'active' : 
-                        subStatus === 'past_due' ? 'past_due' :
+          const status = subStatus === 'active' ? 'active' :
+                        subStatus === 'past_due' ? 'inactive' :
                         subStatus === 'canceled' ? 'canceled' : 'inactive';
 
           const { error } = await supabase
@@ -131,7 +150,7 @@ export async function POST(request: NextRequest) {
         if (subscriptionId) {
           const { error } = await supabase
             .from('subscriptions')
-            .update({ status: 'past_due', updated_at: new Date().toISOString() })
+            .update({ status: 'inactive', updated_at: new Date().toISOString() })
             .eq('stripe_subscription_id', subscriptionId);
           if (error) console.error('Error updating subscription status:', error);
         }
@@ -145,6 +164,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: true });
   } catch (error) {
     console.error('Webhook handler error:', error);
-    return NextResponse.json({ error: 'Webhook handler failed' }, { status: 500 });
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: 'Webhook handler failed', details: errorMessage }, { status: 500 });
   }
 }
